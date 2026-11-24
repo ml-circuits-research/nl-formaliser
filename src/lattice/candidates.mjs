@@ -114,6 +114,24 @@ function getKbHelpers(kb) {
     'got it',
     'looks good',
     'sure',
+    'i need you to',
+    'need you to',
+    'i want you to',
+    'want you to',
+    "i'd like you to",
+    'i would like you to',
+    'let us',
+    "let's",
+    'we need to',
+    'we want to',
+    'if it is not too much trouble',
+    "if it's not too much trouble",
+    "if that's okay",
+    'if that is okay',
+    'if you would',
+    "if you don't mind",
+    'for now',
+    'just for now',
   ]);
   for (const ph of toArray(kb?.grammar?.fillerPhrases)) {
     const clean = String(ph).toLowerCase().replace(/\u2019/g, "'").trim();
@@ -452,7 +470,7 @@ const QUESTION_PHRASES = new Map([
 ]);
 
 const COPULA_QUESTION_WORDS = new Set(['is', 'are', 'was', 'were', 'do', 'does', 'did']);
-const SOFT_CHANGE_PREDS = new Set(['should be', 'be', 'want', 'need', 'would like', 'become', 'becomes', 'turn into', 'turns into']);
+const SOFT_CHANGE_PREDS = new Set(['should be', 'be', 'want', 'need', 'would like', "i'd like", 'become', 'becomes', 'turn into', 'turns into']);
 const PLACE_OR_MAKE_VERBS = new Set(['place', 'put', 'stack', 'stick', 'drop', 'position', 'lay', 'give']);
 const PASSIVE_MODAL_PHRASES = new Set(['needs to be', 'need to be', 'has to be', 'have to be', 'must be', 'should be', 'ought to be', 'to be']);
 const NOUN_PRECEDING_WORDS = new Set(['the', 'a', 'an', 'this', 'that', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'per', 'by', 'of', 'in', 'on', 'for', 'from', 'to', 'with', 'without', 'each', 'every', 'first', 'second', 'third', 'last', 'new', 'old', 'next', 'previous']);
@@ -997,8 +1015,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       });
     }
 
-    // 1. FILLER (multi-word phrases up to 4 tokens)
-    for (let len = 2; len <= 4 && i + len <= T; len++) {
+    // 1. FILLER (multi-word phrases up to 7 tokens, e.g. "if it is not too much trouble")
+    for (let len = 2; len <= 7 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
@@ -1043,19 +1061,27 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
 
     if (tok.kind === 'word' && ['and', 'then', 'also', 'but', 'afterwards', 'next'].includes(tok.lower)) {
-      const isStrong = ['then', 'afterwards', 'next'].includes(tok.lower);
-      emit({
-        kind: HYP_KINDS.SEP,
-        startTok: i,
-        endTok: i,
-        canSplitClause: true,
-        isStrongSplit: isStrong,
-        cost: 0,
-      });
-      const spKey = `${i}:${i}`;
-      if (!splitSeen.has(spKey)) {
-        splitSeen.add(spKey);
-        splitPoints.push({ startTok: i, endTok: i, start: tok.start, end: tok.end, text: tok.text, isStrong });
+      // Never split "and call it <Name>" / "and name it <Name>" / "and label it <Name>" into a separate request!
+      const isNamingContinuation =
+        tok.lower === 'and' &&
+        i + 2 < T &&
+        ['call', 'name', 'label', 'title'].includes(tokens[i + 1].lower) &&
+        ['it', 'them', 'this', 'that'].includes(tokens[i + 2].lower);
+      if (!isNamingContinuation) {
+        const isStrong = ['then', 'afterwards', 'next'].includes(tok.lower);
+        emit({
+          kind: HYP_KINDS.SEP,
+          startTok: i,
+          endTok: i,
+          canSplitClause: true,
+          isStrongSplit: isStrong,
+          cost: 0,
+        });
+        const spKey = `${i}:${i}`;
+        if (!splitSeen.has(spKey)) {
+          splitSeen.add(spKey);
+          splitPoints.push({ startTok: i, endTok: i, start: tok.start, end: tok.end, text: tok.text, isStrong });
+        }
       }
     }
 
@@ -1191,9 +1217,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
       }
 
-      // Placement verbs ("place two cats on top of...", "put a tree...", "stack a boat...") also license act=make!
+      // Placement & feature-addition verbs ("place", "put", "give") also license act=make;
+      // "add" / "draw" / "include" / "show" also license act=change (adding a feature/legend/gridlines to an existing chart/object!).
       if (len === 1 && verbLemmas.some((l) => PLACE_OR_MAKE_VERBS.has(l))) {
         addLicensed({ act: 'make', mode: 'none', mood: 'do', question: 'none' });
+      }
+      if (len === 1 && verbLemmas.some((l) => ['add', 'draw', 'include', 'show', 'put', 'give'].includes(l))) {
+        addLicensed({ act: 'change', mode: 'none', mood: 'do', question: 'none' });
       }
 
       // Keeping verb marker (even if not in mock kb.verbs)
@@ -1222,6 +1252,27 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
       }
 
+      // Naming continuation ("and call it <Name>", "and name it <Name>", "and label it <Name>") is a name-introducer
+      // on the SAME request, never a separate verb predicate!
+      const isNamingContVerb =
+        len === 1 &&
+        ['call', 'name', 'label', 'title'].includes(tok.lower) &&
+        i > 0 &&
+        tokens[i - 1].lower === 'and' &&
+        i + 1 < T &&
+        ['it', 'them', 'this', 'that'].includes(tokens[i + 1].lower);
+      if (isNamingContVerb) {
+        emit({
+          kind: HYP_KINDS.KEY_WORD,
+          startTok: i,
+          endTok: i,
+          attrs: nameLikeKeys,
+          isNameIntro: true,
+          cost: 1.5,
+        });
+        continue;
+      }
+
       if (licensed.length > 0) {
         // Pure speech acts ("thanks", "hello", "bye") stay as fillers, not action predicates.
         const actionLicensed = licensed.filter((l) => !['greet', 'thank', 'farewell'].includes(l.act));
@@ -1247,7 +1298,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         const isSemiFieldSpec = len === 1 && i > 0 && tokens[i - 1].text === ';' && ['name', 'label', 'title'].includes(tok.lower);
         const isSpecKeyAfterSemi = len === 1 && i > 0 && (tokens[i - 1].text === ';' || tokens[i - 1].text === ',')
           && ['name', 'label', 'title', 'sort', 'order', 'group', 'scale'].includes(tok.lower);
-        if (actionLicensed.length > 0 && !isNominalizedAfterDetOrPrep && !isParticipleAfterComma && !isSemiFieldSpec) {
+        // Mid-sentence capitalized word (not after sentence punct) or title-initial plural before "by/per/of/:" ("Orders by weekday:", "Fix to Plan") is a Proper Name/Title, not an imperative verb!
+        const isMidSentCapProper = len === 1 && i > 0 && !tokens[i - 1].isPunct && /^[A-Z][a-z]+$/.test(tok.text) && tok.lower !== 'i';
+        const isTitlePluralBeforePrep = len === 1 && /^[A-Z][a-z]+s$/.test(tok.text) && i + 1 < T && ['by', 'per', 'of', 'over', 'for', ':'].includes(tokens[i + 1].lower);
+        if (actionLicensed.length > 0 && !isNominalizedAfterDetOrPrep && !isParticipleAfterComma && !isSemiFieldSpec && !isTitlePluralBeforePrep) {
           emit({
             kind: HYP_KINDS.PREDICATE,
             startTok: i,
@@ -1255,7 +1309,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             licensed: actionLicensed,
             isKeepingVerb: isKeeping,
             intrinsicConstraints: intrinsic,
-            cost: isSpecKeyAfterSemi ? 10 : isInflectedNonImperative ? 14 : (len === 1 ? 2 : 1),
+            cost: isMidSentCapProper ? 12 : isSpecKeyAfterSemi ? 10 : isInflectedNonImperative ? 14 : (len === 1 ? 2 : 1),
           });
         }
       }
@@ -1268,7 +1322,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      if (len === 1 && NOMINAL_Q_NOUNS.has(ph) && NOUN_PRECEDING_WORDS.has(prevQWord)) continue;
+      if (len === 1 && NOMINAL_Q_NOUNS.has(ph) && (NOUN_PRECEDING_WORDS.has(prevQWord) || (e + 1 < T && tokens[e + 1].lower === 'of'))) continue;
       if (QUESTION_PHRASES.has(ph)) {
         const qSpec = QUESTION_PHRASES.get(ph);
         // "which events / which meetings / which rooms / what items..." asks to LIST matching items!
@@ -1285,20 +1339,19 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             cost: 1.5,
           });
         }
-        // "how about <X>?" / "what about <X>?" is a polite suggestion (mood=do: make/change) as well as a question!
+        // "how about <X>?" / "what about <X>?" is primarily a polite suggestion (mood=do: change/make)!
         if ((ph === 'how' || ph === 'what') && nextTok && nextTok.lower === 'about') {
           emit({
             kind: HYP_KINDS.PREDICATE,
             startTok: i,
             endTok: e + 1,
             licensed: [
-              { act: 'make', mode: 'none', mood: 'do', question: 'none' },
               { act: 'change', mode: 'none', mood: 'do', question: 'none' },
-              { act: 'ask', mode: 'none', mood: qSpec.mood, question: qSpec.question },
+              { act: 'make', mode: 'none', mood: 'do', question: 'none' },
             ],
             isKeepingVerb: false,
             intrinsicConstraints: [],
-            cost: 1.5,
+            cost: 1.2,
           });
         }
         emit({
@@ -1308,15 +1361,22 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           licensed: [{ act: 'ask', mode: 'none', mood: qSpec.mood, question: qSpec.question }],
           isKeepingVerb: false,
           intrinsicConstraints: [],
-          cost: qSpec.cost,
+          cost: (ph === 'how' || ph === 'what') && nextTok && nextTok.lower === 'about' ? 6 : qSpec.cost,
         });
       }
     }
 
-    // Copula / auxiliary yes-no question words ("is/are/do/does/did") ONLY license act=ask at clause start with '?'
-    // (never mid-clause or after "let's" / "we" / "please", e.g. "let's do the line dash-dot"!).
+    // Copula / auxiliary yes-no question words ("is/are/do/does/did") ONLY license act=ask at clause start
+    // when THIS clause (before ';' / '.' / '!') actually ends with '?'!
     const isClauseStartQ = i === 0 || tokens[i - 1].isPunct;
-    if (COPULA_QUESTION_WORDS.has(tok.lower) && src.includes('?') && isClauseStartQ) {
+    let clauseEndsWithQ = false;
+    if (isClauseStartQ) {
+      for (let k = i + 1; k < T; k++) {
+        if (tokens[k].text === '?') { clauseEndsWithQ = true; break; }
+        if (tokens[k].isPunct && [';', '.', '!'].includes(tokens[k].text)) break;
+      }
+    }
+    if (COPULA_QUESTION_WORDS.has(tok.lower) && clauseEndsWithQ) {
       emit({
         kind: HYP_KINDS.PREDICATE,
         startTok: i,
@@ -1329,7 +1389,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         intrinsicConstraints: [],
         cost: 5,
       });
-    } else if (tok.lower === 'any' && src.includes('?') && isClauseStartQ) {
+    } else if (tok.lower === 'any' && clauseEndsWithQ) {
       emit({
         kind: HYP_KINDS.PREDICATE,
         startTok: i,
@@ -1348,7 +1408,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const ph = spanTextLower(tokens, i, e);
       if (SOFT_CHANGE_PREDS.has(ph)) {
         const lic = [{ act: 'change', mode: 'none', mood: 'do', question: 'none' }];
-        if (ph === 'want' || ph === 'need' || ph === 'would like') {
+        if (ph === 'want' || ph === 'need' || ph === 'would like' || ph === "i'd like") {
           lic.push({ act: 'make', mode: 'none', mood: 'do', question: 'none' });
         }
         emit({
@@ -1570,9 +1630,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             if (tabFamilies.includes('text')) addSort(gen, 'text');
             if (tabFamilies.includes('document')) addSort(gen, 'document');
           }
-          // Structural section sorts matching w.request conventions (without pulling section requests into block)
+          // Structural section/inline sorts matching w.request conventions
           if (['heading', 'paragraph'].includes(f) && tabFamilies.includes('section')) {
             addSort(f, 'section');
+          }
+          if (['list', 'bullet list', 'numbered list'].includes(f) && tabFamilies.includes('inline')) {
+            addSort('list', 'inline');
           }
         }
         // Once singular matched a sort for this span, stop so plural duplicate ("clouds") isn't emitted alongside "cloud"
@@ -1584,8 +1647,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         const { det, detTok } = checkDetBefore(i);
         // When a drawing noun is ALSO a declared body/face part, keep both hypotheses
         // but give `part` a clean prior advantage over standalone `drawn` object (e.g., "shift the nose up").
+        // When a bare noun (no determiner) is ALSO a colour ("orange", "gold", "rose", "lime"), prefer colour over fruit/object sort!
         const isAlsoBodyPart = tab === 'drawing' && family === 'drawn' && sortMatches.some((x) => x.family === 'part');
-        const baseSortCost = isAlsoBodyPart ? 14 : (family === 'part' ? 3 : 5);
+        const isBareColourNoun = det === 'none' && Boolean(vocabMatch(kb?.domain?.colours, sort.toLowerCase()));
+        const baseSortCost = isAlsoBodyPart ? 14 : isBareColourNoun ? 10 : 2.5;
         emit({
           kind: HYP_KINDS.TARGET_SORT,
           startTok: i,
@@ -2521,7 +2586,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
           const bp = vocabMatch(kb?.domain?.bodyParts, f);
           if (bp && tabKeys.has('part.ids')) {
-            emitConstraint('part.ids', bp, i, e, { phase: 'selector', cost: 3 });
+            emitConstraint('part.ids', bp, i, e, { phase: 'selector', cost: 7 });
           }
 
           const ly = vocabMatch(kb?.domain?.layouts, f);
@@ -2568,8 +2633,9 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
           const sh = vocabMatch(kb?.domain?.shapes, f);
           if (sh) {
+            const hasShapeKw = i > 0 && ['shape', 'kind', 'marker', 'symbol'].includes(tokens[i - 1].lower);
             for (const attr of ['node.shape', 'node.kind', 'chart.markerType']) {
-              if (tabKeys.has(attr)) emitConstraint(attr, sh, i, e, { cost: 2.5 });
+              if (tabKeys.has(attr)) emitConstraint(attr, sh, i, e, { cost: hasShapeKw ? 2 : 6 });
             }
           }
           const ly = vocabMatch(kb?.domain?.layouts, f);

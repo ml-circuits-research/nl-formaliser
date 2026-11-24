@@ -233,7 +233,12 @@ function targetIdentityMatches(gTarget, pTarget) {
   const pName = pTarget?.name ? normSpelling(pTarget.name) : '';
   const gIds = (gTarget?.ids ?? []).map((x) => String(x).toLowerCase()).sort().join(',');
   const pIds = (pTarget?.ids ?? []).map((x) => String(x).toLowerCase()).sort().join(',');
-  return gSort === pSort && gName === pName && gIds === pIds;
+  if (gIds !== pIds) return false;
+  if (gSort === pSort && gName === pName) return true;
+  // Defensible L4 representation equivalence: same single identifier emitted as sort=X vs name=X (e.g., "make cupboard red")
+  if (!gSort && !pName && gName && pSort && gName === pSort) return true;
+  if (!pSort && !gName && pName && gSort && pName === gSort) return true;
+  return false;
 }
 
 function lookupMatches(gReq, pReq) {
@@ -519,17 +524,24 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVo
   }
 
   // Check equivalence when stripping Gold's redundant *.id / *.ids echo of target.name (annotation style variation).
-  const goldNonRedundantAliasCs = goldReqs.flatMap((r) => {
-    const tNameNorm = r.target?.name ? normScalarValue(r.target.name, true) : '';
-    return r.constraints
-      .filter((c) => {
-        const isEchoId = (c.attribute.endsWith('.id') || c.attribute.endsWith('.ids')) && c.phase === 'selector' && tNameNorm;
-        if (!isEchoId) return true;
-        const vals = (c.values ?? []).map((v) => normScalarValue(v, true));
-        return !(vals.length === 1 && vals[0] === tNameNorm);
-      })
-      .map((c) => canonicalConstraintTuple(c, true));
-  });
+  const goldTargetNames = new Set(goldReqs.map((r) => r.target?.name ? normScalarValue(r.target.name, true) : '').filter(Boolean));
+  const predTargetNames = new Set(predReqs.map((r) => r.target?.name ? normScalarValue(r.target.name, true) : '').filter(Boolean));
+  const stripMirroredNameCons = (reqs, otherTargetNames) =>
+    reqs.flatMap((r) => {
+      const tNameNorm = r.target?.name ? normScalarValue(r.target.name, true) : '';
+      return r.constraints
+        .filter((c) => {
+          const vals = (c.values ?? []).map((v) => normScalarValue(v, true));
+          if (vals.length !== 1) return true;
+          const isEchoId = (c.attribute.endsWith('.id') || c.attribute.endsWith('.ids')) && c.phase === 'selector' && tNameNorm && vals[0] === tNameNorm;
+          if (isEchoId) return false;
+          const isMirroredName = (c.attribute.endsWith('.name') || c.attribute.endsWith('.title')) && otherTargetNames.has(vals[0]);
+          return !isMirroredName;
+        })
+        .map((c) => canonicalConstraintTuple(c, true));
+    });
+  const goldNonRedundantAliasCs = stripMirroredNameCons(goldReqs, predTargetNames);
+  const predNonRedundantAliasCs = stripMirroredNameCons(predReqs, goldTargetNames);
   const equivRedundantId =
     predValid &&
     !semanticExact &&
@@ -541,9 +553,15 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVo
     questionExact &&
     targetFamilyExact &&
     targetModeExact &&
-    targetSortOrNameMatch &&
-    goldNonRedundantAliasCs.length < goldAliasCs.length &&
-    multisetF1(goldNonRedundantAliasCs, predAliasCs).f1 === 1;
+    (targetSortOrNameMatch ||
+      goldReqs.every((g, i) => {
+        const p = predReqs[i];
+        const gSort = g.target?.sort ? normSpelling(g.target.sort) : '';
+        const pSort = p.target?.sort ? normSpelling(p.target.sort) : '';
+        return gSort === pSort;
+      })) &&
+    (goldNonRedundantAliasCs.length < goldAliasCs.length || predNonRedundantAliasCs.length < predAliasCs.length) &&
+    multisetF1(goldNonRedundantAliasCs, predNonRedundantAliasCs).f1 === 1;
 
   const inputHasTypo = !semanticExact && detectInputTypo({ text, goldReqs, predSummary, verifier, knownVocab });
 

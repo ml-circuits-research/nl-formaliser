@@ -257,9 +257,19 @@ export async function createFormaliser({
     // solves each compatible world with Z3 using semantic blocking (diverse act/mood/family/mode),
     // and returns a ranked set of valid proposals without ever needing a tab hint!
     if (tab === null || tab === 'auto') {
+      let preSpellRes = null;
+      let cleanInput = rawText;
+      if (useSpell) {
+        const checker = await getSpellChecker();
+        preSpellRes = await checker.normalise(rawText, { topK: 2, timeout: Math.min(1800, timeout) });
+        if (preSpellRes.ok && preSpellRes.changed && preSpellRes.cleanText) {
+          cleanInput = preSpellRes.cleanText;
+        }
+      }
+
       const allTabs = Object.keys(kb.tabs ?? {});
       const scored = allTabs.map((t) => {
-        const lat = buildLattice(rawText, { tab: t, kb, previous, clock });
+        const lat = buildLattice(cleanInput, { tab: t, kb, previous, clock });
         const { score, exclusiveHits } = scoreTabLattice(lat, t, { clock });
         return { tab: t, score, exclusiveHits, lattice: lat };
       }).sort((a, b) => b.score - a.score);
@@ -271,7 +281,7 @@ export async function createFormaliser({
 
       for (let ti = 0; ti < selectedTabs.length; ti++) {
         const { tab: candTab, score: domainScore } = selectedTabs[ti];
-        const kForTab = ti < 2 || selectedTabs[ti].exclusiveHits > 0 ? Math.max(1, perTabTopK) : 1;
+        const kForTab = ti < 3 || selectedTabs[ti].exclusiveHits > 0 ? Math.max(1, perTabTopK) : 1;
         const sub = await formalise(rawText, {
           tab: candTab,
           previous,
@@ -280,7 +290,8 @@ export async function createFormaliser({
           maxRequests,
           dumpSmt: false,
           verify: true,
-          spellcheck: useSpell,
+          spellcheck: false,
+          _preSpellRes: preSpellRes,
           confidence: false,
           hierarchical,
           weights: effWeights,
@@ -365,9 +376,13 @@ export async function createFormaliser({
     const useSemanticBlock = arguments[1]?._useSemanticBlock === true || topK > 1;
 
     // Optional Layer 1: Standalone Z3 Spellchecker (0.04 ms fast-path on clean inputs!)
-    let spellRes = null;
+    let spellRes = arguments[1]?._preSpellRes ?? null;
     let workingText = rawText;
-    if (useSpell) {
+    if (spellRes) {
+      if (spellRes.ok && spellRes.changed && spellRes.cleanText) {
+        workingText = spellRes.cleanText;
+      }
+    } else if (useSpell) {
       const checker = await getSpellChecker();
       spellRes = await checker.normalise(rawText, { topK: 2, timeout: Math.min(2000, timeout) });
       if (spellRes.ok && spellRes.changed && spellRes.cleanText) {

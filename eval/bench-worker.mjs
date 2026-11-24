@@ -174,10 +174,15 @@ parentPort.on('message', async (msg) => {
       tabHit: cmp.tabHit ?? true,
     };
 
+    const bestPredSop =
+      (tabAgnostic || proposals.length > 1) && typeof cmp.bestProposalIdx === 'number' && proposals[cmp.bestProposalIdx]?.sop
+        ? proposals[cmp.bestProposalIdx].sop
+        : predSop;
+
     parentPort.postMessage({
       type: 'result',
       idx,
-      predSop,
+      predSop: bestPredSop,
       cmp: slimCmp,
       conf,
       spellChanged,

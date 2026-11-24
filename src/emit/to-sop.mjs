@@ -189,7 +189,7 @@ export function modelToSop(model, lattice, meta) {
       if (tRef.codeWords && scopeText.includes(tRef.codeWords)) {
         tPairs.push(['code_words', tRef.codeWords]);
       }
-      if (tRef.ids?.length) {
+      if (tRef.ids?.length && !(tRef.ids.length === 1 && tRef.name && tRef.ids[0] === tRef.name)) {
         for (const id of tRef.ids) {
           if (scopeText.includes(id)) tPairs.push(['ids', id]);
         }

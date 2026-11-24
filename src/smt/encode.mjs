@@ -253,16 +253,25 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
   }
 
-  // Strong clause separator penalty: if a strong word separator ("then", "and then", "afterwards")
-  // has verb predicates on BOTH sides, strongly penalize a single request straddling across it!
+  // Strong clause separator penalty:
+  // - For strong word separators ("then", "and then", "afterwards"): require predicates on both sides.
+  // - For sentence-ending '.' or ';': fire whenever BOTH sides have non-filler content tokens (handles verbless 2nd clauses like ". font bigger" / "; x on top")!
   if (R > 1) {
     for (const sp of strongClauseSeps) {
       const isWordStrongSep = /\b(then|afterwards)\b/i.test(sp.text);
+      const isPunctStrongSep = sp.text === '.' || sp.text === ';';
       const hasPredBefore = [...predStartToks].some((pt) => pt < sp.startTok);
       const hasPredAfter = [...predStartToks].some((pt) => pt > sp.endTok);
-      if ((isWordStrongSep || (sp.text === '.' && hasPredBefore && hasPredAfter)) && hasPredBefore && hasPredAfter) {
+      const afterNonFillerContent = tokens.slice(sp.endTok + 1).filter((tok) => tok.isContent && !tok.isFiller).length;
+      const afterIsOnlyFillerPhrase = activeCandidates.some(
+        (c) => c.kind === HYP_KINDS.FILLER && c.startTok <= sp.endTok + 1 && c.endTok >= T - 2
+      );
+      const shouldSplit =
+        (isWordStrongSep && hasPredBefore && hasPredAfter) ||
+        (isPunctStrongSep && afterNonFillerContent >= 1 && !afterIsOnlyFillerPhrase);
+      if (shouldSplit) {
         for (let r = 1; r <= R; r++) {
-          emit(`(assert-soft (not (and active_${r} (< rstart_${r} ${sp.startTok}) (> rend_${r} ${sp.endTok}))) :weight 45)`);
+          emit(`(assert-soft (not (and active_${r} (< rstart_${r} ${sp.startTok}) (> rend_${r} ${sp.endTok}))) :weight ${W.strongSepNoStraddle})`);
         }
       }
     }
@@ -764,15 +773,16 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         emit(`(assert-soft (not (and active_${r} (= act_${r} ACT_PLACE) sel_${a.id} (= own_${a.id} ${r}))) :weight ${W.placeDirOverAt})`);
       }
     }
-    // Resultative "make <existing/bare target> <post-target attribute/size/colour>" ("make the house blue", "make boat 67 pixels wide")
+    // Resultative "make <existing/bare target> <post-target attribute/size/colour>" ("make the house blue", "make face orange", "make cupboard red", "make boat 67 pixels wide")
     // vs creation "make a blue house" / "make a line chart" (explicit indefinite determiner or chart.type/diagram.kind):
+    const chartOrDiagHeadInR = smtOr(creationHeadCons.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const postTargetPropInR = smtOr(
       attrOnlyConstraints
         .filter((c) => c.attribute !== 'chart.type' && c.attribute !== 'diagram.kind' && !c.attribute?.endsWith('.title') && !c.attribute?.endsWith('.name') && !c.attribute?.endsWith('.content') && !c.attribute?.endsWith('.about') && !c.attribute?.endsWith('.genre'))
         .map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (>= tpos_${r} 0) (> ${c.startTok} tpos_${r}))`)
     );
     if (attrOnlyConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (not ${hasCreationHeadInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight ${W.resultativeMakeToChange})`);
+      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (not ${chartOrDiagHeadInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight ${W.resultativeMakeToChange})`);
     }
 
     // Verbless fragment discipline:

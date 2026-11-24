@@ -3,7 +3,7 @@
   "note": "Declarative MaxSMT soft weights for src/smt/encode.mjs (calibratable via eval/calibrate.mjs).",
   "zeroReqActivate": 18,
   "avoidBound": 12,
-  "strongSepNoStraddle": 45,
+  "strongSepNoStraddle": 68,
   "kwDist1": 10,
   "kwDist2": 5,
   "kwBindReward": 14,
