@@ -136,15 +136,55 @@ export async function createFormaliser({
     await getSpellChecker();
   }
 
-  async function solveSinglePass(text, { tab, previous, clock, topK, maxRequests, timeout, effWeights }) {
+  async function solveSinglePass(text, { tab, previous, clock, topK, maxRequests, timeout, effWeights, useSemanticBlock = false }) {
     const lattice = buildLattice(text, { tab, kb, previous, clock });
     const encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests, weights: effWeights });
     const solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
       topK,
-      blockVars: encoded.blockVars,
+      blockVars: useSemanticBlock ? encoded.semanticBlockVars : encoded.blockVars,
       timeout,
     });
     return { lattice, encoded, solved };
+  }
+
+  function scoreTabLattice(lattice, tab, { clock } = {}) {
+    const sortToks = new Set();
+    const famToks = new Set();
+    const kwToks = new Set();
+    const consToks = new Set();
+    let exclusiveHits = 0;
+
+    for (const c of lattice.candidates) {
+      if (c.kind === 'TARGET_SORT') {
+        for (let t = c.startTok; t <= c.endTok; t++) sortToks.add(t);
+      } else if (c.kind === 'TARGET_FAMILY') {
+        for (let t = c.startTok; t <= c.endTok; t++) famToks.add(t);
+        if (['event', 'calendar', 'room', 'chart', 'diagram', 'document', 'section'].includes(c.family)) {
+          exclusiveHits += 1;
+        }
+      } else if (c.kind === 'KEY_WORD') {
+        for (let t = c.startTok; t <= c.endTok; t++) kwToks.add(t);
+      } else if (c.kind === 'CONSTRAINT') {
+        for (let t = c.startTok; t <= c.endTok; t++) consToks.add(t);
+        if (
+          c.attribute === 'chart.type' ||
+          c.attribute === 'diagram.kind' ||
+          c.attribute?.startsWith('event.') ||
+          c.attribute?.startsWith('calendar.') ||
+          c.attribute?.startsWith('room.') ||
+          c.attribute?.startsWith('doc.') ||
+          c.attribute?.startsWith('section.')
+        ) {
+          exclusiveHits += 1;
+        }
+      }
+    }
+    // Dynamic temporal-context signal: if @clock is supplied, boost tabs that declare temporal event keys.
+    if (clock && kb.tabs?.[tab]?.keys?.has('event.date')) {
+      exclusiveHits += 2;
+    }
+    const score = sortToks.size * 3 + famToks.size * 3 + kwToks.size * 2.5 + consToks.size * 1.5 + exclusiveHits * 4;
+    return { score, exclusiveHits };
   }
 
   async function solveHierarchical(text, lattice, { tab, previous, clock, timeout, effWeights }) {
@@ -197,6 +237,8 @@ export async function createFormaliser({
     previous = null,
     clock = null,
     topK = 1,
+    maxProposals = 6,
+    perTabTopK = 2,
     maxRequests = 4,
     dumpSmt = false,
     verify = false,
@@ -209,6 +251,121 @@ export async function createFormaliser({
     const t0 = performance.now();
     const rawText = String(text ?? '');
     const effWeights = callWeights ?? weights;
+
+    // Tab-agnostic multi-proposal mode (tab === null || tab === 'auto'):
+    // Discovers all tabs dynamically from kb.tabs, ranks compatible worlds by lexical evidence,
+    // solves each compatible world with Z3 using semantic blocking (diverse act/mood/family/mode),
+    // and returns a ranked set of valid proposals without ever needing a tab hint!
+    if (tab === null || tab === 'auto') {
+      const allTabs = Object.keys(kb.tabs ?? {});
+      const scored = allTabs.map((t) => {
+        const lat = buildLattice(rawText, { tab: t, kb, previous, clock });
+        const { score, exclusiveHits } = scoreTabLattice(lat, t, { clock });
+        return { tab: t, score, exclusiveHits, lattice: lat };
+      }).sort((a, b) => b.score - a.score);
+
+      const topScore = scored[0]?.score ?? 0;
+      const selectedTabs = scored.filter((s, idx) =>
+        idx === 0 || s.exclusiveHits > 0 || topScore <= 4 || s.score >= topScore * 0.35 || idx < 2
+      );
+
+      const proposalMap = new Map();
+      const perTabTimeout = Math.max(1200, Math.floor(timeout / Math.min(3, selectedTabs.length)));
+
+      for (let ti = 0; ti < selectedTabs.length; ti++) {
+        const { tab: candTab, score: domainScore } = selectedTabs[ti];
+        const kForTab = ti < 2 || selectedTabs[ti].exclusiveHits > 0 ? Math.max(1, perTabTopK) : 1;
+        const sub = await formalise(rawText, {
+          tab: candTab,
+          previous,
+          clock,
+          topK: kForTab,
+          maxRequests,
+          dumpSmt: false,
+          verify: true,
+          spellcheck: useSpell,
+          confidence: false,
+          hierarchical,
+          weights: effWeights,
+          timeout: perTabTimeout,
+          _useSemanticBlock: true,
+        });
+        if (!sub.ok) continue;
+
+        const subCircuits = [sub.sop, ...(sub.alternatives ?? [])].filter(Boolean);
+        const subObjs = sub.objectives ?? [];
+        const bestObj = typeof subObjs[0] === 'number' ? subObjs[0] : null;
+
+        for (let ci = 0; ci < subCircuits.length; ci++) {
+          const cSop = subCircuits[ci];
+          const obj = typeof subObjs[ci] === 'number' ? subObjs[ci] : null;
+          // Filter out wildly degraded secondary proposals within the same tab
+          if (ci > 0 && bestObj !== null && obj !== null && (obj - bestObj) > 45) continue;
+
+          const chk = verifier ? verifier.check(rawText, cSop, candTab) : { ok: true, warnings: [] };
+          if (!chk.ok) continue;
+          const warnCount = chk.warnings?.length ?? 0;
+          const normKey = cSop.replace(/\r\n/g, '\n').trim();
+          const existing = proposalMap.get(normKey);
+          if (!existing || domainScore > existing.domainScore) {
+            proposalMap.set(normKey, {
+              sop: cSop,
+              tab: candTab,
+              objective: obj,
+              warnings: warnCount,
+              domainScore,
+              rankInTab: ci,
+            });
+          }
+        }
+      }
+
+      const sortedAll = [...proposalMap.values()].sort((a, b) => {
+        if (a.rankInTab !== b.rankInTab && a.warnings === b.warnings && Math.abs(a.domainScore - b.domainScore) < 2) {
+          return a.rankInTab - b.rankInTab;
+        }
+        if (a.domainScore !== b.domainScore) return b.domainScore - a.domainScore;
+        if (a.warnings !== b.warnings) return a.warnings - b.warnings;
+        return (a.objective ?? 1e9) - (b.objective ?? 1e9);
+      });
+
+      // Keep at least the #1 proposal of every solved tab (so no compatible world is starved),
+      // then fill remaining slots up to maxProposals in global rank order.
+      const limit = Math.max(1, maxProposals);
+      const proposals = [];
+      const pickedKeys = new Set();
+      const seenTabs = new Set();
+      for (const p of sortedAll) {
+        if (proposals.length >= limit) break;
+        if (!seenTabs.has(p.tab)) {
+          seenTabs.add(p.tab);
+          pickedKeys.add(p.sop);
+          proposals.push(p);
+        }
+      }
+      for (const p of sortedAll) {
+        if (proposals.length >= limit) break;
+        if (!pickedKeys.has(p.sop)) {
+          pickedKeys.add(p.sop);
+          proposals.push(p);
+        }
+      }
+
+      const top = proposals[0];
+      return {
+        ok: Boolean(top),
+        status: top ? 'sat' : 'unknown',
+        sop: top?.sop ?? '',
+        tab: top?.tab ?? null,
+        alternatives: proposals.slice(1).map((p) => p.sop),
+        proposals,
+        objectives: proposals.map((p) => p.objective).filter((x) => typeof x === 'number'),
+        elapsedMs: performance.now() - t0,
+        stats: { tabsConsidered: selectedTabs.map((s) => s.tab), proposalCount: proposals.length },
+      };
+    }
+
+    const useSemanticBlock = arguments[1]?._useSemanticBlock === true || topK > 1;
 
     // Optional Layer 1: Standalone Z3 Spellchecker (0.04 ms fast-path on clean inputs!)
     let spellRes = null;
@@ -262,6 +419,7 @@ export async function createFormaliser({
         maxRequests,
         timeout,
         effWeights,
+        useSemanticBlock,
       });
 
       // Graceful timeout recovery on complex inputs: try Stage-1 Z3 segmenter first, then maxRequests=1
@@ -382,11 +540,20 @@ export async function createFormaliser({
         })
       : undefined;
 
+    const emittedAlts = topK > 1 ? alternatives.slice(0, topK - 1) : alternatives;
+    const proposals = [sop, ...emittedAlts].filter(Boolean).map((pSop, idx) => ({
+      sop: pSop,
+      tab,
+      objective: typeof objectives[idx] === 'number' ? objectives[idx] : null,
+    }));
+
     return {
       ok: true,
       status: 'sat',
       sop,
-      alternatives: topK > 1 ? alternatives.slice(0, topK - 1) : alternatives,
+      tab,
+      alternatives: emittedAlts,
+      proposals,
       objectives,
       check: verify ? checkResult : undefined,
       confidence,

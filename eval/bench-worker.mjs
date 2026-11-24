@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 import { unquoteSop } from '../src/contracts.mjs';
 import { createVerifier } from '../src/verify/check.mjs';
 import { createFormaliser } from '../src/index.mjs';
-import { compareCircuits } from './compare.mjs';
+import { compareCircuits, compareProposals } from './compare.mjs';
 
 function extractContextFromSop(sopText, verifier) {
   let previous;
@@ -31,7 +31,15 @@ function extractContextFromSop(sopText, verifier) {
   return { previous, clock };
 }
 
-const { knowledgeDir, source, spellcheck = false, confidence = false } = workerData;
+const {
+  knowledgeDir,
+  source,
+  spellcheck = false,
+  confidence = false,
+  tabAgnostic = false,
+  maxProposals = 6,
+  perTabTopK = 2,
+} = workerData;
 
 const [verifier, formaliser] = await Promise.all([
   createVerifier({ knowledgeDir }),
@@ -95,14 +103,17 @@ parentPort.on('message', async (msg) => {
 
     const t0 = performance.now();
     const res = await formaliser.formalise(row.text, {
-      tab: row.tab,
+      tab: tabAgnostic ? null : row.tab,
       previous,
       clock,
+      maxProposals,
+      perTabTopK,
       spellcheck,
       confidence,
     });
     const ms = performance.now() - t0;
     const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
+    const proposals = res?.proposals ?? [{ sop: predSop, tab: res?.tab ?? row.tab }];
     const conf = res?.confidence
       ? {
           score: res.confidence.score,
@@ -113,14 +124,23 @@ parentPort.on('message', async (msg) => {
       : null;
     const spellChanged = Boolean(res?.spell?.changed);
 
-    const cmp = compareCircuits({
-      text: row.text,
-      tab: row.tab,
-      goldSop: row.goldSop,
-      predSop,
-      verifier,
-      knownVocab,
-    });
+    const cmp = tabAgnostic || proposals.length > 1
+      ? compareProposals({
+          text: row.text,
+          tab: row.tab,
+          goldSop: row.goldSop,
+          proposals,
+          verifier,
+          knownVocab,
+        })
+      : compareCircuits({
+          text: row.text,
+          tab: row.tab,
+          goldSop: row.goldSop,
+          predSop,
+          verifier,
+          knownVocab,
+        });
 
     // Strip heavy parse trees before IPC.
     const slimCmp = {
@@ -149,6 +169,9 @@ parentPort.on('message', async (msg) => {
       constraintStrictF1: cmp.constraintStrictF1,
       constraintAliasF1: cmp.constraintAliasF1,
       semanticExact: cmp.semanticExact,
+      proposalCount: cmp.proposalCount ?? 1,
+      bestProposalIdx: cmp.bestProposalIdx ?? 0,
+      tabHit: cmp.tabHit ?? true,
     };
 
     parentPort.postMessage({

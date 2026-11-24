@@ -9,7 +9,7 @@ import { Worker } from 'node:worker_threads';
 
 import { TABS, unquoteSop } from '../src/contracts.mjs';
 import { createVerifier } from '../src/verify/check.mjs';
-import { compareCircuits } from './compare.mjs';
+import { compareCircuits, compareProposals } from './compare.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -456,7 +456,7 @@ function summarizeGroup(records) {
   };
 }
 
-async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck = false, confidence = false }) {
+async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck = false, confidence = false, tabAgnostic = false, maxProposals = 6, perTabTopK = 2 }) {
   const n = rows.length;
   const results = new Array(n);
   if (n === 0) return results;
@@ -488,7 +488,7 @@ async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellche
 
     for (let i = 0; i < numWorkers; i++) {
       const w = new Worker(WORKER_FILE, {
-        workerData: { knowledgeDir, source, spellcheck, confidence },
+        workerData: { knowledgeDir, source, spellcheck, confidence, tabAgnostic, maxProposals, perTabTopK },
       });
       pool.push(w);
       w.on('message', (msg) => {
@@ -538,11 +538,14 @@ async function main() {
   const workers = Math.max(1, Number(args.workers ?? 1));
   const spellcheck = Boolean(args.spellcheck);
   const confidence = Boolean(args.confidence);
+  const tabAgnostic = Boolean(args['tab-agnostic']);
+  const maxProposals = Number(args['max-proposals'] ?? 6);
+  const perTabTopK = Number(args['per-tab-topk'] ?? 2);
   const verbose = Boolean(args.verbose);
   const jsonOut = typeof args.json === 'string' ? resolve(args.json) : null;
 
   const rows = loadRows({ source, datasetDir, officialDir, knowledgeDir, tabs, samplePct, limit, seed });
-  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers}, spellcheck=${spellcheck}, confidence=${confidence})`);
+  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers}, spellcheck=${spellcheck}, confidence=${confidence}, tabAgnostic=${tabAgnostic}, maxProposals=${maxProposals})`);
 
   let verifier = null;
   let formaliseFn = null;
@@ -600,7 +603,7 @@ async function main() {
   const errorClusters = new Map();
 
   if (workers > 1) {
-    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck, confidence });
+    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck, confidence, tabAgnostic, maxProposals, perTabTopK });
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const { predSop, cmp, conf, spellChanged, ms } = resList[i];
@@ -619,19 +622,36 @@ async function main() {
       const clock = row.clock ?? ctx.clock;
 
       const t0 = performance.now();
-      const res = await formaliseFn(row.text, { tab: row.tab, previous, clock, spellcheck, confidence });
+      const res = await formaliseFn(row.text, {
+        tab: tabAgnostic ? null : row.tab,
+        previous,
+        clock,
+        maxProposals,
+        perTabTopK,
+        spellcheck,
+        confidence,
+      });
       const ms = performance.now() - t0;
       const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
+      const proposals = res?.proposals ?? [{ sop: predSop, tab: res?.tab ?? row.tab }];
       const conf = res?.confidence ?? null;
       const spellChanged = Boolean(res?.spell?.changed);
 
-      const cmp = compareCircuits({
-        text: row.text,
-        tab: row.tab,
-        goldSop: row.goldSop,
-        predSop,
-        verifier,
-      });
+      const cmp = tabAgnostic || proposals.length > 1
+        ? compareProposals({
+            text: row.text,
+            tab: row.tab,
+            goldSop: row.goldSop,
+            proposals,
+            verifier,
+          })
+        : compareCircuits({
+            text: row.text,
+            tab: row.tab,
+            goldSop: row.goldSop,
+            predSop,
+            verifier,
+          });
 
       for (const reason of cmp.goldIssueReasons) {
         goldIssueCounts.set(reason, (goldIssueCounts.get(reason) ?? 0) + 1);
@@ -696,6 +716,11 @@ async function main() {
   console.log(`| **L4 – Reasonable alternative** | Intent & essential details preserved (alias / Z3>Gold) | ${legendCounts.L4} | ${pct(legendCounts.L4, records.length)} |`);
   console.log(`| **Reasonable total (L3 + L4)** | Combined reasonable readings | **${reasonableTotal}** | **${pct(reasonableTotal, records.length)}** |`);
   console.log(`| *Dataset error flag* (separate) | Reference annotation has check.mjs defects | ${datasetErrorCount} | ${pct(datasetErrorCount, records.length)} |`);
+  if (tabAgnostic) {
+    const avgProps = records.reduce((s, r) => s + (r.cmp.proposalCount ?? 1), 0) / Math.max(1, records.length);
+    const tabHits = records.filter((r) => r.cmp.tabHit).length;
+    console.log(`\nTab-agnostic multi-proposal stats: avgProposals=${avgProps.toFixed(2)}, goldTabInProposals=${tabHits}/${records.length} (${pct(tabHits, records.length)})`);
+  }
 
   const attributionCounts = new Map();
   for (const r of records) {

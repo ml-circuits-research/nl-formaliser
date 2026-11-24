@@ -128,6 +128,24 @@
       </tbody>
     </table>
 
+    <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 6 --per-tab-topk 2</code>, fără hint de tab)</h3>
+    <p>
+      Aliniat protocolului Prolog / <code>LEGEND.md</code> v1.2: formalizatorul <strong>nu primește tab-ul</strong>,
+      generează propuneri diverse peste lumile compatibile (medie <code>4,52</code> propuneri/cerere, <code>goldTabInProposals = 89,2%</code>,
+      p50 <code>494 ms</code>), iar fiecare propunere este evaluată independent (fără combinare de fragmente):
+      <strong>L0</strong> <code>12.8%</code> (din care <code>10.8%</code> tab omis de pruning),
+      <strong>L1a</strong> <code>28.1%</code> (−7,5 pp vs single-choice),
+      <strong>L1b</strong> <code>8.0%</code>,
+      <strong>L1c</strong> <code>17.7%</code>,
+      <strong>L1d</strong> <code>11.2%</code>,
+      <strong>L2a</strong> <code>3.4%</code>,
+      <strong>L2b</strong> <code>3.8%</code>,
+      <strong>L2c</strong> <code>0.9%</code>,
+      <strong>L3</strong> <code>1.9%</code>,
+      <strong>L4</strong> <code>12.2%</code>,
+      <strong>Total rezonabile (L3 + L4) = 14.1%</strong> (<code>calendar</code> 47,5% Exact / 81,3% Act / 93,8% Fam; <code>document</code> 86,1% Act / 71,3% Fam).
+    </p>
+
     <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>
     <p>
       Estimatorul simbolic <code>src/confidence.mjs</code> (calibrat out-of-sample pe split-ul disjunct <code>seed=1337</code>)

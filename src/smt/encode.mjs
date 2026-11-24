@@ -129,6 +129,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const lines = [];
   const queryVars = [];
   const blockVars = [];
+  const semanticBlockVars = [];
   const elided = new Map(); // c.id -> { phase?, want?, kw? }
   const emit = (s) => lines.push(s);
 
@@ -191,6 +192,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       `rstart_${r}`, `rend_${r}`, `tpos_${r}`, `ppos_${r}`, `ident_${r}`,
     );
     blockVars.push(`active_${r}`, `act_${r}`, `fam_${r}`, `tmode_${r}`);
+    semanticBlockVars.push(`active_${r}`, `act_${r}`, `mood_${r}`, `q_${r}`, `fam_${r}`, `tmode_${r}`);
 
     // Compact domain for asked_r: only -1 or attrIds that actually have a KEY_WORD in this sentence!
     if (usedKwAttrIds.size === 0) {
@@ -915,6 +917,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     smtBody: lines.join('\n'),
     queryVars,
     blockVars,
+    semanticBlockVars,
     meta: { R, T, M, F, K, tab, tabSpec, previous, clock, elided, activeCandidates, outerFillerIds },
   };
 }

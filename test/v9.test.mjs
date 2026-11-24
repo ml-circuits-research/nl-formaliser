@@ -111,3 +111,27 @@ test('v9: estimateConfidence returns score=0 and abstain when checkResult is inv
   assert.equal(c.score, 0);
   assert.equal(c.band, 'abstain');
 });
+
+test('v9: tab-agnostic multi-proposal mode (tab=null) emits valid diverse readings across compatible worlds', async () => {
+  const res1 = await formaliser.formalise('Please, put Review on the Work 6 calendar on 2026-12-14 at 14:00 UTC for 30 minutes', {
+    tab: null,
+    maxProposals: 6,
+    perTabTopK: 2,
+    spellcheck: false,
+  });
+  assert.equal(res1.ok, true);
+  assert.ok(res1.proposals.length >= 2);
+  const calProps = res1.proposals.filter((p) => p.tab === 'calendar');
+  assert.ok(calProps.length >= 1, `Expected calendar proposal in tab-agnostic mode, got tabs: ${res1.proposals.map((p) => p.tab).join(',')}`);
+  assert.ok(calProps.some((p) => p.sop.includes('act=make') || p.sop.includes('act=place')));
+
+  const res2 = await formaliser.formalise('make it red', {
+    tab: null,
+    maxProposals: 6,
+    perTabTopK: 1,
+    spellcheck: false,
+  });
+  assert.equal(res2.ok, true);
+  const tabs2 = new Set(res2.proposals.map((p) => p.tab));
+  assert.ok(tabs2.size >= 2, `Expected multiple compatible worlds for ambiguous "make it red", got ${[...tabs2].join(',')}`);
+});

@@ -1226,7 +1226,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         const NOMINAL_AMBIG = new Set(['edit', 'change', 'step', 'move', 'swap', 'copy', 'group', 'link', 'line', 'label', 'title', 'name', 'chart', 'plot', 'graph', 'table', 'list', 'text', 'note', 'block', 'section', 'meeting', 'event', 'room', 'place', 'spot', 'point', 'cut', 'fill', 'scale', 'order', 'sort', 'filter', 'frame', 'shadow', 'glow', 'outline', 'stroke', 'mirror', 'turn', 'bend', 'split', 'merge', 'stack', 'drop', 'mix', 'plan', 'role', 'gap', 'view', 'format', 'style', 'grid', 'row', 'column', 'level', 'mark', 'quote', 'review']);
         const detOrPrepBefore = NOUN_PRECEDING_WORDS.has(prevWord) || (NOUN_PRECEDING_WORDS.has(prev2Word) && !isCommandVerbToken(tokens[i - 1], kb));
         const isNominalizedAfterDetOrPrep = len === 1 && detOrPrepBefore
-          && (tok.lower.endsWith('ing') || (tok.lower.endsWith('ed') && i + 1 < T && tokens[i + 1].kind === 'word') || NOMINAL_AMBIG.has(tok.lower));
+          && (tok.lower.endsWith('ing') || (tok.lower.endsWith('ed') && i + 1 < T && tokens[i + 1].kind === 'word') || NOMINAL_AMBIG.has(tok.lower) || (NOUN_PRECEDING_WORDS.has(prevWord) && tok.lower.endsWith('s')));
         // Passive/embedded finite clause & participial-after-comma guard: "are distributed across...", "points joined fair", ", keeping everything else..."
         const isParticipleAfterComma = len === 1 && i > 0 && tokens[i - 1].text === ',' && tok.lower.endsWith('ing');
         const isInflectedNonImperative = len === 1 && (

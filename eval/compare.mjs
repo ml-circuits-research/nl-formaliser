@@ -642,3 +642,71 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVo
     predSummary,
   };
 }
+
+// WebMeet formalisation grades · v1.2 (webmeet-dataset/LEGEND.md) ordering for proposal-set grading:
+// Assign L3 if any proposal is L3, else L4 if any is L4, else grade the closest usable proposal.
+// Never assemble a successful answer from fragments of separate proposals.
+const LEGEND_GRADE_RANK = {
+  L3: 9,
+  L4: 8,
+  L2c: 7,
+  L2b: 6,
+  L2a: 5,
+  L1d: 4,
+  L1c: 3,
+  L1b: 2,
+  L1a: 1,
+  L0: 0,
+};
+
+export function compareProposals({ text, tab, goldSop, proposals, verifier, knownVocab = null }) {
+  const list = Array.isArray(proposals) && proposals.length > 0 ? proposals : [{ sop: '', tab }];
+  let bestCmp = null;
+  let bestRank = -1;
+  let bestProposalIdx = 0;
+  let tabHit = false;
+
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const pSop = typeof p === 'string' ? p : (p?.sop ?? '');
+    const pTab = typeof p === 'string' ? tab : (p?.tab ?? tab);
+    if (pTab === tab) tabHit = true;
+
+    const cmp = compareCircuits({
+      text,
+      tab,
+      goldSop,
+      predSop: pSop,
+      verifier,
+      knownVocab,
+    });
+
+    // If proposal was generated for a different tab, verify it is still formally valid in its own tab
+    // (compareCircuits validates against gold's tab, so cross-tab keys would look invalid on gold's tab).
+    // Note: if pTab !== tab, it can never earn L3/L4 on gold's tab unless its wires are valid on gold's tab too!
+    const rank = LEGEND_GRADE_RANK[cmp.legendGrade] ?? 0;
+    const isBetter =
+      !bestCmp ||
+      rank > bestRank ||
+      (rank === bestRank && (
+        (cmp.predValid && !bestCmp.predValid) ||
+        (cmp.predValid === bestCmp.predValid && (cmp.constraintAliasF1?.f1 ?? 0) > (bestCmp.constraintAliasF1?.f1 ?? 0)) ||
+        (cmp.predValid === bestCmp.predValid &&
+          (cmp.constraintAliasF1?.f1 ?? 0) === (bestCmp.constraintAliasF1?.f1 ?? 0) &&
+          Number(cmp.actExact) + Number(cmp.targetFamilyExact) > Number(bestCmp.actExact) + Number(bestCmp.targetFamilyExact))
+      ));
+
+    if (isBetter) {
+      bestCmp = cmp;
+      bestRank = rank;
+      bestProposalIdx = i;
+    }
+  }
+
+  return {
+    ...bestCmp,
+    proposalCount: list.length,
+    bestProposalIdx,
+    tabHit,
+  };
+}
