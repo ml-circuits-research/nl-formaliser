@@ -8,6 +8,7 @@ import { unquoteSop } from '../src/contracts.mjs';
 import { createVerifier } from '../src/verify/check.mjs';
 import { createFormaliser } from '../src/index.mjs';
 import { compareCircuits, compareProposals } from './compare.mjs';
+import { createZ3SemanticEvaluator } from './z3-equiv.mjs';
 
 function extractContextFromSop(sopText, verifier) {
   let previous;
@@ -37,6 +38,7 @@ const {
   spellcheck = false,
   confidence = false,
   tabAgnostic = false,
+  z3Eval = false,
   maxProposals = 6,
   perTabTopK = 2,
 } = workerData;
@@ -45,6 +47,10 @@ const [verifier, formaliser] = await Promise.all([
   createVerifier({ knowledgeDir }),
   createFormaliser({ knowledgeDir, spellcheck }),
 ]);
+
+const z3Evaluator = z3Eval
+  ? await createZ3SemanticEvaluator({ kb: formaliser.kb, verifier })
+  : null;
 
 function buildKnownVocab(kb) {
   const vocab = new Set();
@@ -124,23 +130,30 @@ parentPort.on('message', async (msg) => {
       : null;
     const spellChanged = Boolean(res?.spell?.changed);
 
-    const cmp = tabAgnostic || proposals.length > 1
-      ? compareProposals({
+    const cmp = z3Evaluator
+      ? await z3Evaluator.evaluateProposalsZ3({
           text: row.text,
           tab: row.tab,
           goldSop: row.goldSop,
           proposals,
-          verifier,
-          knownVocab,
         })
-      : compareCircuits({
-          text: row.text,
-          tab: row.tab,
-          goldSop: row.goldSop,
-          predSop,
-          verifier,
-          knownVocab,
-        });
+      : tabAgnostic || proposals.length > 1
+        ? compareProposals({
+            text: row.text,
+            tab: row.tab,
+            goldSop: row.goldSop,
+            proposals,
+            verifier,
+            knownVocab,
+          })
+        : compareCircuits({
+            text: row.text,
+            tab: row.tab,
+            goldSop: row.goldSop,
+            predSop,
+            verifier,
+            knownVocab,
+          });
 
     // Strip heavy parse trees before IPC.
     const slimCmp = {
@@ -148,6 +161,7 @@ parentPort.on('message', async (msg) => {
       fairCategory: cmp.fairCategory,
       attribution: cmp.attribution,
       legendGrade: cmp.legendGrade,
+      mechanicalLegendGrade: cmp.mechanicalLegendGrade ?? cmp.legendGrade,
       equivRedundantId: cmp.equivRedundantId,
       inputHasTypo: cmp.inputHasTypo,
       goldAnnotationFlawed: cmp.goldAnnotationFlawed,

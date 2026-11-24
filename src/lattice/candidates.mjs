@@ -1315,9 +1315,28 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // 5b. Question predicates (1..2 tokens)
+    // 5b. Question predicates (1..2 tokens + indirect-question alternations up to 6 tokens from alternations.sop!)
     const prevQWord = i > 0 && tokens[i - 1].kind === 'word' ? tokens[i - 1].lower : '';
     const NOMINAL_Q_NOUNS = new Set(['list', 'count', 'total', 'average', 'max', 'min', 'difference', 'percent']);
+    if (kb?.grammar?.questionAlternations?.size) {
+      for (let len = 2; len <= 6 && i + len <= T; len++) {
+        const e = i + len - 1;
+        if (hasPunctInSpan(tokens, i, e)) break;
+        const ph = spanTextLower(tokens, i, e);
+        const qa = kb.grammar.questionAlternations.get(ph);
+        if (qa) {
+          emit({
+            kind: HYP_KINDS.PREDICATE,
+            startTok: i,
+            endTok: e,
+            licensed: [{ act: 'ask', mode: 'none', mood: qa.mood, question: qa.question }],
+            isKeepingVerb: false,
+            intrinsicConstraints: [],
+            cost: 0.5,
+          });
+        }
+      }
+    }
     for (let len = 1; len <= 2 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
@@ -2594,6 +2613,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             if (tabKeys.has('drawn.wear')) emitConstraint('drawn.wear', wr, i, e, { cost: 2 });
             if (tabKeys.has('part.variant')) emitConstraint('part.variant', wr, i, e, { cost: 2.5 });
             if (tabKeys.has('part.value')) emitConstraint('part.value', wr, i, e, { cost: 2.5 });
+          }
+
+          const fillVal = vocabMatch(kb?.domain?.fills, f);
+          if (fillVal && tabKeys.has('drawn.fill')) {
+            emitConstraint('drawn.fill', fillVal, i, e, { cost: len > 1 ? 1.5 : 2.5 });
           }
 
           const bp = vocabMatch(kb?.domain?.bodyParts, f);

@@ -468,6 +468,7 @@ function loadActions(parse, worldsDir, grammar) {
   const markings = new Map(); // verb -> Array<{ verb, act, marker, role }>
   const markingsByActMarker = new Map(); // `${act}|${marker}` -> Set<role>
   const actionSpecs = new Map(); // actionName -> { name, group, holds, opposite, undoneBy }
+  const similarActions = []; // Array<{ name, action }>
 
   const addVerbEntry = (text, entry) => {
     const key = String(text || '').toLowerCase().trim();
@@ -523,6 +524,25 @@ function loadActions(parse, worldsDir, grammar) {
         if (holds && acts.has(holds)) {
           addVerbEntry(name, { text: name, act: holds });
         }
+      } else if (w.type === 'k.actions.similar' && w.attrs.name?.[0] && w.attrs.action?.[0]) {
+        similarActions.push({
+          name: one(w, 'name').toLowerCase().trim(),
+          action: one(w, 'action').toLowerCase().trim(),
+        });
+      }
+    }
+  }
+
+  // Propagate `k.actions.similar` dynamically to `verbs` when target `action` is a valid request `act`
+  // or already resolves to a valid request `act` (without overwriting authoritative `verbs-*.sop` entries).
+  const directVerbKeys = new Set(verbs.keys());
+  for (const { name, action } of similarActions) {
+    if (!name || directVerbKeys.has(name) || name.split(/\s+/).length > 3) continue;
+    if (acts.has(action)) {
+      addVerbEntry(name, { text: name, act: action });
+    } else if (verbs.has(action)) {
+      for (const ent of verbs.get(action)) {
+        if (acts.has(ent.act)) addVerbEntry(name, { text: name, act: ent.act });
       }
     }
   }
@@ -674,6 +694,9 @@ function loadGrammar(parse, worldsDir) {
   const enShardPaths = listSopShards(enDir);
   const rawParts = [];
   const rawFixed = [];
+  const alternations = [];
+  const questionAlternations = new Map(); // prefix -> { mood, question }
+  const benefactiveVerbs = new Set();
 
   for (const fp of enShardPaths) {
     const fileName = fp.split('/').pop();
@@ -856,6 +879,43 @@ function loadGrammar(parse, worldsDir) {
         });
       } else if (w.type === 'w.lang.en.mode_map' && w.attrs.act?.[0] && w.attrs.mode?.[0]) {
         modeMaps.set(`${one(w, 'act')}.${one(w, 'mode')}`, one(w, 'means') ?? '');
+      } else if (w.type === 'w.lang.en.alternation' && w.attrs.from?.[0] && w.attrs.to?.[0]) {
+        const fromPat = one(w, 'from').toLowerCase().trim();
+        const toPat = one(w, 'to').toLowerCase().trim();
+        const family = one(w, 'family') ?? '';
+        const mode = one(w, 'mode') ?? '';
+        const ord = Number(one(w, 'n') ?? 999);
+        alternations.push({ name: one(w, 'name') ?? '', n: ord, family, mode, from: fromPat, to: toPat });
+
+        // 1) Request wrappers: from="<prefix> {x}" -> to="{x}" or from="{x} <suffix>" -> to="{x}"
+        if (toPat === '{x}' && (mode === 'request' || ['polite word', 'ability question', 'desire', 'suggestion'].includes(family))) {
+          if (fromPat.endsWith(' {x}')) {
+            const pref = fromPat.slice(0, -4).trim();
+            if (pref && pref.split(/\s+/).length >= 2) fillerPhrases.add(pref);
+          } else if (fromPat.startsWith('{x} ')) {
+            const suf = fromPat.slice(4).trim();
+            if (suf && suf.split(/\s+/).length >= 2) fillerPhrases.add(suf);
+          }
+        }
+        // 2) Indirect question alternations: from="tell me where {x}" -> to="where {x}" / "is {x} {y}"
+        if (mode === 'question' && family === 'question vs command') {
+          const mWh = fromPat.match(/^(.+?)\s+\{x\}$/);
+          const toWh = toPat.match(/^(what|where|who|which|how|when|whose)\s+\{x\}$/);
+          if (mWh && toWh) {
+            const qWord = toWh[1] === 'whose' ? 'who' : toWh[1];
+            questionAlternations.set(mWh[1].trim(), { mood: 'ask', question: qWord });
+          } else {
+            const mIf = fromPat.match(/^(.+?\s+(?:if|whether))\s+\{x\}\s+(?:is|are)\s+\{y\}$/);
+            if (mIf) {
+              questionAlternations.set(mIf[1].trim(), { mood: 'check', question: 'exists' });
+            }
+          }
+        }
+        // 3) Dative / benefactive shift ("draw me {y}" -> "draw {y} for me", "give me {y}" -> "give {y} to me")
+        if (family === 'dative shift') {
+          const mDat = fromPat.match(/^([a-z]+)\s+(?:me|us|them)\s+\{y\}$/);
+          if (mDat) benefactiveVerbs.add(mDat[1]);
+        }
       }
 
       if (w.type === 'w.lang.en.ellipsis.lead') {
@@ -1009,6 +1069,9 @@ function loadGrammar(parse, worldsDir) {
     modeMaps,
     ellipsis,
     calcOps,
+    alternations: alternations.sort((a, b) => a.n - b.n),
+    questionAlternations,
+    benefactiveVerbs,
     enShardsLoaded: enShardPaths.length,
   };
 }
@@ -1054,6 +1117,9 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   const genres = new Map();
   const units = new Map();
   const givenNames = new Set();
+  const fills = new Map();
+  const standIns = new Map(); // standInNoun -> canonicalDrawingNoun
+  const valueEquivGroups = []; // Array<string[]> from k.values core.word wires
 
   // Dynamic directory-based loading for all lightweight `k.*` worlds
   loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.colours', 'shards')), 'k.colours.colour', colours);
@@ -1064,9 +1130,26 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   colours.set('grey', colours.get('grey') ?? 'grey');
   colours.set('gray', colours.get('gray') ?? 'gray');
 
-  // k.values: shades, scales, comparatives, directions, positions — scan ALL shards in k.values dynamically!
+  // k.values: shades, scales, comparatives, directions, positions, fills, replies — scan ALL shards in k.values dynamically!
   for (const fp of listSopShards(join(worldsDir, 'k.values', 'shards'))) {
     for (const w of parseShard(parse, fp)) {
+      if (w.type === 'core.word' && w.attrs.means?.[0]) {
+        const mean = one(w, 'means').toLowerCase();
+        const syns = many(w, 'text').map((t) => t.toLowerCase());
+        if (syns.length > 0) valueEquivGroups.push([mean, ...syns]);
+      }
+      if (w.type === 'k.values.fill' && w.attrs.name?.[0]) {
+        const fn = one(w, 'name');
+        fills.set(fn.toLowerCase(), fn);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.fill.name' && w.attrs.means?.[0]) {
+        const fn = one(w, 'means');
+        for (const t of many(w, 'text')) fills.set(t.toLowerCase(), fn);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.reply.name') {
+        for (const t of many(w, 'text')) {
+          const tl = t.toLowerCase();
+          if (tl.includes(' ') && tl.split(/\s+/).length <= 4) grammar.fillerPhrases.add(tl);
+        }
+      }
       if (w.type === 'k.values.shade' && w.attrs.name?.[0]) {
         shades.add(one(w, 'name').toLowerCase());
       } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.shade.name') {
@@ -1337,6 +1420,17 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       }
     }
   }
+  // Dynamically load `k.objects.stand_in` shards (e.g. dinghy -> boat, campfire -> bonfire, pirate ship -> ship)
+  for (const fp of listSopShards(join(worldsDir, 'k.objects', 'shards')).filter((p) => p.includes('stand-in'))) {
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'k.objects.stand_in' && w.attrs.name?.[0] && w.attrs.drawing?.[0]) {
+        const nm = one(w, 'name').toLowerCase();
+        const dr = one(w, 'drawing').toLowerCase();
+        standIns.set(nm, dr);
+        if (!objects.has(nm)) objects.set(nm, nm);
+      }
+    }
+  }
 
   return {
     colours,
@@ -1346,6 +1440,9 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     comparatives,
     directions,
     positions,
+    fills,
+    standIns,
+    valueEquivGroups,
     objects,
     bodyParts,
     wearables,

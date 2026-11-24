@@ -140,7 +140,19 @@
       <li>Restrânge domeniul lui <code>asked_r</code> strict la <code>{-1} ∪ attrIds</code> pentru care există efectiv un <code>KEY_WORD</code> în propoziție.</li>
       <li>Calculează o margine superioară strânsă <code>R ≤ 4</code> pe numărul de sloturi de cereri din numărul real de separatori și predicate.</li>
     </ol>
-    <p>Rezultat: latență mediană <strong>~155 ms</strong> și p95 <strong>~1.8 s</strong> în Z3 WASM.</p>
+    <p>Rezultat: latență mediană <strong>~131 ms</strong> și p95 <strong>~783 ms</strong> în Z3 WASM (cu segmentatorul Z3 în 2 etape <code>src/smt/segment.mjs</code>).</p>
+
+    <h2>3.5 Evaluatorul Semantic MaxSMT în Z3 (<code>eval/z3-equiv.mjs</code>)</h2>
+    <p>
+      Pe lângă formalizare, Z3 este folosit și ca <strong>judecător semantic conform <code>LEGEND.md</code> v1.2</strong>
+      (<code>--z3-eval</code>): codifică o problemă de aliniere bipartită injectivă <code>map_g ∈ {-1 .. |P|-1}</code>
+      între cererile Gold și Pred, unificând conversiile de unități (<code>1 hour ≡ 60 minutes</code>),
+      clasele de echivalență din <code>k.values</code> și <code>k.objects.stand_in</code> (<code>dinghy ≡ boat</code>),
+      reprezentările canonice (<code>target.name ↔ *.name</code>, <code>target.count ↔ *.count</code>),
+      alternativele defensibile fără stare live (<code>place ↔ make</code>, <code>make ↔ change</code>) și
+      rafinarea validă peste Gold cu <code>unread</code> / cuvinte neacoperite, păstrând însă interdicția strictă
+      pe acțiuni opuse (<code>remove ≠ make</code> → <code>L1a</code>) și valori contradictorii (<code>L1c</code>).
+    </p>
 
     <footer>
       Continuă cu <a href="generality.html">4. Generalitate &amp; Adăugarea de Lumi Noi →</a>

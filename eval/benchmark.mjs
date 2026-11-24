@@ -10,6 +10,7 @@ import { Worker } from 'node:worker_threads';
 import { TABS, unquoteSop } from '../src/contracts.mjs';
 import { createVerifier } from '../src/verify/check.mjs';
 import { compareCircuits, compareProposals } from './compare.mjs';
+import { createZ3SemanticEvaluator } from './z3-equiv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -456,7 +457,7 @@ function summarizeGroup(records) {
   };
 }
 
-async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck = false, confidence = false, tabAgnostic = false, maxProposals = 6, perTabTopK = 2 }) {
+async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck = false, confidence = false, tabAgnostic = false, z3Eval = false, maxProposals = 6, perTabTopK = 2 }) {
   const n = rows.length;
   const results = new Array(n);
   if (n === 0) return results;
@@ -488,7 +489,7 @@ async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellche
 
     for (let i = 0; i < numWorkers; i++) {
       const w = new Worker(WORKER_FILE, {
-        workerData: { knowledgeDir, source, spellcheck, confidence, tabAgnostic, maxProposals, perTabTopK },
+        workerData: { knowledgeDir, source, spellcheck, confidence, tabAgnostic, z3Eval, maxProposals, perTabTopK },
       });
       pool.push(w);
       w.on('message', (msg) => {
@@ -539,13 +540,14 @@ async function main() {
   const spellcheck = Boolean(args.spellcheck);
   const confidence = Boolean(args.confidence);
   const tabAgnostic = Boolean(args['tab-agnostic']);
-  const maxProposals = Number(args['max-proposals'] ?? 6);
+  const z3Eval = Boolean(args['z3-eval']);
+  const maxProposals = Number(args['max-proposals'] ?? 8);
   const perTabTopK = Number(args['per-tab-topk'] ?? 2);
   const verbose = Boolean(args.verbose);
   const jsonOut = typeof args.json === 'string' ? resolve(args.json) : null;
 
   const rows = loadRows({ source, datasetDir, officialDir, knowledgeDir, tabs, samplePct, limit, seed });
-  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers}, spellcheck=${spellcheck}, confidence=${confidence}, tabAgnostic=${tabAgnostic}, maxProposals=${maxProposals})`);
+  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers}, spellcheck=${spellcheck}, confidence=${confidence}, tabAgnostic=${tabAgnostic}, z3Eval=${z3Eval}, maxProposals=${maxProposals})`);
 
   let verifier = null;
   let formaliseFn = null;
@@ -603,7 +605,7 @@ async function main() {
   const errorClusters = new Map();
 
   if (workers > 1) {
-    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck, confidence, tabAgnostic, maxProposals, perTabTopK });
+    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck, confidence, tabAgnostic, z3Eval, maxProposals, perTabTopK });
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const { predSop, cmp, conf, spellChanged, ms } = resList[i];
@@ -716,6 +718,10 @@ async function main() {
   console.log(`| **L4 – Reasonable alternative** | Intent & essential details preserved (alias / Z3>Gold) | ${legendCounts.L4} | ${pct(legendCounts.L4, records.length)} |`);
   console.log(`| **Reasonable total (L3 + L4)** | Combined reasonable readings | **${reasonableTotal}** | **${pct(reasonableTotal, records.length)}** |`);
   console.log(`| *Dataset error flag* (separate) | Reference annotation has check.mjs defects | ${datasetErrorCount} | ${pct(datasetErrorCount, records.length)} |`);
+  if (z3Eval) {
+    const mechReasonable = records.filter((r) => ['L3', 'L4'].includes(r.cmp.mechanicalLegendGrade)).length;
+    console.log(`| *Mechanical comparator L3 + L4* (baseline) | Strict string/tuple comparator on same proposals | ${mechReasonable} | ${pct(mechReasonable, records.length)} |`);
+  }
   if (tabAgnostic) {
     const avgProps = records.reduce((s, r) => s + (r.cmp.proposalCount ?? 1), 0) / Math.max(1, records.length);
     const tabHits = records.filter((r) => r.cmp.tabHit).length;

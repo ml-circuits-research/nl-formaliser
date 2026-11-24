@@ -887,7 +887,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // Because w.lang.en classifies them as `isGrammar=true`, explicitly reward Z3 for grounding them
   // instead of silently dropping "what's", "how many", "not", "without", "every one", "all"!
   // Note: without '?', bare "when/where/why/how" are often subordinate clauses, and ", which/who/that" after a comma is a RELATIVE clause!
-  const STRONG_WH_RE = /^(what's|what is|what are|which|how many|how much|is there|are there|list|count|describe)\b/i;
+  const STRONG_WH_RE = /^(what's|what is|what are|which|how many|how much|is there|are there|list|count|describe|(?:tell me|do you know|i want to know|i would like to know|i wonder)\s+(?:what|where|who|which|how|when|whose|if|whether))\b/i;
   const ANY_WH_RE = /^(what|what's|which|where|when|who|why|how|how many|how much|is there|are there|any)\b/i;
   for (const p of preds) {
     const isAskPred = (p.licensed ?? []).some((l) => l.act === 'ask');

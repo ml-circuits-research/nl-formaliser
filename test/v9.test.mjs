@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createFormaliser } from '../src/index.mjs';
 import { regroundSopToRaw } from '../src/pipeline.mjs';
 import { estimateConfidence } from '../src/confidence.mjs';
+import { createZ3SemanticEvaluator } from '../eval/z3-equiv.mjs';
 
 let formaliser;
 
@@ -134,4 +135,53 @@ test('v9: tab-agnostic multi-proposal mode (tab=null) emits valid diverse readin
   assert.equal(res2.ok, true);
   const tabs2 = new Set(res2.proposals.map((p) => p.tab));
   assert.ok(tabs2.size >= 2, `Expected multiple compatible worlds for ambiguous "make it red", got ${[...tabs2].join(',')}`);
+});
+
+test('v9.5: dynamic SOP alternations, k.actions.similar, k.objects.stand_in, and Z3 Semantic Evaluator (z3-equiv.mjs)', async () => {
+  // 1. Verify newly loaded dynamic SOP modalities
+  assert.ok(formaliser.kb.grammar.alternations.length >= 350, `Expected >=350 alternations, got ${formaliser.kb.grammar.alternations.length}`);
+  assert.ok(formaliser.kb.grammar.questionAlternations.size >= 30);
+  assert.ok(formaliser.kb.grammar.benefactiveVerbs.has('draw'));
+  assert.ok(formaliser.kb.domain.standIns.get('dinghy') === 'boat');
+  assert.ok(formaliser.kb.domain.fills.get('filled in') === 'solid');
+
+  // Indirect question alternation from alternations.sop ("tell me where the house is")
+  const iq = await formaliser.formalise('tell me where the house is', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(iq.ok, true);
+  assert.equal(iq.check.ok, true);
+  assert.ok(iq.sop.includes('act=ask') && iq.sop.includes('question=where'), iq.sop);
+
+  // Stand-in drawable noun ("add a dinghy")
+  const st = await formaliser.formalise('add a dinghy', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(st.ok, true);
+  assert.equal(st.check.ok, true);
+  assert.ok(st.sop.includes('sort=dinghy'), st.sop);
+
+  // 2. Verify Z3 Semantic Evaluator (L4 on unit/stand-in/refinement equivalence; strict L1a/L1c/L1d on real errors!)
+  const z3Eval = await createZ3SemanticEvaluator({ kb: formaliser.kb, verifier: formaliser.verifier });
+
+  // Unit + span-head + act equivalence: 1 hour === 60 minutes, "Work 2 calendar" === "Work 2" -> L4!
+  const textCal = 'Please put Review on the Work 2 calendar on 2026-12-02 at 10:00 UTC for 1 hour';
+  const goldCal = `@f1 w.request.filler text=Please\n@r1 w.request.request act=make mood=do words="put Review on the Work 2 calendar on 2026-12-02 at 10:00 UTC for 1 hour" predicate=put\n@r1.t w.request.target request=$r1 family=meeting mode=new determiner=indefinite name=Review\n@r1.c1 w.request.constraint request=$r1 on=attribute attribute=meeting.calendar value="Work 2" key_word=calendar\n@r1.c2 w.request.constraint request=$r1 on=attribute attribute=meeting.day value="2026-12-02"\n@r1.c3 w.request.constraint request=$r1 on=attribute attribute=meeting.time value="10:00"\n@r1.c4 w.request.constraint request=$r1 on=attribute attribute=meeting.timezone value=UTC\n@r1.c5 w.request.constraint request=$r1 on=attribute attribute=meeting.length value="60" measure=60 unit=minute measure_words="1 hour"`;
+  const realCal = await formaliser.formalise(textCal, { tab: 'calendar', spellcheck: false });
+  const rUnit = await z3Eval.evaluatePairZ3({ text: textCal, tab: 'calendar', goldSop: goldCal, predSop: realCal.sop });
+  assert.equal(rUnit.legendGrade, 'L4', `Expected L4 for real formaliser output on 1-hour meeting, got ${rUnit.legendGrade}`);
+
+  // Opposing act (remove vs make) MUST remain strict L1a!
+  const rBadAct = await z3Eval.evaluatePairZ3({
+    text: 'delete the circle',
+    tab: 'drawing',
+    goldSop: `@r1 w.request.request act=remove mood=do predicate=delete\n@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite fill=description sort=circle`,
+    predSop: `@r1 w.request.request act=make mood=do predicate=delete\n@r1.t w.request.target request=$r1 family=drawn mode=new determiner=indefinite sort=circle`,
+  });
+  assert.equal(rBadAct.legendGrade, 'L1a', 'Opposing act (delete -> make) must be graded L1a per LEGEND.md');
+
+  // Wrong colour value (red vs blue) MUST remain strict L1c!
+  const rBadVal = await z3Eval.evaluatePairZ3({
+    text: 'make the circle blue',
+    tab: 'drawing',
+    goldSop: `@r1 w.request.request act=change mood=do predicate=make\n@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite fill=description sort=circle\n@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.colour value=blue`,
+    predSop: `@r1 w.request.request act=change mood=do predicate=make\n@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite fill=description sort=circle\n@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.colour value=red`,
+  });
+  assert.ok(['L0', 'L1c'].includes(rBadVal.legendGrade), `Wrong value must never get L4, got ${rBadVal.legendGrade}`);
 });
