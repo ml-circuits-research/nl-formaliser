@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logica Z3 &amp; Axiome SMT — nl-formaliser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a href="index.html">1. Prezentare generală</a></li>
+      <li><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a class="active" href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>3. Logica Z3 &amp; Axiome SMT-LIB2</h1>
+    <p>
+      Toată decizia globală a sistemului este formulată ca o problemă <strong>Weighted Partial MaxSMT</strong>
+      în SMT-LIB2 (<code>assert</code> pentru legile hard ale schemei <code>w.request</code> +
+      <code>assert-soft ... :weight W</code> pentru preferințele lingvistice și de cost).
+    </p>
+
+    <h2>3.1 Tipuri Algebrice (<code>smt/prelude.smt2</code>)</h2>
+    <p>
+      Fiecare enumerare din <code>sop-knowledge-worlds/docs/worlds/w.request/schema.sop</code> este reprezentată nativ
+      ca un <em>Algebraic Datatype</em> în Z3, eliminând din start valorile ilegale:
+    </p>
+    <ul>
+      <li><code>Act</code> (19 constructori: <code>ACT_MAKE</code>, <code>ACT_CHANGE</code>, <code>ACT_PLACE</code>, <code>ACT_REMOVE</code>, <code>ACT_ASK</code>, <code>ACT_CONNECT</code>, <code>ACT_GROUP</code>, <code>ACT_TAKE_APART</code>, <code>ACT_PICK</code>, <code>ACT_COPY</code>, <code>ACT_UNDO</code>, <code>ACT_REDO</code>, <code>ACT_SAVE</code>, <code>ACT_LOAD</code>, <code>ACT_SEND</code>, <code>ACT_DESELECT</code>, <code>ACT_GREET</code>, <code>ACT_THANK</code>, <code>ACT_FAREWELL</code>)</li>
+      <li><code>ActMode</code> (9 constructori: <code>MODE_NONE</code>, <code>MODE_ARRANGE</code>, <code>MODE_MERGE</code>, <code>MODE_UNGROUP</code>, <code>MODE_SPLIT</code>, <code>MODE_DISCONNECT</code>, <code>MODE_REVERSE</code>, <code>MODE_SET</code>, <code>MODE_REPEAT</code>)</li>
+      <li><code>Mood</code> (<code>MOOD_DO</code>, <code>MOOD_ASK</code>, <code>MOOD_CHECK</code>, <code>MOOD_PROPOSE</code>)</li>
+      <li><code>Question</code> (20 tipuri: <code>Q_NONE</code>, <code>Q_COUNT</code>, <code>Q_EXISTS</code>, <code>Q_LIST</code>, <code>Q_WHAT</code>, <code>Q_WHICH</code>, ...)</li>
+      <li><code>TargetMode</code> (<code>TM_NEW</code>, <code>TM_EXISTING</code>, <code>TM_BOUND</code>), <code>TargetFill</code> (6), <code>Det</code> (6), <code>Phase</code> (<code>PH_RESULT</code>, <code>PH_SELECTOR</code>), <code>Want</code> (<code>W_YES</code>, <code>W_NO</code>, <code>W_NOT_ALL</code>).</li>
+    </ul>
+
+    <h2>3.2 Legile Hard (<code>smt/axioms.smt2</code> + <code>src/smt/encode.mjs</code>)</h2>
+    <p>Nicio soluție nu poate încălca aceste axiome — acesta este motivul pentru care validitatea <code>check.mjs</code> este <strong>100,0%</strong> pe toate cele 2.800+ propoziții testate:</p>
+
+    <pre><code>; Legea Necesității Lookup-ului (check.mjs):
+; Orice țintă existentă neidentificată de cuvinte și care nu e fill=all MUST emite lookup!
+(define-fun lookup-law ((tm TargetMode) (tf TargetFill) (identified Bool) (lk Bool)) Bool
+  (=> (and (not (= tm TM_NEW)) (not (= tf TF_ALL)) (not identified)) lk)
+)
+
+; Coerența Act -> TargetMode:
+; act=make creează întotdeauna o țintă nouă; change/remove/place/ask operează pe existentă/bound.
+(define-fun valid-act-target-mode ((a Act) (tm TargetMode)) Bool
+  (and
+    (=> (= a ACT_MAKE) (= tm TM_NEW))
+    (=> (or (= a ACT_CHANGE) (= a ACT_REMOVE) (= a ACT_PLACE) (= a ACT_ASK) ...)
+        (not (= tm TM_NEW)))
+  )
+)
+
+; Legea fazei pe ținte noi: pe TM_NEW, constrângerile non-ancoră sunt PH_RESULT.
+(define-fun phase-new-law ((tm TargetMode) (is_anchor Bool) (ph Phase)) Bool
+  (=> (and (= tm TM_NEW) (not is_anchor)) (= ph PH_RESULT))
+)</code></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Invariant Hard în Z3</th>
+          <th>Ce garantează</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Acoperire &amp; Non-suprapunere</strong></td>
+          <td>Fiecare token de conținut este acoperit de cel puțin un candidat (<code>((_ at-most 1) ...)</code> pe fiecare poziție de token previne suprapunerile).</td>
+        </tr>
+        <tr>
+          <td><strong>Separare strictă multi-request</strong></td>
+          <td>Pentru cereri active <code>r</code> și <code>r+1</code>: <code>(&lt; rend_r rstart_{r+1})</code> — elimină 100% defectele de tip <code>gold_hull_overlap</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Puritatea filler-elor</strong></td>
+          <td>Orice <code>FILLER</code> care conține cuvinte de conținut (ex. <code>"That would help"</code>, <code>"I appreciate it"</code>) este constrâns hard cu <code>span-outside-req</code>, iar emitter-ul scoate exact <code>words=...</code> pe cerere.</td>
+        </tr>
+        <tr>
+          <td><strong>Circuite pure-filler (0 cereri)</strong></td>
+          <td><code>active_1</code> este opțional <em>doar</em> când toți tokenii de conținut pot fi acoperiți de <code>FILLER</code> (ex. <code>"thanks, that works"</code> → doar <code>@f1</code>, 0 cereri).</td>
+        </tr>
+        <tr>
+          <td><strong>Legarea <code>KEY_WORD</code> &amp; <code>asked</code></strong></td>
+          <td>Orice <code>KEY_WORD</code> selectat trebuie folosit de o constrângere compatibilă (dist ≤ 5, fără a traversa <code>;</code> sau <code>.</code>), de <code>asked_r</code> (întrebare) sau ca <code>name_words</code> (<code>called</code>/<code>labelled</code>).</td>
+        </tr>
+        <tr>
+          <td><strong>Legea verbelor de păstrare (<code>keep</code>/<code>leave</code>)</strong></td>
+          <td>Când <code>act=remove</code> vine dintr-un verb de păstrare și există un selector, cel puțin un selector trebuie să aibă <code>want=no</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Compatibilitate de familie</strong></td>
+          <td>Orice constrângere <code>fam.attr</code> selectată în cererea <code>r</code> forțează <code>fam_r</code> să fie compatibilă cu <code>fam</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Disciplina fragmentelor fără verb</strong></td>
+          <td>Când <code>ppos_r = -1</code>, sunt permise doar <code>make</code>, <code>change</code>, <code>place</code>, <code>ask</code> cu <code>mode=none</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Non-duplicare</strong></td>
+          <td>Două constrângeri identice (același atribut, valoare, operator, fază, polarity) nu pot fi selectate simultan în aceeași cerere.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3.3 Obiectivul MaxSMT (Ponderi Soft)</h2>
+    <p>Când mai multe interpretări sunt formal valide, Z3 maximizează scorul global combinând:</p>
+    <ul>
+      <li><strong>Costul candidatului (<code>-cost</code>)</strong>: potriviri exacte multi-cuvânt (<code>1..2</code>) &lt; valori închise / verbe (<code>2..4</code>) &lt; open-spans (<code>10 + 4*(len-1)</code>) &lt; <code>UNREAD</code> (<code>120</code>).</li>
+      <li><strong>Dezambiguizarea determinerului &amp; rezultativului</strong>:
+        <ul>
+          <li><code>a/an</code> → <code>TM_NEW</code> (+18); <code>the/this/my</code> → <code>not TM_NEW</code> (+18);</li>
+          <li>construcția rezultativă <code>make &lt;target&gt; &lt;post-target prop&gt;</code> fără articol nehotărât → <code>act=change, mode=existing</code> (+22) — separă exact <code>"make a blue house"</code> de <code>"make the house blue"</code> și <code>"make boat 67 pixels wide"</code>!</li>
+        </ul>
+      </li>
+      <li><strong>Acoperirea cue-urilor gramaticale semantic active</strong>: întrebări <code>WH</code> (+45), pronume obiect după verb (<code>make it bold</code>, +24), negații (<code>not</code>/<code>without</code>, +24), cuantificatori universali (<code>all</code>/<code>every</code>, +18).</li>
+      <li><strong>Alinierea act–constrângere</strong>: <code>place</code> (+10) pe constrângeri spațiale fără determiner nehotărât; <code>change</code> (+10) pe atribute; <code>*.direction</code> preferat peste <code>*.at</code> sub <code>act=place</code> fără prepoziție statică (<code>"move the boat left"</code> vs <code>"on the left"</code>).</li>
+      <li><strong>Economia cererilor și separatori puternici</strong>: penalizare <code>-28</code> per cerere suplimentară, compensată de penalizare <code>-45</code> dacă o singură cerere traversează un separator puternic (<code>then</code>, <code>afterwards</code>, <code>.</code>) cu verbe pe ambele părți.</li>
+      <li><strong>Legarea <code>key_words</code> &amp; adiacență</strong>: bonus +14 pentru constrângeri cu <code>key_words</code> legat și +10 la distanță 1.</li>
+    </ul>
+
+    <h2>3.4 Optimizări de performanță (Elidare de variabile)</h2>
+    <p>
+      Fără elidare, o propoziție de 15 tokeni producea &gt;300 variabile Z3 și 400–4000 ms latență.
+      <code>encode.mjs</code> aplică 4 reduceri exacte (fără nicio pierdere de expresivitate):
+    </p>
+    <ol>
+      <li>Nu creează variabile <code>sel_c</code> pentru tokeni <code>GRAMMAR</code> simpli sau <code>UNREAD</code> multi-token (contopirea <code>UNREAD</code> adiacent se face determinist în emitter).</li>
+      <li>Elidează <code>ph_c</code> când faza este fixă, <code>wnt_c</code> când nu există niciun <code>NEG</code> în fereastra 1..4 din stânga, și <code>kw_c</code> când nu există niciun <code>KEY_WORD</code> compatibil.</li>
+      <li>Restrânge domeniul lui <code>asked_r</code> strict la <code>{-1} ∪ attrIds</code> pentru care există efectiv un <code>KEY_WORD</code> în propoziție.</li>
+      <li>Calculează o margine superioară strânsă <code>R ≤ 4</code> pe numărul de sloturi de cereri din numărul real de separatori și predicate.</li>
+    </ol>
+    <p>Rezultat: latență mediană <strong>~155 ms</strong> și p95 <strong>~1.8 s</strong> în Z3 WASM.</p>
+
+    <footer>
+      Continuă cu <a href="generality.html">4. Generalitate &amp; Adăugarea de Lumi Noi →</a>
+    </footer>
+  </main>
+</body>
+</html>

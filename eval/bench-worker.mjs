@@ -38,6 +38,24 @@ const [verifier, formaliser] = await Promise.all([
   createFormaliser({ knowledgeDir }),
 ]);
 
+function buildKnownVocab(kb) {
+  const vocab = new Set();
+  for (const w of kb?.grammar?.grammarWords ?? []) vocab.add(w);
+  for (const w of kb?.grammar?.fillerWords ?? []) vocab.add(w);
+  for (const w of kb?.verbs?.keys() ?? []) if (!w.includes(' ')) vocab.add(w);
+  for (const tabObj of Object.values(kb?.tabs ?? {})) {
+    for (const w of tabObj.keyWordIndex?.keys() ?? []) if (!w.includes(' ')) vocab.add(w);
+    for (const w of tabObj.closedValueIndex?.keys() ?? []) if (!w.includes(' ')) vocab.add(w);
+    for (const w of tabObj.familyWords?.keys() ?? []) if (!w.includes(' ')) vocab.add(w);
+  }
+  for (const map of [kb?.domain?.colours, kb?.domain?.shapes, kb?.domain?.objects, kb?.domain?.bodyParts, kb?.domain?.wearables, kb?.domain?.feelings, kb?.domain?.scenes, kb?.domain?.layouts, kb?.domain?.styles, kb?.domain?.diagrams, kb?.domain?.charts, kb?.domain?.genres, kb?.domain?.units]) {
+    for (const w of map?.keys?.() ?? []) if (!w.includes(' ')) vocab.add(w);
+  }
+  return vocab;
+}
+
+const knownVocab = buildKnownVocab(formaliser.kb);
+
 parentPort.postMessage({ type: 'ready' });
 
 parentPort.on('message', async (msg) => {
@@ -86,12 +104,16 @@ parentPort.on('message', async (msg) => {
       goldSop: row.goldSop,
       predSop,
       verifier,
+      knownVocab,
     });
 
     // Strip heavy parse trees before IPC.
     const slimCmp = {
       verdict: cmp.verdict,
       fairCategory: cmp.fairCategory,
+      attribution: cmp.attribution,
+      equivRedundantId: cmp.equivRedundantId,
+      inputHasTypo: cmp.inputHasTypo,
       goldAnnotationFlawed: cmp.goldAnnotationFlawed,
       goldIssueReasons: cmp.goldIssueReasons,
       predErrorReasons: cmp.predErrorReasons,

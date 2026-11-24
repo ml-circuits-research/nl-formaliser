@@ -291,4 +291,38 @@ test('compareCircuits classifies pred_better_than_gold on hull-overlap example a
   const partialCmp = compareCircuits({ text: partialText, tab: 'drawing', goldSop: partialGold, predSop: partialPred, verifier });
   assert.equal(partialCmp.predValid, true);
   assert.equal(partialCmp.fairCategory, 'pred_partial');
+  assert.equal(partialCmp.attribution, 'fail_z3_constraints_or_target');
+});
+
+test('compareCircuits root-cause attribution separates redundant Gold id, input typos, and Z3 errors', () => {
+  // 1. equiv_gold_redundant_id: Gold echoes target.name in calendar.id
+  const calText = 'bin the Choir calendar';
+  const calGold = [
+    '@r1 w.request.request act=remove mood=do predicate=bin',
+    '@r1.t w.request.target request=$r1 family=calendar mode=existing determiner=definite fill=written name=Choir family_words=calendar',
+    '@r1.c1 w.request.constraint request=$r1 on=attribute attribute=calendar.id value=Choir operator=eq phase=selector',
+  ].join('\n');
+  const calPred = [
+    '@r1 w.request.request act=remove mood=do predicate=bin',
+    '@r1.t w.request.target request=$r1 family=calendar mode=existing determiner=definite fill=written name=Choir family_words=calendar',
+  ].join('\n');
+  const calCmp = compareCircuits({ text: calText, tab: 'calendar', goldSop: calGold, predSop: calPred, verifier });
+  assert.equal(calCmp.equivRedundantId, true);
+  assert.equal(calCmp.attribution, 'equiv_gold_redundant_id');
+
+  // 2. fail_input_typo: clean Gold normalizing "atble" -> sort=table, pred leaves "atble" unread
+  const typoText = 'copy the atble';
+  const typoGold = [
+    '@r1 w.request.request act=copy mood=do predicate=copy',
+    '@r1.t w.request.target request=$r1 family=node mode=existing determiner=definite fill=description sort=table sort_words=atble',
+  ].join('\n');
+  const typoPred = [
+    '@r1 w.request.request act=copy mood=do predicate=copy',
+    '@r1.t w.request.target request=$r1 family=node mode=existing determiner=definite fill=context',
+    '@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page',
+    '@r1.u1 w.request.unread request=$r1 text=atble',
+  ].join('\n');
+  const typoCmp = compareCircuits({ text: typoText, tab: 'diagram', goldSop: typoGold, predSop: typoPred, verifier, knownVocab: new Set(['copy', 'table']) });
+  assert.equal(typoCmp.inputHasTypo, true);
+  assert.equal(typoCmp.attribution, 'fail_input_typo');
 });

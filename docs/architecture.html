@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arhitectură &amp; Pipeline — nl-formaliser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a href="index.html">1. Prezentare generală</a></li>
+      <li><a class="active" href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>2. Arhitectură &amp; Pipeline</h1>
+    <p>
+      Sistemul separă strict <strong>achiziția cunoștințelor</strong>, <strong>generarea nefiltrată de ipoteze</strong>,
+      <strong>rezolvarea globală în Z3</strong>, <strong>emisia deterministă</strong> și <strong>verificarea formală</strong>.
+      Niciun modul JS nu are voie să ia decizii ad-hoc de dezambiguizare semantică (precum „dacă textul conține X, alege actul Y”).
+    </p>
+
+    <pre><code>Text natural + tab (+ previous, clock)
+        │
+        ▼
+[1] Knowledge Loader        src/kb/load-worlds.mjs (~180 ms la pornire)
+    Citește dinamic: w.request/shards/keys.sop, k.actions, w.lang.en,
+    vocab-kinds.json și sharde de domeniu din sop-knowledge-worlds.
+        │
+        ▼
+[2] Lexical Lattice         src/lattice/{tokenize,morph,candidates}.mjs (~1–3 ms)
+    Tokenizare cu offset-uri exacte + enumerare NEFILTRATĂ a tuturor
+    candidaților posibili (11 tipuri HYP_KINDS) fără a elimina ambiguitățile.
+        │
+        ▼
+[3] Z3 MaxSMT Core          smt/{prelude,axioms}.smt2 + src/smt/{encode,z3-runner}.mjs
+    Encodează laticea + axiomele w.request în SMT-LIB2; Z3 decide global:
+    • numărul de cereri (0..R) și granițele exacte [rstart_r, rend_r]
+    • act, mode, mood, question, asked
+    • target family, mode, fill, determiner, lookup
+    • legarea key_words, faza selector vs. result, negația, unread fallback
+    • opțional: top-K modele alternative prin blocking clauses
+        │
+        ▼
+[4] Deterministic Emitter   src/emit/to-sop.mjs (&lt;1 ms)
+    Proiectează 1-to-1 modelul Z3 în fire SOP Lang canonice (respecând
+    regulile de neredundanță și contopirea tokenilor unread adiacenți).
+        │
+        ▼
+[5] Formal Verifier         src/verify/check.mjs (~1–3 ms)
+    Validare completă cu sopworld + w.request + k.actions + w.lang.en
+    (paritate 100% cu webmeet-dataset/tools/check.mjs).</code></pre>
+
+    <h2>Contractul strict dintre straturi</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Strat</th>
+          <th>Fișiere</th>
+          <th>Ce FACE</th>
+          <th>Ce NU are voie să facă</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. KB Loader</strong></td>
+          <td><code>src/kb/load-worlds.mjs</code></td>
+          <td>Parsează shardele <code>.sop</code> și <code>vocab-kinds.json</code>; construiește indecși rapizi (<code>keyWordIndex</code>, <code>closedValueIndex</code>, <code>familyWords</code>, <code>verbs</code>, <code>cues</code>).</td>
+          <td>Nu procesează propoziții de intrare și nu decide interpretări.</td>
+        </tr>
+        <tr>
+          <td><strong>2. Lexical Lattice</strong></td>
+          <td><code>src/lattice/tokenize.mjs</code><br><code>src/lattice/morph.mjs</code><br><code>src/lattice/candidates.mjs</code></td>
+          <td>Enumerează <em>toate</em> ipotezele plauzibile pe span-uri de tokeni (inclusiv interpretări concurente pe același cuvânt: ex. <code>make</code> → <code>make</code> și <code>change</code>; <code>blue</code> → <code>drawn.colour</code> și <code>part.colour</code>; <code>nose</code> → <code>part</code> și <code>drawn</code>).</td>
+          <td>Nu elimină ambiguități globale, nu decide dacă o cerere se sparge în două, nu decide <code>lookup</code> sau <code>phase</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>3. Z3 Solver Core</strong></td>
+          <td><code>smt/prelude.smt2</code><br><code>smt/axioms.smt2</code><br><code>src/smt/encode.mjs</code><br><code>src/smt/z3-runner.mjs</code></td>
+          <td>Impune axiomele logice <code>w.request</code> și optimizează obiectivul MaxSMT global. Returnează modelul optim + opțional <code>topK</code> alternative + <code>unsatCore()</code> pentru debugging.</td>
+          <td>Nu conține patch-uri pe propoziții individuale; folosește doar proprietăți generale (structurale, poziționale, de tip și de schemă).</td>
+        </tr>
+        <tr>
+          <td><strong>4. Emitter</strong></td>
+          <td><code>src/emit/to-sop.mjs</code></td>
+          <td>Formatează modelul Z3 în SOP Lang canonic (citește strict variabilele <code>sel_*</code>, <code>own_*</code>, <code>act_*</code>, <code>fam_*</code>, <code>kw_*</code>, <code>ph_*</code>, <code>wnt_*</code>).</td>
+          <td>Nu inventează constrângeri, nu modifică actul sau familia decisă de Z3.</td>
+        </tr>
+        <tr>
+          <td><strong>5. Verifier &amp; Eval</strong></td>
+          <td><code>src/verify/check.mjs</code><br><code>eval/compare.mjs</code><br><code>eval/benchmark.mjs</code></td>
+          <td>Verifică validitatea formală SOP Lang + grounding și atribuie diferențele între defecte Gold, typo-uri și erori Z3.</td>
+          <td>Nu intervine în generarea formalizării (decât opțional ca post-verificare <code>--verify</code>).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Cele 11 tipuri de ipoteze din latice (<code>HYP_KINDS</code>)</h2>
+    <p>Fiecare candidat generat de <code>buildLattice</code> are un interval exact de tokeni <code>[startTok, endTok]</code>, offset-uri de caractere <code>[start, end]</code>, un cost prior <code>cost</code> și un tip din:</p>
+    <ul>
+      <li><code>FILLER</code> — expresii de politețe, interjecții, remarci conversaționale (<code>please</code>, <code>thanks</code>, <code>That would help</code>, <code>I appreciate it</code>).</li>
+      <li><code>GRAMMAR</code> — cuvinte funcționale din <code>w.lang.en</code> (articole, prepoziții, auxiliare) — nu necesită wire dedicat, deci sunt elidate din variabilele Z3.</li>
+      <li><code>SEP</code> — separatori de clauze (<code>,</code>, <code>;</code>, <code>.</code>, <code>and</code>, <code>then</code>, <code>and then</code>, <code>afterwards</code>).</li>
+      <li><code>PREDICATE</code> — verbe din <code>k.actions</code> (inclusiv phrasal verbs separabile: <code>turn ... into</code>, <code>get rid of</code>), trigger-e de întrebare (<code>what's</code>, <code>which</code>, <code>how many</code>) și cue-uri de reacție (<code>put it back</code>, <code>do it again</code>).</li>
+      <li><code>TARGET_SORT</code> — substantiv de specie/tip din lumea activă (<code>house</code>, <code>nose</code>, <code>circle</code>, <code>report</code>), cu determiner și opțional număr/ordinal/cuantificator.</li>
+      <li><code>TARGET_FAMILY</code> — cuvânt de familie (<code>chart</code>, <code>node</code>, <code>meeting</code>, <code>calendar</code>, <code>section</code>, <code>block</code>).</li>
+      <li><code>TARGET_REF</code> — pronume (<code>it</code>, <code>them</code>), cuantificator universal (<code>all</code>, <code>everything</code>), pas de jurnal (<code>last change</code>), cod (<code>n1</code>, <code>o1 and o2</code>), nume propriu (<code>Review</code>, <code>Sri</code>, <code>Work 4</code>) sau text citat.</li>
+      <li><code>KEY_WORD</code> — cuvânt care numește o cheie de atribut (<code>preset</code>, <code>wide</code>, <code>saying</code>, <code>containing</code>, <code>name</code>, <code>x axis</code>, <code>called</code>).</li>
+      <li><code>CONSTRAINT</code> — atribuire cheie–valoare (valoare închisă, culoare, scară/grad, comparativ delta, relație spațială/temporală, ancoră, coordonate <code>x,y</code>, număr+unitate, dată/oră/timezone, listă de valori sau open-span ancorat).</li>
+      <li><code>NEG</code> — operatori de negație (<code>not</code>, <code>without</code>, <code>instead of</code> → <code>want=no</code>; <code>not all</code>, <code>not only</code> → <code>want=not_all</code>).</li>
+      <li><code>UNREAD</code> — fallback explicit (cost mare = <code>120</code>) care garantează că Z3 este întotdeauna <code>SAT</code> chiar și pe cuvinte necunoscute sau typo-uri.</li>
+    </ul>
+
+    <h2>Runtime Z3 WASM persistent &amp; paralelism</h2>
+    <p>
+      <code>src/smt/z3-runner.mjs</code> încarcă <code>z3-solver</code> (WASM build, fără binary extern) o singură dată,
+      încarcă <code>smt/prelude.smt2</code> + <code>smt/axioms.smt2</code> în contextul de bază și rezolvă fiecare
+      propoziție izolat într-un bloc <code>(push 1) ... (check-sat) (get-value ...) (pop 1)</code>, cu reset periodic
+      al contextului WASM la fiecare 250 de rezolvări pentru stabilitate de memorie.
+      Pentru evaluări pe mii de propoziții, <code>eval/benchmark.mjs --workers N</code> folosește un pool de
+      <code>worker_threads</code> (<code>eval/bench-worker.mjs</code>), fiecare worker având propria instanță Z3 WASM
+      (~20 propoziții/sec pe 10 workeri).
+    </p>
+
+    <footer>
+      Continuă cu <a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT →</a>
+    </footer>
+  </main>
+</body>
+</html>

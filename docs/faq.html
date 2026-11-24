@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Întrebări Tehnice (FAQ) — nl-formaliser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a href="index.html">1. Prezentare generală</a></li>
+      <li><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a class="active" href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>7. Întrebări Tehnice Legitime (FAQ)</h1>
+
+    <h3>1. De ce Z3 MaxSMT și nu un parser procedural în JS sau doar un LLM?</h3>
+    <p>
+      Un parser procedural în JS ajunge rapid la o rețea fragilă de <code>if/else</code> dependente de ordinea regulilor:
+      când repari un caz (ex. <code>"make the house blue"</code>), strici altul (<code>"make a blue house"</code>).
+      Z3 optimizează <strong>global și simultan</strong> toate dimensiunile (granițe de clauze, act, familie, determiner,
+      lookup, legarea <code>key_words</code>, negație) garantând matematic respectarea tuturor legilor hard
+      <code>w.request</code> (<strong>100,0% validitate formală</strong>, zero halucinații de chei sau valori).
+      Spre deosebire de un LLM pur, sistemul este <strong>100% determinist</strong>, rulabil complet local pe CPU (~155 ms),
+      auditabil (<code>--dump-smt</code>, <code>unsatCore</code>) și nu inventează niciodată chei inexistente în schemă.
+    </p>
+
+    <h3>2. Are sens o combinație hibridă LLM + Z3?</h3>
+    <p>
+      Da — chiar este direcția naturală dacă se dorește acoperire pe limbaj foarte liber/colocvial:
+      un model mic (sau un LLM) poate acționa doar ca <strong>generator suplimentar de candidați/parafraze sau ponderi soft</strong>
+      (sau ca Layer 1 pentru propoziții foarte zgomotoase), în timp ce <strong>Z3 rămâne autoritatea formală</strong>
+      care alege interpretarea validă, aplică axiomele lumii active și garantează 100% conformitate SOP Lang.
+    </p>
+
+    <h3>3. Cum scalează Z3 dacă o lume ajunge la 1.000+ chei sau propoziții foarte lungi?</h3>
+    <p>
+      Complexitatea instanței Z3 <strong>nu depinde de numărul total de chei din lume (K)</strong>, ci doar de
+      <strong>numărul de candidați declanșați de tokenii propoziției curente (M)</strong>!
+      Chiar dacă o lume are 2.000 de chei, o propoziție de 12 cuvinte activează în medie doar 20–60 de candidați,
+      iar <code>asked_r</code> este restrâns strict la cheile ale căror <code>keyWords</code> apar efectiv în text.
+      Latența crește doar pe propoziții foarte lungi (25–40 cuvinte cu 4+ clauze), unde <code>R ≤ 4</code> și timeout-ul
+      configurabil (default 4.000 ms) mențin p95 în jur de ~1.8 s.
+    </p>
+
+    <h3>4. Cum tratează sistemul ambiguitatea reală (mai multe interpretări valide)?</h3>
+    <p>
+      <code>formalise(text, { topK: 3 })</code> apelează Z3 incremental adăugând o <em>blocking clause</em> peste
+      <code>(active_r, act_r, fam_r, tmode_r, sel_c)</code> după fiecare soluție. Astfel, aplicația primește nu doar
+      cea mai plauzibilă interpretare (pentru execuție directă cu undo), ci și <strong>alternativele clasate real</strong>
+      și diferența lor de cost (marginea de încredere).
+    </p>
+
+    <h3>5. De ce validitatea <code>check.mjs</code> este 100%, dar <code>Exact Match</code> pe <code>webmeet-dataset</code> este mai mic?</h3>
+    <p>
+      Există 4 cauze distincte (măsurate separat în <a href="evaluation.html">pagina de Evaluare</a>):
+      (a) <strong>~32%</strong> din rândurile <code>webmeet-dataset</code> (și <strong>~66%</strong> din <code>test.jsonl</code>)
+      au defecte verificabile chiar în adnotarea gold (<code>unread</code>, cuvinte neacoperite, filler-e greșite, overlap);
+      (b) variații de stil în gold (ex. dublarea redundantă a <code>target.name</code> în <code>*.id</code>);
+      (c) typo-uri intenționate în text (<code>theb ars</code>, <code>onte sail</code>, <code>atble</code>, <code>selct</code>);
+      (d) erori reale ale formalizatorului nostru Z3 (în special pe propoziții narative lungi din <code>diagram</code> și <code>drawing</code>).
+    </p>
+
+    <h3>6. De ce scorul pe <code>keys.sop</code> (<code>keyHit</code>) este diferit de <code>webmeet-dataset</code>?</h3>
+    <p>
+      Exemplele scurte din <code>keys.sop</code> sunt fragmente minimale izolate de 2–4 cuvinte (ex. <code>"Work"</code>,
+      <code>"review"</code>, <code>"bring the budget figures"</code>, <code>"Ana and Radu"</code>), adesea fără verb și
+      fără <code>key_word</code> explicit. Fără context de propoziție, <code>"Work"</code> poate fi la fel de legitim
+      <code>meeting.title</code>, <code>calendar.label</code> sau <code>meeting.calendar</code> — Z3 alege o interpretare
+      100% validă (validitate <strong>100,0%</strong>), dar nu are de unde ghici din 1 cuvânt care dintre cele 3 chei
+      ale <code>keys.sop</code> era intenționată în documentație.
+    </p>
+
+    <h3>7. Este sistemul complet determinist și reproductibil?</h3>
+    <p>
+      Da. Atât încărcarea KB, cât și construirea laticei, encodarea SMT-LIB2, rezolvarea Z3 (cu seed fix implicit) și
+      eșantionarea benchmark-ului (<code>Mulberry32 PRNG</code> cu <code>--seed 42</code>) sunt 100% deterministe.
+      Rulând același input de două ori obții byte-for-byte același circuit SOP Lang.
+    </p>
+
+    <h3>8. Cum pot inspecta exact ce „a gândit” Z3 pe o propoziție?</h3>
+    <pre><code>node bin/formalise.mjs --tab diagram "set the role of the diamond to connector" --dump-smt --verify</code></pre>
+    <p>
+      Flag-ul <code>--dump-smt</code> tipărește fișierul complet SMT-LIB2 trimis către Z3 (inclusiv prelude, axiome,
+      toți candidații din latice și ponderile <code>assert-soft</code>), care poate fi rulat direct și în orice binary
+      <code>z3</code> standalone pentru verificare independentă.
+    </p>
+
+    <footer>
+      Înapoi la <a href="index.html">1. Prezentare generală</a> · Vezi <a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a>
+    </footer>
+  </main>
+</body>
+</html>

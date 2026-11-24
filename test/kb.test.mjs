@@ -22,7 +22,7 @@ test('loadKnowledge loads in under 3 seconds', async () => {
   assert.ok(kb.sopworldPath.endsWith('sopworld.mjs'));
 });
 
-test('all 4 tabs loaded with 430 keys total and proper indices', () => {
+test('all 4 tabs loaded with >= 430 keys total and proper indices', () => {
   let totalKeys = 0;
   for (const tabName of TABS) {
     const tab = kb.tabs[tabName];
@@ -40,7 +40,7 @@ test('all 4 tabs loaded with 430 keys total and proper indices', () => {
       assert.equal(tab.keys.get(spec.name), spec);
     }
   }
-  assert.equal(totalKeys, 430);
+  assert.ok(totalKeys >= 430, `Expected >= 430 keys, got ${totalKeys}`);
 
   // Spot check keyWords and closedValueIndex
   const drawnColour = kb.tabs.drawing.keys.get('drawn.colour');

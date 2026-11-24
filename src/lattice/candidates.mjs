@@ -141,7 +141,24 @@ function getKbHelpers(kb) {
     }
   }
 
-  const helpers = { separableIndex, fillerPhrases, numberWords };
+  // Dynamically ingest official w.lang.en.cue entries from sop-knowledge-worlds (general across worlds!)
+  const undoCuePhrases = new Set(['put it back', 'put back', 'go back', 'revert', 'as it was', 'edit back', 'step back']);
+  const redoCuePhrases = new Set(['do it again', 'one more time', 'start over']);
+  const layoutCuePhrases = new Map();
+  for (const cue of toArray(kb?.grammar?.cues)) {
+    const leads = toArray(cue?.lead).map((x) => String(x).toLowerCase().trim()).filter(Boolean);
+    if (cue.name === 'reaction.thanks') {
+      for (const l of leads) fillerPhrases.add(l);
+    } else if (cue.name === 'reaction.put_back') {
+      for (const l of leads) undoCuePhrases.add(l);
+    } else if (cue.name === 'reaction.redo') {
+      for (const l of leads) if (l.includes(' ')) redoCuePhrases.add(l);
+    } else if (cue.on === 'layout' && cue.value) {
+      for (const l of leads) layoutCuePhrases.set(l, cue.value);
+    }
+  }
+
+  const helpers = { separableIndex, fillerPhrases, numberWords, undoCuePhrases, redoCuePhrases, layoutCuePhrases };
   if (kb && typeof kb === 'object') kbCache.set(kb, helpers);
   return helpers;
 }
@@ -716,7 +733,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   const src = String(text ?? '');
   const tokens = tokenize(src, kb);
   const T = tokens.length;
-  const { separableIndex, fillerPhrases, numberWords } = getKbHelpers(kb);
+  const { separableIndex, fillerPhrases, numberWords, undoCuePhrases, redoCuePhrases, layoutCuePhrases } = getKbHelpers(kb);
   const {
     keys: tabKeys,
     families: tabFamilies,
@@ -789,12 +806,25 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     });
   };
 
-  // Helper: check preceding determiner before `tokIdx`
+  // Helper: check preceding determiner before `tokIdx` (looks 1..2 tokens back across a single adjective/noun modifier,
+  // e.g. "a line chart", "a blue house", "the profit chart", "a striped fill")
   const checkDetBefore = (tokIdx) => {
     if (tokIdx <= 0) return { det: 'none', detTok: -1 };
     const prev = tokens[tokIdx - 1];
     if (prev.kind === 'word' && DET_MAP.has(prev.lower)) {
       return { det: DET_MAP.get(prev.lower), detTok: tokIdx - 1 };
+    }
+    if (
+      tokIdx >= 2 &&
+      prev.kind === 'word' &&
+      !prev.isPunct &&
+      !prev.isGrammar &&
+      !isCommandVerbToken(prev, kb)
+    ) {
+      const prev2 = tokens[tokIdx - 2];
+      if (prev2.kind === 'word' && DET_MAP.has(prev2.lower)) {
+        return { det: DET_MAP.get(prev2.lower), detTok: tokIdx - 2 };
+      }
     }
     return { det: 'none', detTok: -1 };
   };
@@ -873,14 +903,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       });
     }
 
-    // 1. FILLER (single token)
-    if (tok.isFiller) {
+    // 1. FILLER (single token — including single-word fillerPhrases like "cheers", "perfect", "great")
+    if (tok.isFiller || fillerPhrases.has(tok.lower)) {
       emit({
         kind: HYP_KINDS.FILLER,
         startTok: i,
         endTok: i,
         isPureFiller: tok.isFiller || tok.isGrammar,
-        cost: 4,
+        cost: tok.isFiller ? 4 : 6,
       });
     }
 
@@ -1109,10 +1139,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         const actionLicensed = licensed.filter((l) => !['greet', 'thank', 'farewell'].includes(l.act));
         // Gerund/noun & attributive participle guard:
         // - "-ing" / nominalized word right after determiner/preposition ("the drawing", "a heading", "last edit")
+        // - or 2 tokens after determiner/preposition across a modifier ("a striped fill", "the profit chart", "the Plan chapter")
         // - "-ed" attributive participle right after determiner followed by noun ("a paired view", "the dashed line")
         const prevWord = i > 0 && tokens[i - 1].kind === 'word' ? tokens[i - 1].lower : '';
-        const isNominalizedAfterDetOrPrep = len === 1 && NOUN_PRECEDING_WORDS.has(prevWord)
-          && (tok.lower.endsWith('ing') || (tok.lower.endsWith('ed') && i + 1 < T && tokens[i + 1].kind === 'word') || ['edit', 'change', 'step', 'move', 'swap', 'copy', 'group', 'link', 'line', 'label', 'title', 'name', 'chart', 'plot', 'graph', 'table', 'list', 'text', 'note', 'block', 'section', 'meeting', 'event', 'room', 'place', 'spot', 'point', 'cut', 'fill', 'scale', 'order', 'sort', 'filter', 'frame', 'shadow', 'glow', 'outline', 'stroke', 'mirror', 'turn', 'bend', 'split', 'merge', 'stack', 'drop', 'mix'].includes(tok.lower));
+        const prev2Word = i > 1 && tokens[i - 2].kind === 'word' && !tokens[i - 1].isPunct ? tokens[i - 2].lower : '';
+        const NOMINAL_AMBIG = new Set(['edit', 'change', 'step', 'move', 'swap', 'copy', 'group', 'link', 'line', 'label', 'title', 'name', 'chart', 'plot', 'graph', 'table', 'list', 'text', 'note', 'block', 'section', 'meeting', 'event', 'room', 'place', 'spot', 'point', 'cut', 'fill', 'scale', 'order', 'sort', 'filter', 'frame', 'shadow', 'glow', 'outline', 'stroke', 'mirror', 'turn', 'bend', 'split', 'merge', 'stack', 'drop', 'mix', 'plan', 'role', 'gap', 'view', 'format', 'style', 'grid', 'row', 'column', 'level', 'mark', 'quote', 'review']);
+        const detOrPrepBefore = NOUN_PRECEDING_WORDS.has(prevWord) || (NOUN_PRECEDING_WORDS.has(prev2Word) && !isCommandVerbToken(tokens[i - 1], kb));
+        const isNominalizedAfterDetOrPrep = len === 1 && detOrPrepBefore
+          && (tok.lower.endsWith('ing') || (tok.lower.endsWith('ed') && i + 1 < T && tokens[i + 1].kind === 'word') || NOMINAL_AMBIG.has(tok.lower));
         // Passive/embedded finite clause guard: "are distributed across...", "points joined fair"
         const isInflectedNonImperative = len === 1 && (
           (tok.lower.endsWith('s') && tok.lemmas.some((l) => l !== tok.lower && mapGet(kb?.verbs, l))) ||
@@ -1205,6 +1239,37 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           isKeepingVerb: false,
           intrinsicConstraints: [],
           cost: 6,
+        });
+      }
+    }
+
+    // 5d. Reaction undo/redo cues from w.lang.en.cue ("put it back", "edit back", "go back", "do it again", "start over")
+    for (let len = 2; len <= 4 && i + len <= T; len++) {
+      const e = i + len - 1;
+      if (hasPunctInSpan(tokens, i, e)) break;
+      const ph = spanTextLower(tokens, i, e);
+      if (undoCuePhrases.has(ph)) {
+        emit({
+          kind: HYP_KINDS.PREDICATE,
+          startTok: i,
+          endTok: e,
+          licensed: [{ act: 'undo', mode: 'none', mood: 'do', question: 'none' }],
+          isKeepingVerb: false,
+          intrinsicConstraints: [],
+          cost: 1.5,
+        });
+      } else if (redoCuePhrases.has(ph)) {
+        emit({
+          kind: HYP_KINDS.PREDICATE,
+          startTok: i,
+          endTok: e,
+          licensed: [
+            { act: 'redo', mode: 'none', mood: 'do', question: 'none' },
+            { act: 'copy', mode: 'repeat', mood: 'do', question: 'none' },
+          ],
+          isKeepingVerb: false,
+          intrinsicConstraints: [],
+          cost: 2,
         });
       }
     }
@@ -1819,6 +1884,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           if (h.attr === 'drawn.base' || h.attr === 'drawn.preset') closedCost = 9;
           else if (h.attr === 'drawn.at') closedCost = len > 1 ? 1.5 : 3;
           else if (h.attr === 'drawn.edge' || h.attr === 'drawn.side' || h.attr === 'drawn.facing') closedCost = 6.5;
+          else if (h.attr === 'link.tail' || h.attr === 'link.head' || h.attr === 'part.value' || h.attr === 'part.variant' || h.attr === 'diagram.by') closedCost = 9;
           if (len === 1 && tokens[i].isProperCandidate && !['UTC', 'GMT'].includes(tokens[i].text)) closedCost += 8;
           emitConstraint(h.attr, h.value, i, e, {
             requiresKeyWord: needsToggleKw,
@@ -1982,8 +2048,18 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // 10f. Numbers & Number+Unit
-    const numVal = parseNumeric(tok);
+    // 10f. Numbers & Number+Unit (also "a/an <unit>" -> measure=1, and comma-separated chart.values lists like "27, 23")
+    if (tab === 'diagram' && tok.kind === 'number' && tabKeys.has('chart.values') && i + 2 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'number') {
+      let endIdx = i + 2;
+      while (endIdx + 2 < T && tokens[endIdx + 1].text === ',' && tokens[endIdx + 2].kind === 'number') {
+        endIdx += 2;
+      }
+      const listVal = src.slice(tok.start, tokens[endIdx].end);
+      emitConstraint('chart.values', listVal, i, endIdx, { cost: 1.5 });
+    }
+
+    const isArticleUnit = tok.kind === 'word' && (tok.lower === 'a' || tok.lower === 'an') && i + 1 < T && UNIT_CANON.has(tokens[i + 1].lower);
+    const numVal = isArticleUnit ? 1 : parseNumeric(tok);
     if (numVal !== null) {
       // Check [num, unit]
       let matchedUnit = false;
@@ -2053,11 +2129,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           const shortKey = attr.split('.').slice(1).join('.');
           const isInt = Number.isInteger(numVal);
           const allowBare = (['values', 'value'].includes(shortKey))
-            || (isInt && ['count', 'level', 'bins', 'index'].includes(shortKey))
+            || (isInt && ['count', 'level', 'bins', 'index', 'distance'].includes(shortKey))
             || (isFractionalUnit && ['barWidth', 'opacity', 'scale', 'pieRadius', 'labelPosition'].includes(shortKey));
+          const bareCost = isFractionalUnit && shortKey === 'barWidth' ? 2 : shortKey === 'distance' ? 5.5 : 6;
           emitConstraint(attr, String(numVal), i, i, {
             requiresKeyWord: !allowBare,
-            cost: allowBare ? (isFractionalUnit && shortKey === 'barWidth' ? 2 : 6) : 4,
+            cost: allowBare ? bareCost : 4,
           });
         }
       }
@@ -2308,17 +2385,30 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         ? i + 2
         : i + 1;
 
-    // Key-word triggered open span
+      // Key-word triggered open span (also allows explicitly key-word-anchored open_value on closed keys at higher cost!)
     if (kwTriggerAtEndTok.has(i) && nextStart < T) {
-      const kwAttrs = [...kwTriggerAtEndTok.get(i)].filter((a) => {
+      const kwAll = [...kwTriggerAtEndTok.get(i)];
+      const kwSpanAttrs = kwAll.filter((a) => {
         const sp = tabKeys.get(a);
         return sp && (sp.head.includes('span') || sp.head.includes('candidate'));
       });
-      if (kwAttrs.length > 0) {
-        emitOpenSpansStartingAt(nextStart, kwAttrs, { requiresKeyWord: true, cost: 2.5 });
+      if (kwSpanAttrs.length > 0) {
+        emitOpenSpansStartingAt(nextStart, kwSpanAttrs, { requiresKeyWord: true, cost: 2.5 });
         if (nextStart !== i + 1 && i + 1 < T) {
-          emitOpenSpansStartingAt(i + 1, kwAttrs, { requiresKeyWord: true, cost: 3 });
+          emitOpenSpansStartingAt(i + 1, kwSpanAttrs, { requiresKeyWord: true, cost: 3 });
         }
+      }
+    }
+    // "<KEY_WORD> of <target> to <VAL>" (e.g. "set the role of the diamond to connector"):
+    if (tok.kind === 'word' && tok.lower === 'to' && nextStart < T) {
+      const nearbyKwAttrs = new Set();
+      for (let back = Math.max(0, i - 5); back < i; back++) {
+        if (kwTriggerAtEndTok.has(back)) {
+          for (const a of kwTriggerAtEndTok.get(back)) nearbyKwAttrs.add(a);
+        }
+      }
+      if (nearbyKwAttrs.size > 0) {
+        emitOpenSpansStartingAt(nextStart, [...nearbyKwAttrs], { requiresKeyWord: true, allowOpen: true, cost: 3.5, maxLen: 2 });
       }
     }
 
@@ -2369,7 +2459,19 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
         if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['part.owner'], { phase: 'selector', cost: 5 });
       } else if (tok.lower === 'for') {
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
+        if (tab === 'diagram') {
+          emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
+          // Coordinated chart labels after "for" ("for Shop and Sample", "for Triage, Testing and Billing")
+          if (tabKeys.has('chart.labels') && tokens[nextStart]?.isProperCandidate) {
+            let endLbl = nextStart;
+            while (endLbl + 2 < T && (tokens[endLbl + 1].lower === 'and' || tokens[endLbl + 1].text === ',') && tokens[endLbl + 2].isProperCandidate) {
+              endLbl += 2;
+            }
+            if (endLbl > nextStart) {
+              emitConstraint('chart.labels', src.slice(tokens[nextStart].start, tokens[endLbl].end), nextStart, endLbl, { cost: 2 });
+            }
+          }
+        }
         if (tab === 'drawing') {
           // "swap the dog for a cat" / "substitute X for Y" -> drawn.kind!
           emitOpenSpansStartingAt(nextStart, ['drawn.kind'], { phase: 'result', cost: 4, maxLen: 2 });
@@ -2381,6 +2483,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             emitOpenSpansStartingAt(nextStart, ['meeting.title'], { phase: 'result', cost: 3, maxLen: 3 });
           }
         }
+      } else if (tab === 'drawing' && tok.lower === 'because' && i + 1 < T && tokens[i + 1].lower === 'of') {
+        const afterOf = (i + 2 < T && DET_MAP.has(tokens[i + 2].lower)) ? i + 3 : i + 2;
+        if (afterOf < T) emitOpenSpansStartingAt(afterOf, ['drawn.cause'], { requiresKeyWord: true, cost: 2, maxLen: 3 });
+      } else if (tab === 'drawing' && (tok.lower === 'holding' || tok.lower === 'holds')) {
+        emitOpenSpansStartingAt(nextStart, ['drawn.holds'], { requiresKeyWord: true, cost: 2, maxLen: 2 });
       } else if (tab === 'calendar' && ['book', 'schedule', 'reserve'].includes(tok.lower)) {
         // "book Room 4 for Planning" vs "book Planning in Hall": if "for <non-number>" follows, the direct object is room/venue!
         const hasForNonNum = tokens.slice(nextStart + 1, Math.min(T, nextStart + 5)).some((t, idx, arr) =>

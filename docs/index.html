@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nl-formaliser — Documentație Tehnică</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a class="active" href="index.html">1. Prezentare generală</a></li>
+      <li><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>nl-formaliser — Formalizator Simbolic NL → SOP Lang în Z3</h1>
+    <p>
+      <strong>nl-formaliser</strong> traduce cereri exprimate în limbaj natural în circuite
+      <strong>SOP Lang (<code>w.request</code>)</strong> validate formal împotriva lumilor din
+      <code>sop-knowledge-worlds</code>. Principiul central al proiectului este că
+      <strong>toată logica de dezambiguizare semantică stă declarativ în Z3 (SMT-LIB2 MaxSMT)</strong>,
+      iar Node.js (<code>.mjs</code>) acționează doar ca wrapper subțire pentru încărcarea cunoștințelor,
+      construirea laticei lexicale nefiltrate, invocarea Z3 și verificarea ieșirii.
+    </p>
+
+    <div class="callout ok">
+      <strong>Ce este SOP Lang (<code>w.request</code>)?</strong>
+      Este o reprezentare canonică, deterministă și verificabilă de tip „wire circuit” pentru intenții
+      (<code>w.request.request</code>, <code>target</code>, <code>constraint</code>, <code>lookup</code>,
+      <code>filler</code>, <code>unread</code>). Un circuit valid garantează prin construcție:
+      (1) fiecare cheie și valoare aparține schemei lumii active, (2) orice țintă existentă neidentificată
+      declară explicit un <code>lookup</code>, (3) orice frază emisă este ancorată exact (<em>grounded</em>)
+      în textul sursă, și (4) ceea ce nu poate fi formalizat corect este izolat onest în <code>unread</code>.
+    </div>
+
+    <h2>Harta Documentației</h2>
+    <div class="grid">
+      <div class="card">
+        <h3><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></h3>
+        <p>Cele 5 etape: KB Loader → Latice Lexicală → Z3 MaxSMT → Emitter → Verifier <code>check.mjs</code>.</p>
+      </div>
+      <div class="card">
+        <h3><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></h3>
+        <p>Tipurile algebrice din <code>prelude.smt2</code>, axiomele hard din <code>axioms.smt2</code>, ponderile soft și optimizarea latenței.</p>
+      </div>
+      <div class="card">
+        <h3><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></h3>
+        <p>Audit onest: ce este 100% independent de domeniu, ce depinde încă de cele 4 tab-uri și ce presupune adăugarea unei lumi noi.</p>
+      </div>
+      <div class="card">
+        <h3><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></h3>
+        <p>Rezultate pe 1% din <code>webmeet-dataset</code>, <code>test.jsonl</code> și <code>keys.sop</code>, cu separarea clară Gold vs. Typo vs. Z3.</p>
+      </div>
+      <div class="card">
+        <h3><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></h3>
+        <p>Propunerea în 2 straturi pentru typo-uri/spații greșite și estimatorul simbolic de încredere din marginea Top-1/Top-2 Z3.</p>
+      </div>
+      <div class="card">
+        <h3><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></h3>
+        <p>Răspunsuri directe la întrebările legitime: de ce Z3, scalare, ambiguitate, hibrid LLM+Z3, determinare și reproductibilitate.</p>
+      </div>
+    </div>
+
+    <h2>Pornire rapidă (CLI &amp; API)</h2>
+    <pre><code># 1. Rulare suită completă de teste (KB, latice, Z3 core, verifier, E2E)
+npm test
+
+# 2. Formalizare din linia de comandă (cu verificare și alternative top-K)
+node bin/formalise.mjs --tab drawing "make the house blue" --verify
+node bin/formalise.mjs --tab diagram "make a bar chart of the stadiums by country" --top 3 --verify
+node bin/formalise.mjs --tab drawing "please switch to the robot preset" --dump-smt
+
+# 3. Benchmark paralel pe 10 workeri Z3
+node eval/benchmark.mjs --source webmeet --sample-pct 1 --seed 42 --workers 10
+node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10
+node eval/benchmark.mjs --source keys --workers 10</code></pre>
+
+    <h3>Exemplu programatic (Node.js ESM)</h3>
+    <pre><code>import { createFormaliser } from './src/index.mjs';
+
+const formaliser = await createFormaliser({ timeoutMs: 4000 });
+const res = await formaliser.formalise('move the house to 260,180, then make the house blue', {
+  tab: 'drawing',
+  topK: 2,
+  verify: true,
+});
+console.log(res.sop);         // Circuit SOP Lang valid (100% verificat)
+console.log(res.alternatives); // Interpretări alternative clasate de Z3</code></pre>
+
+    <footer>
+      <code>nl-formaliser</code> — Documentație tehnică statică (fără build step, funcționează direct local prin <code>file://</code>).
+    </footer>
+  </main>
+</body>
+</html>

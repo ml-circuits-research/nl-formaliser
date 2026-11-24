@@ -14,6 +14,7 @@ const SMOKE_CASES = [
   { tab: 'drawing', text: 'please shift the nose up', expectAct: 'place', expectFamily: 'part' },
   { tab: 'drawing', text: 'Add a giant wasp.', expectAct: 'make', expectFamily: 'drawn' },
   { tab: 'drawing', text: 'place Sri above the starbucks block', expectAct: 'place', expectFamily: 'drawn' },
+  { tab: 'drawing', text: 'move the boat left', expectAct: 'place', expectFamily: 'drawn' },
   // Diagram
   { tab: 'diagram', text: 'make a bar chart of the stadiums by country', expectAct: 'make', expectFamily: 'chart' },
   { tab: 'diagram', text: 'please add a rectangle labelled Review', expectAct: 'make', expectFamily: 'node' },
@@ -22,6 +23,8 @@ const SMOKE_CASES = [
   // Document
   { tab: 'document', text: 'please make a new blank document called Report', expectAct: 'make' },
   { tab: 'document', text: 'set chapter right', expectAct: 'change' },
+  { tab: 'document', text: 'make it bold', expectAct: 'change', expectLookup: true },
+  { tab: 'document', text: 'thanks, that works', expectReqs: 0 },
   // Calendar
   { tab: 'calendar', text: 'please select the Review event', expectAct: 'pick', expectFamily: 'meeting' },
   { tab: 'calendar', text: 'get rid of the Review meeting', expectAct: 'remove', expectFamily: 'meeting' },

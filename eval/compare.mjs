@@ -254,7 +254,89 @@ function contentTokensOf(str, verifier) {
     .filter((t) => !verifier.isGrammar(t) && !verifier.LEX.filler.has(t));
 }
 
-export function compareCircuits({ text, tab, goldSop, predSop, verifier }) {
+function damerauLevenshteinAtMost1(a, b) {
+  if (a === b) return false;
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  let i = 0;
+  while (i < la && i < lb && a[i] === b[i]) i++;
+  if (la === lb) {
+    // 1 substitution or 1 adjacent transposition
+    if (i + 1 < la && a[i] === b[i + 1] && a[i + 1] === b[i]) {
+      return a.slice(i + 2) === b.slice(i + 2);
+    }
+    return a.slice(i + 1) === b.slice(i + 1);
+  }
+  if (la < lb) return a.slice(i) === b.slice(i + 1);
+  return a.slice(i + 1) === b.slice(i);
+}
+
+const COMMON_GLUE_WORDS = new Set(['on', 'in', 'to', 'of', 'at', 'by', 'for', 'the', 'a', 'an', 'it', 'out', 'up']);
+
+function isSplitOrMergeTypo(word, vocab) {
+  if (!word || word.length < 4) return false;
+  for (let k = 1; k < word.length; k++) {
+    const left = word.slice(0, k), right = word.slice(k);
+    if (COMMON_GLUE_WORDS.has(left) && (COMMON_GLUE_WORDS.has(right) || (right.length >= 2 && (vocab?.has(right) || damerauLevenshteinAtMost1(right, 'the'))))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function detectInputTypo({ text, goldReqs, predSummary, verifier, knownVocab }) {
+  // 1. Explicit typo in gold sort_words or predicate (e.g. sort=table sort_words=atble, predicate=selct)
+  for (const r of goldReqs) {
+    const sw = r.target?.sort_words?.toLowerCase();
+    const s = r.target?.sort?.toLowerCase();
+    if (sw && s && sw !== s && !sw.includes(' ') && sw !== s + 's' && sw !== s + 'es' && damerauLevenshteinAtMost1(sw, s)) {
+      return true;
+    }
+    for (const fwRaw of r.target?.family_words ?? []) {
+      const fw = String(fwRaw).toLowerCase();
+      if (fw && fw.includes(' ') && !knownVocab?.has(fw)) {
+        const joined = fw.replace(/\s+/g, '');
+        if (isSplitOrMergeTypo(joined, knownVocab)) return true;
+      }
+    }
+    const pr = r.predicate?.toLowerCase();
+    if (pr && !pr.includes(' ') && pr.length >= 4 && verifier?.VERB_ACTS && !verifier.VERB_ACTS.has(pr)) {
+      for (const v of verifier.VERB_ACTS.keys()) {
+        if (!v.includes(' ') && damerauLevenshteinAtMost1(pr, v)) return true;
+      }
+    }
+  }
+  // 2. Unread lowercase tokens in pred that are OOV and 1-edit or split/merge from knownVocab
+  if (knownVocab && knownVocab.size > 0) {
+    const unreadToks = predSummary.unreads.flatMap((u) => (String(u.text || '').match(/[a-z]{3,}/g) ?? []));
+    // Check adjacent pairs inside unread spans for shifted space ("stando ut", "theb ars")
+    for (const u of predSummary.unreads) {
+      const ws = String(u.text || '').toLowerCase().match(/[a-z]+/g) ?? [];
+      for (let i = 0; i + 1 < ws.length; i++) {
+        if ((!knownVocab.has(ws[i]) || !knownVocab.has(ws[i + 1])) && isSplitOrMergeTypo(ws[i] + ws[i + 1], knownVocab)) {
+          return true;
+        }
+      }
+    }
+    for (const tok of unreadToks) {
+      if (knownVocab.has(tok) || verifier?.isGrammar(tok)) continue;
+      if (isSplitOrMergeTypo(tok, knownVocab)) return true;
+      if (tok.length >= 4) {
+        for (const v of knownVocab) {
+          if (Math.abs(v.length - tok.length) <= 1 && v[0] === tok[0] && damerauLevenshteinAtMost1(tok, v)) {
+            return true;
+          }
+          if (v.length === tok.length && tok.length >= 4 && v[0] === tok[1] && v[1] === tok[0] && damerauLevenshteinAtMost1(tok, v)) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVocab = null }) {
   const goldCheck = verifier.check(text, goldSop, tab);
   const predCheck = verifier.check(text, predSop, tab);
 
@@ -436,9 +518,63 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier }) {
     if (constraintAliasF1.f1 < 1) predErrorReasons.push('diff:constraints');
   }
 
+  // Check equivalence when stripping Gold's redundant *.id / *.ids echo of target.name (annotation style variation).
+  const goldNonRedundantAliasCs = goldReqs.flatMap((r) => {
+    const tNameNorm = r.target?.name ? normScalarValue(r.target.name, true) : '';
+    return r.constraints
+      .filter((c) => {
+        const isEchoId = (c.attribute.endsWith('.id') || c.attribute.endsWith('.ids')) && c.phase === 'selector' && tNameNorm;
+        if (!isEchoId) return true;
+        const vals = (c.values ?? []).map((v) => normScalarValue(v, true));
+        return !(vals.length === 1 && vals[0] === tNameNorm);
+      })
+      .map((c) => canonicalConstraintTuple(c, true));
+  });
+  const equivRedundantId =
+    predValid &&
+    !semanticExact &&
+    bothParsed &&
+    reqCountExact &&
+    actExact &&
+    actModeExact &&
+    moodExact &&
+    questionExact &&
+    targetFamilyExact &&
+    targetModeExact &&
+    targetSortOrNameMatch &&
+    goldNonRedundantAliasCs.length < goldAliasCs.length &&
+    multisetF1(goldNonRedundantAliasCs, predAliasCs).f1 === 1;
+
+  const inputHasTypo = !semanticExact && detectInputTypo({ text, goldReqs, predSummary, verifier, knownVocab });
+
+  // Mutually exclusive root-cause attribution (Gold vs Input Typo vs Z3 Formaliser):
+  let attribution;
+  if (fairCategory === 'exact_match') {
+    attribution = 'success_exact';
+  } else if (fairCategory === 'pred_better_than_gold') {
+    attribution = 'success_z3_better_than_gold';
+  } else if (equivRedundantId) {
+    attribution = 'equiv_gold_redundant_id';
+  } else if (goldAnnotationFlawed) {
+    attribution = 'fail_gold_annotation_flawed';
+  } else if (inputHasTypo) {
+    attribution = 'fail_input_typo';
+  } else if ((goldReqs.length === 0) !== (predReqs.length === 0)) {
+    attribution = 'fail_z3_zero_req_filler';
+  } else if (!reqCountExact || !actExact || !moodExact || !questionExact) {
+    attribution = 'fail_z3_act_or_mood';
+  } else if (!targetFamilyExact || !targetModeExact) {
+    attribution = 'fail_z3_family_or_mode';
+  } else {
+    attribution = 'fail_z3_constraints_or_target';
+  }
+
   return {
     verdict: fairCategory,
     fairCategory,
+    attribution,
+    equivRedundantId,
+    inputHasTypo,
     goldAnnotationFlawed,
     goldIssueReasons,
     predErrorReasons,

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generalitate &amp; Lumi Noi — nl-formaliser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a href="index.html">1. Prezentare generală</a></li>
+      <li><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a class="active" href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>4. Cât de general este sistemul &amp; Cum adăugăm lumi noi</h1>
+    <p>
+      Această pagină oferă un <strong>audit tehnic onest</strong> al dependențelor din codul actual:
+      ce funcționează deja complet generic (condus exclusiv de scheme și vocabularul SOP), ce depinde încă
+      de cele 4 lumi WebMeet (<code>drawing</code>, <code>diagram</code>, <code>document</code>, <code>calendar</code>)
+      și ce trebuie făcut concret pentru a adăuga o lume nouă (ex. <code>spreadsheet</code>, <code>audio</code>,
+      <code>email</code>, <code>3d-scene</code>) sau o altă limbă naturală.
+    </p>
+
+    <div class="callout ok">
+      <strong>Dovadă practică de generalitate din timpul dezvoltării:</strong>
+      Pe parcursul rulărilor noastre, în <code>sop-knowledge-worlds/docs/worlds/w.request/shards/keys.sop</code>
+      au fost adăugate 7 chei noi (de la 430 la <strong>437 chei</strong>). <code>nl-formaliser</code> le-a încărcat,
+      indexat, inclus în variabilele Z3 și validat automat în <code>check.mjs</code> <strong>fără nicio modificare de cod</strong>.
+    </div>
+
+    <h2>4.1 Audit pe 3 niveluri: Ce este general vs. ce este cuplat</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Nivel</th>
+          <th>Componente / Fișiere</th>
+          <th>Dependență de lume / vocabular</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge ok">Nivel 1: 100% Generic</span></td>
+          <td>
+            <code>smt/prelude.smt2</code><br>
+            <code>smt/axioms.smt2</code><br>
+            <code>src/smt/z3-runner.mjs</code><br>
+            <code>src/emit/to-sop.mjs</code><br>
+            <code>src/verify/check.mjs</code><br>
+            Core Z3 din <code>src/smt/encode.mjs</code>
+          </td>
+          <td>
+            <strong>Zero dependență de domeniu sau vocabular.</strong> Depind <em>doar</em> de meta-schema
+            <code>w.request</code> (<code>request</code>, <code>target</code>, <code>constraint</code>,
+            <code>lookup</code>, <code>filler</code>, <code>unread</code>) și de <code>k.actions</code>.
+            Orice lume exprimată ca chei în <code>keys.sop</code> folosește exact aceleași axiome Z3 și același emitter.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="badge ok">Nivel 2: Dinamic din SOP</span></td>
+          <td>
+            <code>src/kb/load-worlds.mjs</code>:<br>
+            • <code>w.request/shards/keys.sop</code><br>
+            • <code>k.actions/shards/*.sop</code><br>
+            • <code>w.lang.en/shards/*.sop</code> (inclusiv cele 107 <code>w.lang.en.cue</code>)<br>
+            • <code>vocab-kinds.json</code> &amp; <code>k.*</code>
+          </td>
+          <td>
+            Încărcat dinamic la pornire (~180 ms). Adăugarea de noi chei, valori închise, verbe în
+            <code>k.actions</code>, cuvinte <code>core.word</code> sau cue-uri <code>w.lang.en.cue</code>
+            intră automat în <code>keyWordIndex</code>, <code>closedValueIndex</code> și laticea Z3.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="badge warn">Nivel 3: Cuplat azi la 4 tab-uri / EN</span></td>
+          <td>
+            1. <code>src/contracts.mjs</code>: <code>TABS</code>, <code>DEFAULT_TAB_FAMILY</code>, <code>COMPAT_FAMILIES</code>, <code>KEY_ALIASES</code><br>
+            2. <code>src/kb/load-worlds.mjs</code>: <code>MEANS_TO_TAB_FAMILY</code>, <code>FAMILY_SYNONYMS</code>, <code>EXTRA_VERB_LICENSES</code>, <code>wordWorlds</code><br>
+            3. <code>src/lattice/candidates.mjs</code>: ramuri <code>if (tab === '...')</code> pentru open-spans prepoziționale (ex. <code>for</code> → <code>meeting.title</code>, <code>by</code> → <code>chart.dimension</code>, <code>about</code> → <code>text.about</code>) + tabele închise englezești (determineri, comparative, unități, relații spațiale).<br>
+            4. <code>src/lattice/morph.mjs</code>: flexiuni regulate englezești (<code>-s/-es/-ed/-ing</code>).
+          </td>
+          <td>
+            <strong>Aici stă cuplajul real din prototipul actual.</strong> Nu sunt patch-uri pe propoziții, ci
+            <em>scheme de legare prepozițională și tabele de familii</em> specifice celor 4 lumi și limbii engleze,
+            care încă nu sunt declarate complet în shardele <code>.sop</code> și de aceea au stat în JS.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4.2 Ce înseamnă concret să adăugăm o lume nouă (ex. <code>spreadsheet</code> sau <code>audio</code>)?</h2>
+
+    <h3>A. Cum funcționează <em>astăzi</em> (cu arhitectura curentă)</h3>
+    <p>Presupunem că vrem o lume nouă <code>spreadsheet</code> cu familiile <code>sheet</code>, <code>column</code>, <code>row</code>, <code>cell</code>, <code>formula</code>:</p>
+    <ol>
+      <li><strong>În <code>sop-knowledge-worlds</code> (date declarative):</strong>
+        <ul>
+          <li>Adăugăm cheile <code>w.request.key tab=spreadsheet family=... name=... head=... value=...</code> în <code>keys.sop</code> (ex. <code>column.sort</code> cu valori <code>asc</code>/<code>desc</code>, <code>cell.format</code> cu <code>currency</code>/<code>percent</code>, <code>sheet.filter</code> etc.).</li>
+          <li>Adăugăm cuvintele și sinonimele domeniului (<code>w.spreadsheet/shards/words.sop</code>) și eventual verbe noi în <code>k.actions</code> (ex. <code>freeze</code>, <code>autofill</code>, <code>pivot</code>).</li>
+        </ul>
+      </li>
+      <li><strong>Ce merge INSTANT fără nicio linie de JS/SMT:</strong>
+        <ul>
+          <li>Toate cheile cu <strong>valori închise</strong> (<code>asc</code>, <code>desc</code>, <code>currency</code>, <code>percent</code>), toate <strong>numerele + unități</strong>, <strong>culorile</strong>, <strong>citatele</strong>, <strong>codurile</strong> (<code>c1</code>, <code>r2</code>), <strong>numele proprii</strong>, <strong>negațiile</strong>, <strong>întrebările</strong>, <strong>multi-request-urile</strong>, <strong>lookup law</strong>, <strong>filler purity</strong> și <strong>verificatorul <code>check.mjs</code></strong> merg din prima!</li>
+        </ul>
+      </li>
+      <li><strong>Ce trebuie configurat minimal astăzi în cod (~30–60 linii):</strong>
+        <ul>
+          <li>Adăugarea <code>'spreadsheet'</code> în <code>TABS</code>, <code>DEFAULT_TAB_FAMILY</code> (ex. <code>cell</code> sau <code>sheet</code>) și <code>COMPAT_FAMILIES</code> din <code>src/contracts.mjs</code>.</li>
+          <li>Maparea <code>MEANS_TO_TAB_FAMILY.spreadsheet</code> și eventual sinonime de familii în <code>src/kb/load-worlds.mjs</code>.</li>
+          <li>Dacă lumea are prepoziții care deschid <strong>open-spans fără <code>key_words</code></strong> (ex. <code>"sort by Revenue"</code> → <code>column.name</code> sau <code>"formula =SUM(A1:A10)"</code>), un bloc de reguli în <code>src/lattice/candidates.mjs</code>.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>B. Cum eliminăm complet cuplajul de Nivel 3 (<em>Zero-JS World Onboarding</em>)</h3>
+    <p>
+      Toate elementele din Nivelul 3 sunt de fapt <strong>metadate declarative</strong> care pot fi mutate din JS direct în shardele SOP ale lumii noi, fără să scriem vreodată cod JS per lume:
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Ce este azi în JS</th>
+          <th>Echivalent 100% declarativ în SOP (pentru orice lume nouă)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>TABS</code>, <code>DEFAULT_TAB_FAMILY</code>, <code>COMPAT_FAMILIES</code></td>
+          <td>Derivat din <code>w.request.tab name=spreadsheet default_family=sheet</code> și <code>w.request.compat tab=spreadsheet target=sheet allows=column allows=row</code> (încărcat automat de <code>load-worlds.mjs</code>).</td>
+        </tr>
+        <tr>
+          <td><code>if (tab === 'calendar') ... 'on' → meeting.calendar</code></td>
+          <td>Declarat pe cheie sau ca cue de rol prepozițional: <code>w.request.cue tab=spreadsheet prep=by key=sheet.sort_by priority=2</code> (exact ca <code>k.actions.marking</code> / <code>w.lang.en.cue</code>!).</td>
+        </tr>
+        <tr>
+          <td>Reguli / constrângeri specifice lumii (ex. „o celulă înghețată nu poate avea formula X”)</td>
+          <td>Opțional: un fișier <code>smt/worlds/&lt;tab&gt;.smt2</code> (sau reguli <code>w.request.rule</code> compilate în <code>assert</code>/<code>assert-soft</code>) încărcat automat de <code>z3-runner.mjs</code> doar pentru lumea activă!</td>
+        </tr>
+        <tr>
+          <td>Preferințe / ponderi ale lumii sau ale utilizatorului</td>
+          <td>Deoarece Z3 folosește <code>assert-soft :weight W</code>, preferințele (ex. „în modul financiar preferă <code>chart.type=line</code>” sau „preferă un calendar activ”) devin simplu <strong>clauze <code>assert-soft</code> adiționale</strong> injectate la runtime din profilul lumii/utilizatorului!</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4.3 Ce înseamnă adăugarea unei alte limbi (ex. Română <code>w.lang.ro</code>)?</h2>
+    <ul>
+      <li><strong>Rămân 100% neschimbate:</strong> <code>smt/prelude.smt2</code>, <code>smt/axioms.smt2</code>, <code>src/smt/encode.mjs</code> (cu excepția a 2 regex-uri de pronume/WH care se pot citi din <code>kb.grammar</code>), <code>src/smt/z3-runner.mjs</code>, <code>src/emit/to-sop.mjs</code>, <code>w.request/shards/keys.sop</code>.</li>
+      <li><strong>Se adaugă/adaptează doar stratul lexical:</strong> shardele <code>w.lang.ro</code> (determineri, prepoziții, negații, cue-uri, filler-e), verbele românești în <code>k.actions</code>, regulile morfologice în <code>morph.mjs</code> (articole enclitice <code>-ul/-a</code>, plurale <code>-e/-i/-uri</code>, conjugări) și traducerile <code>core.word</code> ale valorilor din domeniu.</li>
+    </ul>
+
+    <div class="callout warn">
+      <strong>Concluzie onestă despre generalitate:</strong>
+      Motorul de raționament (Z3 + <code>axioms.smt2</code> + <code>to-sop.mjs</code> + <code>check.mjs</code>) este deja
+      <strong>~95% independent de domeniu</strong>. Principalul cuplaj rămas este în
+      <code>src/lattice/candidates.mjs</code> (prepoziții open-span specifice celor 4 tab-uri și câteva liste lexicale englezești).
+      O lume nouă funcționează parțial imediat doar prin chei în <code>keys.sop</code>, și complet fie cu ~40 linii de configurare
+      în <code>contracts.mjs</code>/<code>candidates.mjs</code>, fie cu 0 linii JS după mutarea cue-urilor prepoziționale în SOP.
+    </div>
+
+    <footer>
+      Continuă cu <a href="evaluation.html">5. Evaluare &amp; Atribuire Erori →</a>
+    </footer>
+  </main>
+</body>
+</html>

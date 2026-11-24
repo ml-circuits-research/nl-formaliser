@@ -666,6 +666,30 @@ async function main() {
     );
   }
 
+  const attributionCounts = new Map();
+  for (const r of records) {
+    const a = r.cmp.attribution ?? 'unknown';
+    attributionCounts.set(a, (attributionCounts.get(a) ?? 0) + 1);
+  }
+  if (attributionCounts.size) {
+    console.log('\nRoot-cause attribution (mutually exclusive — Gold vs Typo vs Z3 Formaliser):');
+    const order = [
+      'success_exact',
+      'success_z3_better_than_gold',
+      'equiv_gold_redundant_id',
+      'fail_gold_annotation_flawed',
+      'fail_input_typo',
+      'fail_z3_zero_req_filler',
+      'fail_z3_act_or_mood',
+      'fail_z3_family_or_mode',
+      'fail_z3_constraints_or_target',
+    ];
+    for (const k of order) {
+      const c = attributionCounts.get(k) ?? 0;
+      if (c > 0) console.log(`  ${c}\t(${pct(c, records.length)})\t${k}`);
+    }
+  }
+
   if (goldIssueCounts.size) {
     console.log('\nGold annotation defects:');
     for (const [reason, count] of [...goldIssueCounts.entries()].sort((a, b) => b[1] - a[1])) {
@@ -709,6 +733,7 @@ async function main() {
         {
           meta: { source, tabs, samplePct, limit, seed, total: records.length },
           summary: Object.fromEntries(groups),
+          attributionCounts: Object.fromEntries(attributionCounts),
           goldIssueCounts: Object.fromEntries([...goldIssueCounts.entries()].sort((a, b) => b[1] - a[1])),
           topErrorClusters: [...errorClusters.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30),
           examples: {

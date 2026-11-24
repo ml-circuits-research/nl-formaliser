@@ -51,13 +51,15 @@ function compatTargetFamilyIds(tab, tabSpec, attrFamily) {
 }
 
 // Check filler purity with the exact same rule as webmeet-dataset/tools/check.mjs line 164-166.
+// IMPORTANT: check.mjs only trusts kb.grammar.fillerWords (w.lang.en LEX.filler), NOT extended fillerPhrases!
 function fillerHasHiddenContent(ft, kb) {
-  if (typeof kb?.isGrammarWord !== 'function' || typeof kb?.isFillerWord !== 'function') return false;
+  if (typeof kb?.isGrammarWord !== 'function' || !kb?.grammar?.fillerWords) return false;
+  const lexFiller = kb.grammar.fillerWords;
   let rest = String(ft || '').toLowerCase().replace(/\u2019/g, "'");
-  const fillerPhrases = kb?.grammar?.fillerWords ? [...kb.grammar.fillerWords].filter((x) => x.includes(' ')) : [];
+  const fillerPhrases = [...lexFiller].filter((x) => x.includes(' '));
   for (const ph of fillerPhrases) rest = rest.replaceAll(ph, ' ');
   const words = rest.match(TOKEN_RE) ?? [];
-  return words.some((w) => !kb.isGrammarWord(w) && !kb.isFillerWord(w));
+  return words.some((w) => !kb.isGrammarWord(w) && !lexFiller.has(w));
 }
 
 export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4 } = {}) {
@@ -212,9 +214,18 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     emit(`(assert (=> active_${r} (and (not (= act_${r} ACT_GREET)) (not (= act_${r} ACT_THANK)) (not (= act_${r} ACT_FAREWELL)))))`);
   }
 
-  emit(`(assert active_1)`);
+  // Allow 0-request pure-filler conversational circuits ("thanks, that works", "no problem, cheers")
+  // ONLY when every content token is covered by FILLER; otherwise activate @r1.
+  const canBeZeroReq = T > 0 && tokens.every((tok, idx) =>
+    !tok.isContent || tokCover[idx].some((c) => c.kind === HYP_KINDS.FILLER)
+  );
+  if (canBeZeroReq) {
+    emit(`(assert-soft active_1 :weight 18)`);
+  } else {
+    emit(`(assert active_1)`);
+  }
   // Request 1 can NEVER be TM_BOUND (no earlier request in this message created its referent!)
-  emit(`(assert (not (= tmode_1 TM_BOUND)))`);
+  emit(`(assert (=> active_1 (not (= tmode_1 TM_BOUND))))`);
 
   for (let r = 1; r < R; r++) {
     emit(`(assert (=> active_${r + 1} active_${r}))`);
@@ -644,26 +655,35 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       ...tSorts.map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
       ...creationHeadCons.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`),
     ]);
-    if (placeConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} ${hasPlaceInR} (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_PLACE)) :weight 10)`);
-    }
-    if (attrOnlyConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} ${hasAttrInR} (not ${hasPlaceInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_CHANGE)) :weight 10)`);
-    }
-    // Resultative "make <existing/bare target> <post-target attribute/size/colour>" ("make the house blue", "make boat 67 pixels wide")
-    // vs creation "make a blue house" (explicit indefinite determiner in text or pre-target modifier):
     const explicitIndefInR = smtOr([
       ...tSorts.filter((s) => s.det === 'indefinite').map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
       ...tFams.filter((f) => f.det === 'indefinite').map((f) => `(and sel_${f.id} (= own_${f.id} ${r}))`),
       ...tRefs.filter((x) => x.det === 'indefinite').map((x) => `(and sel_${x.id} (= own_${x.id} ${r}))`),
     ]);
+    if (placeConstraints.length > 0) {
+      emit(`(assert-soft (=> (and active_${r} ${hasPlaceInR} (not ${explicitIndefInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_PLACE)) :weight 10)`);
+    }
+    if (attrOnlyConstraints.length > 0) {
+      emit(`(assert-soft (=> (and active_${r} ${hasAttrInR} (not ${hasPlaceInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_CHANGE)) :weight 10)`);
+    }
+    // Direction vs static region disambiguation in Z3:
+    // Under ACT_PLACE without static prep ("move the boat left"), prefer *.direction; with "at/on/in" ("on the left"), prefer *.at!
+    const dirConsInR = constraints.filter((c) => c.attribute?.endsWith('.direction') && !(c.startTok > 0 && ['at', 'on', 'in'].includes(tokens[c.startTok - 1]?.lower ?? '')));
+    const atConsInR = constraints.filter((c) => c.attribute?.endsWith('.at') && !(c.startTok > 0 && ['at', 'on', 'in'].includes(tokens[c.startTok - 1]?.lower ?? '')));
+    if (dirConsInR.length > 0 && atConsInR.length > 0) {
+      for (const a of atConsInR) {
+        emit(`(assert-soft (not (and active_${r} (= act_${r} ACT_PLACE) sel_${a.id} (= own_${a.id} ${r}))) :weight 10)`);
+      }
+    }
+    // Resultative "make <existing/bare target> <post-target attribute/size/colour>" ("make the house blue", "make boat 67 pixels wide")
+    // vs creation "make a blue house" / "make a line chart" (explicit indefinite determiner or chart.type/diagram.kind):
     const postTargetPropInR = smtOr(
       attrOnlyConstraints
         .filter((c) => c.attribute !== 'chart.type' && c.attribute !== 'diagram.kind' && !c.attribute?.endsWith('.title') && !c.attribute?.endsWith('.name') && !c.attribute?.endsWith('.content') && !c.attribute?.endsWith('.about') && !c.attribute?.endsWith('.genre'))
         .map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (>= tpos_${r} 0) (> ${c.startTok} tpos_${r}))`)
     );
     if (attrOnlyConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight 22)`);
+      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (not ${hasCreationHeadInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight 22)`);
     }
 
     // Verbless fragment discipline:
@@ -774,6 +794,13 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const ref of tRefs) {
     if (ref.fill === 'all') {
       emit(`(assert-soft sel_${ref.id} :weight 18)`);
+    } else if (ref.isPronoun && /^(it|them|this one|that one|these|those)$/i.test(ref.text)) {
+      // Object pronouns ("make it bold", "move it left", "delete them") are isGrammar=true in w.lang.en;
+      // reward grounding them when immediately after a verb/predicate so Z3 does not silently drop "it" into mode=new!
+      const afterVerb = ref.startTok > 0 && preds.some((p) => p.endTok === ref.startTok - 1);
+      if (afterVerb) {
+        emit(`(assert-soft sel_${ref.id} :weight 24)`);
+      }
     }
   }
   // ACT_CONNECT creates a new link by default when family=link

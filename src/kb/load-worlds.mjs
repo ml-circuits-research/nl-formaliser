@@ -141,7 +141,7 @@ const SHADE_WORDS = [
 const AVATAR_PART_WORDS = [
   'hair', 'eyes', 'eye', 'nose', 'mouth', 'eyebrows', 'brows', 'ears', 'ear',
   'beard', 'moustache', 'mustache', 'glasses', 'hat', 'headwear', 'clothes',
-  'shirt', 'shoulders', 'head', 'face', 'skin', 'cheeks', 'lips', 'teeth',
+  'shirt', 'shoulders', 'skin', 'cheeks', 'lips', 'teeth',
   'chin', 'neck', 'hands', 'arms', 'legs', 'feet',
 ];
 
@@ -302,6 +302,12 @@ function buildTabs(parse, worldsDir) {
       }
       if (name === 'drawn.size' || name === 'node.size') {
         for (const w of ['wide', 'width', 'tall', 'height']) keyWords.add(w);
+      }
+      if (name === 'drawn.holds') {
+        for (const w of ['holding', 'holds']) keyWords.add(w);
+      }
+      if (name === 'drawn.cause') {
+        for (const w of ['because', 'because of']) keyWords.add(w);
       }
       if (name === 'chart.barHeight' || name === 'chart.barWidth') {
         for (const w of ['bar', 'bars']) keyWords.add(w);
@@ -468,14 +474,14 @@ function loadActions(parse, worldsDir) {
     ['write', 'make', null],
     ['author', 'make', null],
     ['plot', 'make', null],
-    ['graph', 'make', null],
-    ['chart', 'make', null],
     ['visualize', 'make', null],
     ['visualise', 'make', null],
     ['display', 'make', null],
     ['show', 'make', null],
     ['show', 'ask', null],
     ['try', 'make', null],
+    ['insert', 'make', null],
+    ['meet', 'make', null],
     ['invite', 'change', null],
     ['rename', 'change', null],
     ['retitle', 'change', null],
@@ -549,6 +555,17 @@ function loadGrammar(parse, worldsDir) {
     'this time',
     'for me',
     'please and thanks',
+    'that works',
+    'no problem',
+    'cheers',
+    'all good',
+    'sounds good',
+    'looks good',
+    'never mind',
+    'nevermind',
+    "that's all",
+    "that's it",
+    'that is it',
   ]);
   const determiners = new Map();
   const pronouns = new Map();

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spellchecker Z3 &amp; Încredere — nl-formaliser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="brand">nl-formaliser</div>
+    <div class="subtitle">Z3 MaxSMT → SOP Lang (<code>w.request</code>)</div>
+    <ul>
+      <li><a href="index.html">1. Prezentare generală</a></li>
+      <li><a href="architecture.html">2. Arhitectură &amp; Pipeline</a></li>
+      <li><a href="z3-logic.html">3. Logica Z3 &amp; Axiome SMT</a></li>
+      <li><a href="generality.html">4. Generalitate &amp; Lumi Noi</a></li>
+      <li><a href="evaluation.html">5. Evaluare &amp; Atribuire Erori</a></li>
+      <li><a class="active" href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></li>
+      <li><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>6. Propunere: Spellchecker în Z3 (Layer separat) &amp; Estimare de Încredere</h1>
+    <p>
+      <span class="badge warn">Design &amp; Plauzabilitate</span>
+      Documentul complet de propunere se află și în Markdown la <code>../spell_checker_z3.md</code>.
+      Această secțiune sintetizează arhitectura în 2 straturi separate și estimatorul simbolic de încredere.
+    </p>
+
+    <h2>6.1 De ce un layer separat pe intervale de caractere (nu token-cu-token)?</h2>
+    <p>
+      În datele reale (<code>webmeet-dataset</code>) apar 5 familii de erori ortografice:
+      litere lipsă (<code>selct</code>), litere dublate (<code>beeside</code>), transpoziții (<code>atble</code>, <code>rtee</code>),
+      cuvinte lipite fără spațiu (<code>onte</code>, <code>onthe</code>) și spații inserate/deplasate în mijlocul cuvintelor
+      (<code>stando ut</code> → <code>stand out</code>, <code>theb ars</code> → <code>the bars</code>).
+    </p>
+    <p>
+      Un spellchecker separat în <strong>Layer 1</strong> rezolvă aceste erori prin <strong>acoperire exactă pe intervale de caractere</strong>
+      în Z3 MaxSMT, folosind exclusiv <strong>vocabularul lumii active</strong> (~5k–10k forme din <code>kb</code>, indexate SymSpell în &lt;50 ms),
+      și transmite către <strong>Layer 2 (formalizatorul Z3)</strong> tokenii curățați împreună cu
+      <strong>offset-urile brute originale</strong> — astfel încât <code>sort=table sort_words=atble</code> sau
+      <code>family_words="theb ars"</code> rămân <strong>100% valide la verificatorul de grounding <code>check.mjs</code></strong>!
+    </p>
+
+    <pre><code>Text brut: "make theb ars below 7 teal"
+   │
+   ▼  LAYER 1 (SymSpell + Z3 MaxSMT pe intervale de caractere, fast-path 0ms când 0 OOV)
+      • Scut hard pe nume proprii (Sri, Kyoto, Work 4), citate, cifre, coduri (n1)
+      • Operații: KEEP(0), TRANSPOSE/DOUBLE(6), EDIT_1(8), SPLIT(5..11), SHIFT_SPACE(5)
+      • Ieșire: Top-K fraze curate + mapare exactă cleanTok → rawSpan
+   │
+   ▼  LAYER 2 (Formalizatorul Z3 w.request existent)
+      • Primește tokenii curați + rawSpan pentru grounding
+      • Returnează modelul optim + alternativă Top-2 (margine Δ_sem)
+   │
+   ▼  ESTIMATOR SIMBOLIC DE ÎNCREDERE (Calibrat pe dev.jsonl)
+      • P(corect | x) ∈ [0, 1] + bandă operațională (HIGH / MEDIUM / LOW)</code></pre>
+
+    <h2>6.2 Estimarea de încredere (<code>Confidence Score</code>)</h2>
+    <p>Z3 furnizează direct 5 semnale matematice transparente (fără „black-box”):</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Semnal</th>
+          <th>Cum se calculează</th>
+          <th>Rol diagnostic</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Acoperire semantică</strong></td>
+          <td><code>1 - (unread + uncovered) / contentTokens</code></td>
+          <td>Orice token aruncat în <code>unread</code> (cost 120) scade puternic încrederea.</td>
+        </tr>
+        <tr>
+          <td><strong>2. Energie MaxSMT normalizată</strong></td>
+          <td><code>totalSoftPenalty(sol1) / contentTokens</code></td>
+          <td>Separă potrivirile curate pe chei închise de fallback-urile forțate.</td>
+        </tr>
+        <tr>
+          <td><strong>3. Marginea Top-1 vs. Top-2 (<code>Δ_sem</code>)</strong></td>
+          <td><code>cost(sol2) - cost(sol1)</code> via blocking clause</td>
+          <td>Detectează <strong>ambiguitatea reală</strong> (<code>Δ_sem ≈ 0</code> ⇒ două interpretări egale!).</td>
+        </tr>
+        <tr>
+          <td><strong>4. Cost &amp; margine Layer 1</strong></td>
+          <td><code>editCost / chars</code> și <code>Δ_L1</code></td>
+          <td>Penalizează corecțiile ortografice agresive sau segmentările ambigue.</td>
+        </tr>
+        <tr>
+          <td><strong>5. Semnale <code>check.mjs</code></strong></td>
+          <td><code>errors == 0</code> (hard gate), <code>warnings</code>, raport chei închise vs open-span</td>
+          <td>Orice eroare ⇒ <code>confidence = 0</code>; warning-urile reduc scorul.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>6.3 Estimare realistă de plauzabilitate</h2>
+    <ul>
+      <li><strong>Fezabilitate tehnică:</strong> <span class="badge ok">Foarte ridicată (8.5 / 10)</span> — ~400–600 linii <code>.mjs</code> + ~80 linii SMT-LIB2, fără dependențe externe.</li>
+      <li><strong>Latență:</strong> <strong>~0–2 ms</strong> pe propoziții fără OOV (fast-path: Z3 Layer 1 nu se apelează), <strong>10–50 ms</strong> pe propoziții cu typo-uri; +40–100 ms pentru <code>topK=2</code> (marginea de încredere).</li>
+      <li><strong>Câștig estimat:</strong> recuperează <strong>~75–85%</strong> din eșecurile cauzate de typo/split/merge, cu un AUROC estimat de <strong>0.80–0.88</strong> pentru separarea formalizărilor corecte de cele greșite.</li>
+      <li><strong>Riscul #1 de prevenit:</strong> supra-corectarea numelor proprii sau substantivelor noi (ex. <code>Sri → sir</code>, <code>starbucks</code>) — eliminat prin scut hard pe majuscule non-inițiale, citate, coduri și restricția de a nu re-segmenta perechi de cuvinte deja valide.</li>
+    </ul>
+
+    <footer>
+      Continuă cu <a href="faq.html">7. Întrebări Tehnice (FAQ) →</a>
+    </footer>
+  </main>
+</body>
+</html>
