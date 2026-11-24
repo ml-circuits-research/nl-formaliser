@@ -28,12 +28,21 @@ export async function createFormaliser({ knowledgeDir, timeoutMs = 4000, withVer
   } = {}) {
     const t0 = performance.now();
     const lattice = buildLattice(text, { tab, kb, previous, clock });
-    const encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests });
-    const solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
+    let encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests });
+    let solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
       topK,
       blockVars: encoded.blockVars,
       timeout,
     });
+    // Graceful timeout recovery on very long multi-clause inputs: retry cleanly with maxRequests=1
+    if (!solved.ok && solved.status === 'unknown' && encoded.meta.R > 1) {
+      encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests: 1 });
+      solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
+        topK,
+        blockVars: encoded.blockVars,
+        timeout,
+      });
+    }
     const elapsedMs = performance.now() - t0;
 
     if (!solved.ok) {

@@ -5,11 +5,14 @@
   "type": "module",
   "main": "src/index.mjs",
   "bin": {
-    "nl-formalise": "./bin/formalise.mjs"
+    "nl-formalise": "./bin/formalise.mjs",
+    "nl-spellcheck": "./bin/spellcheck.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "test:spell": "node --test test/spell.test.mjs",
     "formalise": "node bin/formalise.mjs",
+    "spellcheck": "node bin/spellcheck.mjs",
     "bench": "node eval/benchmark.mjs"
   },
   "engines": {

@@ -22,27 +22,69 @@
   </nav>
 
   <main>
-    <h1>6. Propunere: Spellchecker în Z3 (Layer separat) &amp; Estimare de Încredere</h1>
+    <h1>6. Spellchecker Z3 (Layer 1 Independent) &amp; Estimare de Încredere</h1>
     <p>
-      <span class="badge warn">Design &amp; Plauzabilitate</span>
-      Documentul complet de propunere se află și în Markdown la <code>../spell_checker_z3.md</code>.
-      Această secțiune sintetizează arhitectura în 2 straturi separate și estimatorul simbolic de încredere.
+      <span class="badge ok">Layer 1 Implementat &amp; Testat (8/8 teste)</span>
+      <span class="badge warn">Confidence Calibration: Propunere</span>
+      Componenta de normalizare ortografică Z3 este implementată complet separat de formalizator în
+      <code>src/spell/vocab.mjs</code>, <code>src/spell/z3-spell.mjs</code>, CLI <code>bin/spellcheck.mjs</code>
+      și testele dedicate <code>test/spell.test.mjs</code>. Propunerea completă de design &amp; estimator de încredere se află în <code>../spell_checker_z3.md</code>.
     </p>
 
-    <h2>6.1 De ce un layer separat pe intervale de caractere (nu token-cu-token)?</h2>
+    <h2>6.1 Componentă independentă, generică (0 dependență de formalizator)</h2>
     <p>
-      În datele reale (<code>webmeet-dataset</code>) apar 5 familii de erori ortografice:
-      litere lipsă (<code>selct</code>), litere dublate (<code>beeside</code>), transpoziții (<code>atble</code>, <code>rtee</code>),
-      cuvinte lipite fără spațiu (<code>onte</code>, <code>onthe</code>) și spații inserate/deplasate în mijlocul cuvintelor
-      (<code>stando ut</code> → <code>stand out</code>, <code>theb ars</code> → <code>the bars</code>).
+      Spellchecker-ul <strong>nu importă nimic</strong> din formalizator (<code>src/smt/*</code>, <code>src/lattice/*</code>,
+      <code>src/emit/*</code>, <code>src/index.mjs</code>). Logica sa Z3 MaxSMT operează exclusiv pe un vocabular generic
+      <code>{ words, highFreqWords, phrases, exactOnlyWords }</code> — fie furnizat direct (ex. un vocabular custom de
+      <code>spreadsheet</code> fără nicio dependență de SOP Lang), fie extras automat din lumile SOP prin adaptorul
+      <code>extractVocabFromKb(kb, { tab })</code> (~71 ms pentru 11.627 cuvinte și 3.042 fraze cu flexiuni).
     </p>
     <p>
-      Un spellchecker separat în <strong>Layer 1</strong> rezolvă aceste erori prin <strong>acoperire exactă pe intervale de caractere</strong>
-      în Z3 MaxSMT, folosind exclusiv <strong>vocabularul lumii active</strong> (~5k–10k forme din <code>kb</code>, indexate SymSpell în &lt;50 ms),
-      și transmite către <strong>Layer 2 (formalizatorul Z3)</strong> tokenii curățați împreună cu
-      <strong>offset-urile brute originale</strong> — astfel încât <code>sort=table sort_words=atble</code> sau
-      <code>family_words="theb ars"</code> rămân <strong>100% valide la verificatorul de grounding <code>check.mjs</code></strong>!
+      În datele reale (<code>webmeet-dataset</code>) rezolvă toate cele 5 familii de zgomot ortografic:
+      litere lipsă (<code>selct</code> → <code>select</code>), litere dublate (<code>beeside</code> → <code>beside</code>),
+      transpoziții (<code>atble</code> → <code>table</code>, <code>rtee</code> → <code>tree</code>),
+      cuvinte lipite fără spațiu (<code>onte</code> / <code>onthe</code> → <code>on the</code>) și spații deplasate în mijlocul cuvintelor
+      (<code>stando ut</code> → <code>stand out</code>, <code>theb ars</code> → <code>the bars</code>, <code>bar ch art</code> → <code>bar chart</code>).
     </p>
+    <p>
+      Fiecare token ieșit păstrează <strong>offset-urile exacte din textul brut</strong> (<code>rawText</code>, <code>rawStart</code>,
+      <code>rawEnd</code>, <code>op</code>, <code>editCost</code>), astfel încât un pipeline viitor Layer 1 → Layer 2 poate
+      ancora exact <code>sort_words=atble</code> sau <code>family_words="theb ars"</code> în <code>check.mjs</code>.
+    </p>
+
+    <h3>Utilizare CLI &amp; API independentă</h3>
+    <pre><code># Rulare teste independente spellchecker (8/8 pass)
+npm run test:spell
+
+# CLI standalone (cu vocabular extras din SOP worlds, opțional filtrat pe --tab)
+node bin/spellcheck.mjs "copy the atble"
+node bin/spellcheck.mjs --top 2 "the losing months should stando ut, so make theb ars below 7 teal"
+node bin/spellcheck.mjs --tab diagram --json "bar ch art"
+
+# API programatic generic (cu orice vocabular custom, ZERO dependență de SOP Lang!)
+import { createSpellChecker } from './src/spell/z3-spell.mjs';
+const checker = await createSpellChecker({
+  vocab: { words: ['select', 'cell', 'column', 'the', 'in'], highFreqWords: ['the', 'in'], phrases: ['in the'] },
+});
+const res = await checker.normalise('selct thec ell', { topK: 2 });
+// res.cleanText === 'select the cell', res.margin >= 0, res.tokens[i].rawStart/rawEnd</code></pre>
+
+    <h3>Măsurători reale pe componenta implementată</h3>
+    <table>
+      <thead>
+        <tr><th>Test / Caz</th><th>Intrare brută</th><th>Ieșire Z3 Layer 1</th><th class="num">Latență</th><th>Z3 apelat?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Indexare SymSpell (10k cuvinte)</td><td><code>buildSpellVocab(10.000)</code></td><td>Index dist ≤ 2</td><td class="num">36–40 ms</td><td>—</td></tr>
+        <tr><td>Extracție vocabular SOP</td><td><code>extractVocabFromKb(kb)</code></td><td>11.627 cuvinte, 3.042 fraze</td><td class="num">~71 ms</td><td>—</td></tr>
+        <tr><td>Fast-path curat (0 OOV)</td><td><code>move n1 to 260,180 on 2026-12-07 at 15:00 UTC</code></td><td>Neschimbat</td><td class="num"><strong>0.04 ms</strong></td><td><strong>Nu</strong></td></tr>
+        <tr><td>Scut Hard Entity</td><td><code>place Sri above the starbucks block</code></td><td>Neschimbat (<code>Sri</code>, <code>starbucks</code> protejate)</td><td class="num">3.8 ms</td><td>Da</td></tr>
+        <tr><td>Transpoziție + margine Top-2</td><td><code>copy the atble</code></td><td><code>copy the table</code> (<code>margin=3</code>)</td><td class="num">~21 ms</td><td>Da</td></tr>
+        <tr><td>Merge / spațiu intrus</td><td><code>bar ch art</code></td><td><code>bar chart</code></td><td class="num">6.1 ms</td><td>Da</td></tr>
+        <tr><td>Split + edit (<code>onte</code>/<code>onthe</code>)</td><td><code>a drop shadow onte sail onthe boat</code></td><td><code>a drop shadow on the sail on the boat</code></td><td class="num">~202 ms</td><td>Da</td></tr>
+        <tr><td>Shift-space dublu</td><td><code>the losing months should stando ut, so make theb ars below 7 teal</code></td><td><code>the losing months should stand out, so make the bars below 7 teal</code></td><td class="num">~88 ms</td><td>Da</td></tr>
+      </tbody>
+    </table>
 
     <pre><code>Text brut: "make theb ars below 7 teal"
    │

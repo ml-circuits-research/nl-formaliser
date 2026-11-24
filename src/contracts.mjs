@@ -109,8 +109,8 @@ export const COMPAT_FAMILIES = Object.freeze({
     page: ['page', 'drawn', 'composition'],
     group: ['group', 'drawn'],
     composition: ['composition', 'drawn', 'page'],
-    preference: ['preference', 'drawn', 'page', 'part'],
-    step: ['step', 'drawn', 'part', 'page'],
+    preference: ['preference'],
+    step: ['step'],
   },
   diagram: {
     chart: ['chart', 'series', 'point', 'page', 'diagram', 'composition'],
@@ -123,8 +123,8 @@ export const COMPAT_FAMILIES = Object.freeze({
     point: ['point', 'chart', 'series'],
     sketch: ['sketch', 'node', 'link', 'diagram'],
     composition: ['composition', 'diagram', 'chart', 'node'],
-    preference: ['preference', 'diagram', 'chart', 'node', 'link'],
-    step: ['step', 'diagram', 'node', 'link', 'chart'],
+    preference: ['preference'],
+    step: ['step'],
   },
   document: {
     section: ['section', 'block', 'text', 'document', 'inline'],

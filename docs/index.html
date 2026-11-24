@@ -62,7 +62,7 @@
       </div>
       <div class="card">
         <h3><a href="spellchecker.html">6. Spellchecker Z3 &amp; Încredere</a></h3>
-        <p>Propunerea în 2 straturi pentru typo-uri/spații greșite și estimatorul simbolic de încredere din marginea Top-1/Top-2 Z3.</p>
+        <p>Layer 1 independent Z3 MaxSMT implementat (<code>src/spell/*</code>, <code>bin/spellcheck.mjs</code>) pentru typo-uri/spații greșite + estimatorul de încredere.</p>
       </div>
       <div class="card">
         <h3><a href="faq.html">7. Întrebări Tehnice (FAQ)</a></h3>
@@ -71,15 +71,19 @@
     </div>
 
     <h2>Pornire rapidă (CLI &amp; API)</h2>
-    <pre><code># 1. Rulare suită completă de teste (KB, latice, Z3 core, verifier, E2E)
+    <pre><code># 1. Rulare suită completă de teste (50 teste: KB, latice, spellchecker Z3, Z3 core, verifier, E2E)
 npm test
 
-# 2. Formalizare din linia de comandă (cu verificare și alternative top-K)
+# 2. Spellchecker Z3 standalone (Layer 1, independent de formalizator)
+npm run test:spell
+node bin/spellcheck.mjs --top 2 "the losing months should stando ut, so make theb ars below 7 teal"
+
+# 3. Formalizare din linia de comandă (Layer 2, cu verificare și alternative top-K)
 node bin/formalise.mjs --tab drawing "make the house blue" --verify
 node bin/formalise.mjs --tab diagram "make a bar chart of the stadiums by country" --top 3 --verify
 node bin/formalise.mjs --tab drawing "please switch to the robot preset" --dump-smt
 
-# 3. Benchmark paralel pe 10 workeri Z3
+# 4. Benchmark paralel pe 10 workeri Z3
 node eval/benchmark.mjs --source webmeet --sample-pct 1 --seed 42 --workers 10
 node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10
 node eval/benchmark.mjs --source keys --workers 10</code></pre>

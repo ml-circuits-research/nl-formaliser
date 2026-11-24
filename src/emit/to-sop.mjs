@@ -202,8 +202,23 @@ export function modelToSop(model, lattice, meta) {
       }
     }
 
-    if (tFam && tFam.familyWords && scopeText.includes(tFam.familyWords)) {
-      tPairs.push(['family_words', tFam.familyWords]);
+    if (tFam) {
+      if (tFam.familyWords && scopeText.includes(tFam.familyWords)) {
+        tPairs.push(['family_words', tFam.familyWords]);
+      }
+      if (tFam.description && !tRef?.description && scopeText.includes(tFam.description)) {
+        tPairs.push(['description', tFam.description]);
+      }
+      if (tFam.count != null && tFam.countWords && !tSort?.countWords && scopeText.includes(tFam.countWords)) {
+        tPairs.push(['count', tFam.count]);
+        tPairs.push(['count_words', tFam.countWords]);
+      }
+      if (tFam.ordinal && !tSort?.ordinal && !tRef?.ordinal && scopeText.includes(tFam.ordinal)) {
+        tPairs.push(['ordinal', tFam.ordinal]);
+      }
+      if (tFam.quantifier && !tSort?.quantifier && !tRef?.quantifier && scopeText.includes(tFam.quantifier)) {
+        tPairs.push(['quantifier', tFam.quantifier]);
+      }
     }
 
     lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
@@ -311,6 +326,33 @@ export function modelToSop(model, lattice, meta) {
         }
       } else {
         emitOneConstraint(c, phase, want, boundKws);
+      }
+    }
+
+    // Emit verb-intrinsic constraints from k.actions (e.g., "enlarge" -> size delta more, "bold" -> format=bold)
+    // ONLY when the verb carries a concrete value/delta, matches the chosen target family (or compat), and no explicit constraint already sets that short attribute!
+    if (act === 'change' && pred?.intrinsicConstraints?.length && pred.text && scopeText.includes(pred.text)) {
+      const explicitShorts = new Set(
+        cons.flatMap((c) => (c.pairedConstraints?.length ? c.pairedConstraints.map((x) => x.attribute) : [c.attribute]))
+          .filter(Boolean)
+          .map((a) => (a.includes('.') ? a.split('.').slice(1).join('.') : a))
+      );
+      const validIntrinsics = pred.intrinsicConstraints.filter((ic) => {
+        if (!ic?.attribute || !tabSpec.keys.has(ic.attribute)) return false;
+        if (!ic.value && ic.operator !== 'delta') return false;
+        const sk = ic.attribute.includes('.') ? ic.attribute.split('.').slice(1).join('.') : ic.attribute;
+        if (explicitShorts.has(sk)) return false;
+        if (sk === 'size' && (explicitShorts.has('width') || explicitShorts.has('height') || explicitShorts.has('length'))) return false;
+        return true;
+      });
+      const famMatch = validIntrinsics.find((ic) => ic.attribute.startsWith(`${family}.`));
+      const chosenIc = famMatch ?? validIntrinsics.find((ic) => ic.attribute === 'inline.format');
+      if (chosenIc) {
+        const keySpec = tabSpec.keys.get(chosenIc.attribute);
+        const valOk = !chosenIc.value || !keySpec?.values || keySpec.values.has(String(chosenIc.value).toLowerCase());
+        if (valOk) {
+          emitOneConstraint({ ...chosenIc, text: pred.text }, 'result', 'yes', []);
+        }
       }
     }
 

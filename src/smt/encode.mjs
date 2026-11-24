@@ -35,7 +35,9 @@ function atMostOne(vars) {
 }
 
 function compatTargetFamilyIds(tab, tabSpec, attrFamily) {
-  const table = COMPAT_FAMILIES[tab] ?? {};
+  const table = COMPAT_FAMILIES[tab];
+  // Zero-JS new-world fallback: if a future tab isn't in COMPAT_FAMILIES, allow all families on that tab!
+  if (!table) return tabSpec.families.map((_, i) => i);
   const ids = [];
   for (let fid = 0; fid < tabSpec.families.length; fid++) {
     const tf = tabSpec.families[fid];
@@ -81,7 +83,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const F = tabSpec.families.length;
   const K = tabSpec.keyList.length;
   const famToId = new Map(tabSpec.families.map((f, i) => [f, i]));
-  const defaultFamId = famToId.get(DEFAULT_TAB_FAMILY[tab]) ?? 0;
+  const defaultFamId = famToId.get(DEFAULT_TAB_FAMILY[tab] ?? tabSpec.defaultFamily) ?? 0;
 
   // Identify clause separators and verb positions to compute tight upper bound R.
   const sepToks = new Set();
@@ -103,7 +105,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       .filter((c) => c.kind === HYP_KINDS.PREDICATE && (c.licensed ?? []).some((l) => !['greet', 'thank', 'farewell'].includes(l.act)))
       .map((c) => c.startTok)
   );
-  // Count plausible clause boundaries: strong seps with content on both sides, OR extra predicates separated by a sep
+  // Count plausible clause boundaries: strong seps with content on both sides, OR extra predicates separated by a real SEP!
+  // NEVER allow splitting with zero separator between adjacent words (prevents mid-NP splits like "replace Client | delay letter")!
   let plausibleSplits = strongClauseSeps.length;
   const sortedPreds = [...predStartToks].sort((a, b) => a - b);
   for (let i = 1; i < sortedPreds.length; i++) {
@@ -114,8 +117,6 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       if (hasSepBetween) plausibleSplits = Math.max(plausibleSplits, i);
     }
   }
-  // If there are >=2 predicates without explicit sep, allow at least 2 slots
-  if (sortedPreds.length >= 2 && plausibleSplits === 0) plausibleSplits = 1;
   const R = T === 0 ? 1 : Math.max(1, Math.min(maxRequests, 1 + plausibleSplits));
 
   const lines = [];
@@ -235,9 +236,6 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const splitGuards = [];
     for (const st of sepToks) {
       splitGuards.push(`(and (< rend_${r} ${st}) (< ${st} rstart_${r + 1}))`);
-    }
-    for (const pt of predStartToks) {
-      splitGuards.push(`(= ppos_${r + 1} ${pt})`);
     }
     if (splitGuards.length > 0) {
       emit(`(assert (=> active_${r + 1} ${smtOr(splitGuards)}))`);
@@ -385,12 +383,20 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       emit(`(assert ${smtOr(kwDom)})`);
       emit(`(assert (=> (not sel_${c.id}) (= kw_${c.id} (- 1))))`);
       if (c.requiresKeyWord) emit(`(assert (=> sel_${c.id} (>= kw_${c.id} 0)))`);
+      const dist1Kws = [];
+      const dist2Kws = [];
       for (const k of kwList) {
         emit(`(assert (=> (= kw_${c.id} ${k.id}) (and sel_${c.id} sel_${k.id} (= own_${c.id} own_${k.id}))))`);
         const dist = k.endTok < c.startTok ? c.startTok - k.endTok : k.startTok - c.endTok;
-        if (dist <= 2) {
-          emit(`(assert-soft (=> (and sel_${c.id} (>= kw_${c.id} 0)) (= kw_${c.id} ${k.id})) :weight ${dist === 1 ? 10 : 5})`);
-        }
+        if (dist === 1) dist1Kws.push(`(= kw_${c.id} ${k.id})`);
+        if (dist <= 2) dist2Kws.push(`(= kw_${c.id} ${k.id})`);
+      }
+      // Single disjunction per distance band (never conflicting per-k soft clauses that penalize selecting c!)
+      if (dist1Kws.length > 0) {
+        emit(`(assert-soft (=> (and sel_${c.id} (>= kw_${c.id} 0)) ${smtOr(dist1Kws)}) :weight 10)`);
+      }
+      if (dist2Kws.length > 0 && dist2Kws.length > dist1Kws.length) {
+        emit(`(assert-soft (=> (and sel_${c.id} (>= kw_${c.id} 0)) ${smtOr(dist2Kws)}) :weight 5)`);
       }
     }
 
@@ -462,17 +468,44 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         emit(`(assert (not (and sel_${p.id} (= own_${p.id} ${r}))))`);
       }
 
-      // Keeping-verb exclusion law (check.mjs line 260)
+      // Keeping-verb exclusion law (check.mjs line 260):
+      // A keeping verb ("keep", "leave", "spare") ONLY acts as `act=remove` when an exclusion cue
+      // ("only", "just", "nothing else", "everything else", "rest") or negated selector (W_NO) is present!
+      // Otherwise "keep the tick numbers two digits" / "keep the title bold" is `act=change`.
       if ((p.licensed ?? []).some((l) => l.keeping)) {
+        const hasExclusionCue = tokens.some((tok) => ['only', 'just', 'else', 'rest', 'except', 'other'].includes(tok.lower));
         const selConsInR = constraints.map(
           (c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_SELECTOR))`
         );
         const negSelConsInR = constraints.map(
           (c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_SELECTOR) (= ${wantExprOf.get(c.id)} W_NO))`
         );
-        if (selConsInR.length > 0) {
+        if (!hasExclusionCue) {
+          if (negSelConsInR.length > 0) {
+            emit(`(assert (=> (and sel_${p.id} (= own_${p.id} ${r}) (= act_${r} ACT_REMOVE)) ${smtOr(negSelConsInR)}))`);
+          } else {
+            emit(`(assert (not (and sel_${p.id} (= own_${p.id} ${r}) (= act_${r} ACT_REMOVE))))`);
+          }
+        } else if (selConsInR.length > 0) {
           emit(`(assert (=> (and sel_${p.id} (= own_${p.id} ${r}) (= act_${r} ACT_REMOVE) ${smtOr(selConsInR)}) ${smtOr(negSelConsInR)}))`);
         }
+      }
+
+      // Clause-edge WH-fronting law (English syntax):
+      // Without '?', a WH-word or copula ("where", "which", "who", "when", "what", "how", "is", "are", "do", "does")
+      // buried inside a clause (`p.startTok > rstart_r + 1`) is a relative/subordinate clause (e.g. "... keeping everything else where it is",
+      // "... which is on the ground floor"), NEVER a main `act=ask` question predicate!
+      if (!hasQuestionMark && (p.licensed ?? []).some((l) => l.act === 'ask')
+        && /^(what|what's|which|where|when|who|why|how|is|are|was|were|do|does|did)\b/i.test(p.text)) {
+        emit(`(assert (=> (and sel_${p.id} (= own_${p.id} ${r}) (= act_${r} ACT_ASK)) (<= ${p.startTok} (+ rstart_${r} 1))))`);
+      }
+
+      // Creation verb immediately followed by indefinite article ("make a ...", "create a ...", "add an ...", "build a ...", "write a ...")
+      // strongly signals creation (`act=make, tmode=new`) rather than modifying an existing referent!
+      const isCreationVerb = (p.licensed ?? []).some((l) => l.act === 'make');
+      const nextIsIndef = p.endTok + 1 < T && ['a', 'an'].includes(tokens[p.endTok + 1].lower);
+      if (isCreationVerb && nextIsIndef) {
+        emit(`(assert-soft (=> (and sel_${p.id} (= own_${p.id} ${r})) (and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW))) :weight 32)`);
       }
     }
 
@@ -567,6 +600,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         if (!hasPrecedingIntro && (ref.isProper || ref.isCode)) {
           emit(`(assert-soft (=> (and sel_${ref.id} (= own_${ref.id} ${r})) (not (= tmode_${r} TM_NEW))) :weight 22)`);
         }
+        // On a NEW target (TM_NEW), "called/titled/labelled X" specifies a result attribute (*.title/*.name/*.label/*.content),
+        // NOT target.name (which identifies an existing referent!).
+        const hasNameAttrOnSpan = constraints.some(
+          (c) => c.startTok === ref.startTok && c.endTok === ref.endTok && /\.(title|name|label|content)$/.test(c.attribute ?? '')
+        );
+        if (hasNameAttrOnSpan) {
+          emit(`(assert-soft (not (and sel_${ref.id} (= own_${ref.id} ${r}) (= tmode_${r} TM_NEW))) :weight 45)`);
+        }
       }
       if (ref.det && ref.det !== 'none') {
         emit(`(assert-soft (=> (and sel_${ref.id} (= own_${ref.id} ${r})) (= tdet_${r} ${detToSmt(ref.det)})) :weight 14)`);
@@ -646,18 +687,25 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
   }
 
-  // Act–Constraint Alignment in Z3 (resolves ambiguous verbs like "set"/"put" AND verbless fragments like "stove, please" / "bar graph, ..."!)
+  // Act–Constraint Alignment in Z3 (resolves ambiguous verbs like "set"/"put" AND verbless fragments like "stove, please" / "room for 6 called Birch"!)
   const creationHeadCons = constraints.filter((c) => c.attribute === 'chart.type' || c.attribute === 'diagram.kind');
+  const deltaConstraints = constraints.filter((c) => c.operator === 'delta');
   for (let r = 1; r <= R; r++) {
     const hasPlaceInR = smtOr(placeConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const hasAttrInR = smtOr(attrOnlyConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
+    const hasDeltaInR = smtOr(deltaConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const hasCreationHeadInR = smtOr([
       ...tSorts.map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
+      ...tFams.filter((f) => !['definite', 'possessive', 'demonstrative'].includes(f.det)).map((f) => `(and sel_${f.id} (= own_${f.id} ${r}))`),
       ...creationHeadCons.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`),
     ]);
+    // Comparative delta ("shorter hair", "bigger house", "taller bars") presupposes an EXISTING baseline target!
+    if (deltaConstraints.length > 0) {
+      emit(`(assert-soft (=> (and active_${r} ${hasDeltaInR}) (and (not (= tmode_${r} TM_NEW)) (not (= act_${r} ACT_MAKE)))) :weight 35)`);
+    }
     const explicitIndefInR = smtOr([
-      ...tSorts.filter((s) => s.det === 'indefinite').map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
-      ...tFams.filter((f) => f.det === 'indefinite').map((f) => `(and sel_${f.id} (= own_${f.id} ${r}))`),
+      ...tSorts.filter((s) => s.det === 'indefinite' || (s.count != null && s.det === 'none')).map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
+      ...tFams.filter((f) => f.det === 'indefinite' || (f.count != null && f.det === 'none')).map((f) => `(and sel_${f.id} (= own_${f.id} ${r}))`),
       ...tRefs.filter((x) => x.det === 'indefinite').map((x) => `(and sel_${x.id} (= own_${x.id} ${r}))`),
     ]);
     if (placeConstraints.length > 0) {
@@ -689,9 +737,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     // Verbless fragment discipline:
     // - Verbless request never invents a finer mode like mode=arrange
     emit(`(assert (=> (and active_${r} (< ppos_${r} 0)) (= amode_${r} MODE_NONE)))`);
-    // - Verbless noun/chart/diagram phrase ("stove, please", "big apple tree on left side", "bar graph, orange...") -> ACT_MAKE!
+    // - Verbless noun/chart/diagram phrase ("stove, please", "room for 6 called Birch", "bar graph, orange...") -> ACT_MAKE (unless delta comparative!)
     // - Verbless property/delta without creation head ("bigger!", "blue") -> ACT_CHANGE; verbless place/direction -> ACT_PLACE!
-    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR}) (= act_${r} ACT_MAKE)) :weight 25)`);
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR} (not ${hasDeltaInR})) (= act_${r} ACT_MAKE)) :weight 25)`);
     emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasAttrInR} (not ${hasPlaceInR})) (= act_${r} ACT_CHANGE)) :weight 15)`);
     emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasPlaceInR}) (= act_${r} ACT_PLACE)) :weight 15)`);
   }
@@ -764,6 +812,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       emit(`(assert-soft (not active_${r}) :weight 28)`);
     }
     emit(`(assert-soft (not lookup_${r}) :weight 7)`);
+    // Prefer canonical base act (MODE_NONE) when a verb licenses both MODE_NONE and an optional finer mode (e.g. "set")
+    emit(`(assert-soft (=> active_${r} (= amode_${r} MODE_NONE)) :weight 6)`);
     emit(`(assert-soft (=> active_${r} (>= ppos_${r} 0)) :weight 18)`);
     emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0)) (= ppos_${r} rstart_${r})) :weight 12)`);
     emit(`(assert-soft (=> active_${r} (= fam_${r} ${defaultFamId})) :weight 3)`);
@@ -778,12 +828,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // Semantically active closed-class cues (WH question triggers, NEG words, universal quantifiers):
   // Because w.lang.en classifies them as `isGrammar=true`, explicitly reward Z3 for grounding them
   // instead of silently dropping "what's", "how many", "not", "without", "every one", "all"!
-  // Note: without '?', bare "when/where/why/how" are often subordinate clauses ("when you get a chance, ..."), not questions!
+  // Note: without '?', bare "when/where/why/how" are often subordinate clauses, and ", which/who/that" after a comma is a RELATIVE clause!
   const STRONG_WH_RE = /^(what's|what is|what are|which|how many|how much|is there|are there|list|count|describe)\b/i;
-  const ANY_WH_RE = /^(what|what's|which|where|when|who|why|how|how many|how much|is there|are there)\b/i;
+  const ANY_WH_RE = /^(what|what's|which|where|when|who|why|how|how many|how much|is there|are there|any)\b/i;
   for (const p of preds) {
     const isAskPred = (p.licensed ?? []).some((l) => l.act === 'ask');
-    if (isAskPred && (STRONG_WH_RE.test(p.text) || (hasQuestionMark && ANY_WH_RE.test(p.text)))) {
+    const isMedialRelWh = !hasQuestionMark && /^(which|who|where|when|what|how)\b/i.test(p.text)
+      && p.startTok > 0 && tokens.slice(0, p.startTok).some((t) => t.isContent && !t.isFiller);
+    if (isAskPred && !isMedialRelWh && (STRONG_WH_RE.test(p.text) || (hasQuestionMark && ANY_WH_RE.test(p.text)))) {
       emit(`(assert-soft sel_${p.id} :weight 45)`);
     }
   }

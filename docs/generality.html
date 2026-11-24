@@ -69,15 +69,16 @@
           <td><span class="badge ok">Nivel 2: Dinamic din SOP</span></td>
           <td>
             <code>src/kb/load-worlds.mjs</code>:<br>
-            • <code>w.request/shards/keys.sop</code><br>
-            • <code>k.actions/shards/*.sop</code><br>
-            • <code>w.lang.en/shards/*.sop</code> (inclusiv cele 107 <code>w.lang.en.cue</code>)<br>
-            • <code>vocab-kinds.json</code> &amp; <code>k.*</code>
+            • <code>w.request/shards/keys.sop</code> (descoperire dinamică a tuturor tab-urilor + <code>defaultFamily</code> automat)<br>
+            • <code>k.actions/shards/*.sop</code> (inclusiv constrângeri intrinseci <code>attribute</code>/<code>value</code> ale verbelor)<br>
+            • <code>w.lang.en/shards/*.sop</code> (107 <code>w.lang.en.cue</code> + 64 <code>hand-arrangements.sop</code>)<br>
+            • <code>vocab-kinds.json</code> &amp; <code>k.*</code><br>
+            • <code>src/spell/vocab.mjs</code> + <code>z3-spell.mjs</code> (Layer 1 100% world-agnostic)
           </td>
           <td>
-            Încărcat dinamic la pornire (~180 ms). Adăugarea de noi chei, valori închise, verbe în
-            <code>k.actions</code>, cuvinte <code>core.word</code> sau cue-uri <code>w.lang.en.cue</code>
-            intră automat în <code>keyWordIndex</code>, <code>closedValueIndex</code> și laticea Z3.
+            Încărcat dinamic la pornire (~180 ms). Adăugarea de tab-uri noi în <code>keys.sop</code>, valori închise, verbe în
+            <code>k.actions</code>, aranjamente în <code>hand-arrangements.sop</code>, cuvinte <code>core.word</code> sau cue-uri <code>w.lang.en.cue</code>
+            intră automat în <code>keyWordIndex</code>, <code>closedValueIndex</code>, laticea Z3 (cu fallback automat în <code>compatTargetFamilyIds</code>) și în vocabularul spellchecker-ului.
           </td>
         </tr>
         <tr>

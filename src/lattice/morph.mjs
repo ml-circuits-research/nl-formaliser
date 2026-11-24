@@ -138,6 +138,93 @@ export function lemmatiseWord(word, kb = null) {
 }
 
 /**
+ * Return candidate lowercase base forms for VERB lookup only (no comparative -er/-est stripping,
+ * so nouns like "keeper", "marker", "letter", "layer", "slider" never lemmatise into phantom verbs!).
+ */
+export function lemmatiseVerb(word, kb = null) {
+  const lower = String(word ?? '').toLowerCase().replace(/\u2019/g, "'").trim();
+  if (!lower) return [];
+
+  const out = [];
+  const seen = new Set();
+  const add = (w) => {
+    if (w && !seen.has(w)) {
+      seen.add(w);
+      out.push(w);
+    }
+  };
+
+  add(lower);
+  for (const lemma of lookupIrregular(kb?.grammar?.irregularVerbs, lower)) add(lemma);
+
+  // 3rd-person singular (-ies, -es, -s)
+  if (lower.endsWith('ies') && lower.length > 3) add(lower.slice(0, -3) + 'y');
+  if (/(ches|shes|xes|zes|sses|oes)$/.test(lower) && lower.length > 3) add(lower.slice(0, -2));
+  if (lower.endsWith('s') && lower.length > 2 && !lower.endsWith('ss') && !lower.endsWith('us') && !lower.endsWith('is')) {
+    add(lower.slice(0, -1));
+  }
+
+  // Past tense / past participle (-ied, -ed)
+  if (lower.endsWith('ied') && lower.length > 3) add(lower.slice(0, -3) + 'y');
+  if (lower.endsWith('ed') && lower.length > 3) {
+    const stem = lower.slice(0, -2);
+    add(stem);
+    add(lower.slice(0, -1));
+    if (stem.length >= 3 && stem[stem.length - 1] === stem[stem.length - 2] && CONSONANT_RE.test(stem[stem.length - 1])) {
+      add(stem.slice(0, -1));
+    }
+  }
+
+  // Progressive (-ing)
+  if (lower.endsWith('ing') && lower.length > 4) {
+    const stem = lower.slice(0, -3);
+    add(stem);
+    add(stem + 'e');
+    if (stem.length >= 3 && stem[stem.length - 1] === stem[stem.length - 2] && CONSONANT_RE.test(stem[stem.length - 1])) {
+      add(stem.slice(0, -1));
+    }
+    if (stem.endsWith('y') && stem.length >= 2) add(stem.slice(0, -1) + 'ie');
+  }
+
+  return out;
+}
+
+/**
+ * Return candidate singular forms for NOUN lookup only (original, irregularPlurals, possessive 's, plural -s/-es/-ies/-ves;
+ * never strips -ing/-ed/-er/-est, so "facing" never becomes noun "face" and "heading" never becomes "head"!).
+ */
+export function singulariseNoun(word, kb = null) {
+  const lower = String(word ?? '').toLowerCase().replace(/\u2019/g, "'").trim();
+  if (!lower) return [];
+
+  const out = [];
+  const seen = new Set();
+  const add = (w) => {
+    if (w && !seen.has(w)) {
+      seen.add(w);
+      out.push(w);
+    }
+  };
+
+  add(lower);
+  for (const lemma of lookupIrregular(kb?.grammar?.irregularPlurals, lower)) add(lemma);
+
+  if (lower.endsWith("'s") && lower.length > 2) add(lower.slice(0, -2));
+  if (lower.endsWith("s'") && lower.length > 2) add(lower.slice(0, -1));
+  if (lower.endsWith('ies') && lower.length > 3) add(lower.slice(0, -3) + 'y');
+  if (lower.endsWith('ves') && lower.length > 3) {
+    add(lower.slice(0, -3) + 'f');
+    add(lower.slice(0, -3) + 'fe');
+  }
+  if (/(ches|shes|xes|zes|sses|oes)$/.test(lower) && lower.length > 3) add(lower.slice(0, -2));
+  if (lower.endsWith('s') && lower.length > 2 && !lower.endsWith('ss') && !lower.endsWith('us') && !lower.endsWith('is')) {
+    add(lower.slice(0, -1));
+  }
+
+  return out;
+}
+
+/**
  * Return candidate singular forms of a multi-word phrase by lemmatising its last word.
  */
 export function singularisePhrase(phrase, kb = null) {
@@ -145,7 +232,7 @@ export function singularisePhrase(phrase, kb = null) {
   if (!clean) return [];
   const parts = clean.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return [];
-  if (parts.length === 1) return lemmatiseWord(parts[0], kb);
+  if (parts.length === 1) return singulariseNoun(parts[0], kb);
 
   const prefix = parts.slice(0, -1).join(' ');
   const last = parts[parts.length - 1];
@@ -159,7 +246,7 @@ export function singularisePhrase(phrase, kb = null) {
   };
 
   add(parts.join(' '));
-  for (const lemma of lemmatiseWord(last, kb)) {
+  for (const lemma of singulariseNoun(last, kb)) {
     add(`${prefix} ${lemma}`);
   }
   return out;

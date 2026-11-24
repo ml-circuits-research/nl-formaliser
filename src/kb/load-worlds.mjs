@@ -248,11 +248,14 @@ function buildTabs(parse, worldsDir) {
   const rawByTab = Object.fromEntries(TABS.map((t) => [t, []]));
   for (const w of keyWires) {
     const tab = one(w, 'tab');
-    if (rawByTab[tab]) rawByTab[tab].push(w);
+    if (!tab) continue;
+    // Dynamically support any new tab declared in keys.sop (zero-JS tab discovery!)
+    if (!rawByTab[tab]) rawByTab[tab] = [];
+    rawByTab[tab].push(w);
   }
 
   const tabs = {};
-  for (const tab of TABS) {
+  for (const tab of Object.keys(rawByTab)) {
     const keys = new Map();
     const keyList = [];
     const attrToId = new Map();
@@ -281,6 +284,7 @@ function buildTabs(parse, worldsDir) {
         'in', 'on', 'at', 'of', 'to', 'from', 'by', 'for', 'with', 'as', 'under', 'below', 'above',
         'into', 'onto', 'over', 'out', 'up', 'down', 'off', 'about', 'through', 'between',
         'belongs', 'says', 'is', 'are', 'be', 'has', 'have', 'the', 'a', 'an', 'it', 'its',
+        'more', 'less', 'other', 'else', 'back', 'very', 'just', 'so', 'too', 'also',
         'chart', 'drawing', 'diagram', 'group', 'node', 'section', 'block', 'meeting', 'calendar',
         'document', 'page', 'part', 'text', 'line', 'box', 'object', 'thing', 'item', 'step', 'place',
       ]);
@@ -294,7 +298,7 @@ function buildTabs(parse, worldsDir) {
         }
       }
       // Natural prose/inclusion cue keyWords aligned with w.request schemas
-      if (shortName === 'content' || (tab === 'document' && shortName === 'text')) {
+      if (shortName === 'content') {
         for (const w of ['saying', 'containing', 'reading', 'reads']) keyWords.add(w);
       }
       if (name === 'composition.with') {
@@ -310,7 +314,7 @@ function buildTabs(parse, worldsDir) {
         for (const w of ['because', 'because of']) keyWords.add(w);
       }
       if (name === 'chart.barHeight' || name === 'chart.barWidth') {
-        for (const w of ['bar', 'bars']) keyWords.add(w);
+        keyWords.add('bars');
       }
 
       const spec = {
@@ -381,9 +385,17 @@ function buildTabs(parse, worldsDir) {
       }
     }
 
+    // Auto-infer defaultFamily from key density for dynamic world onboarding
+    let defaultFamily = families[0] ?? 'item';
+    let bestCount = -1;
+    for (const [f, list] of keysByFamily) {
+      if (list.length > bestCount) { bestCount = list.length; defaultFamily = f; }
+    }
+
     tabs[tab] = {
       families,
       familySet,
+      defaultFamily,
       keys,
       keyList,
       attrToId,
@@ -497,9 +509,11 @@ function loadActions(parse, worldsDir) {
     ['shorten', 'change', null],
     ['lengthen', 'change', null],
     ['bold', 'change', null],
+    ['italic', 'change', null],
     ['italicize', 'change', null],
     ['italicise', 'change', null],
     ['underline', 'change', null],
+    ['strikethrough', 'change', null],
     ['highlight', 'change', null],
     ['center', 'change', null],
     ['centre', 'change', null],
@@ -507,6 +521,20 @@ function loadActions(parse, worldsDir) {
     ['give', 'change', null],
     ['give', 'place', null],
     ['give', 'make', null],
+    ['let', 'change', null],
+    ['have', 'change', null],
+    ['keep', 'change', null],
+    ['leave', 'change', null],
+    ['thin', 'change', null],
+    ['dim', 'change', null],
+    ['fade', 'change', null],
+    ['lighten', 'change', null],
+    ['brighten', 'change', null],
+    ['soften', 'change', null],
+    ['sharpen', 'change', null],
+    ['grab', 'pick', null],
+    ['target', 'pick', null],
+    ['focus', 'pick', null],
   ];
   for (const [text, act, mode] of EXTRA_VERB_LICENSES) {
     if (!verbs.has(text)) verbs.set(text, []);
@@ -580,14 +608,16 @@ function loadGrammar(parse, worldsDir) {
   const quantifiers = new Map(Object.entries(QUANTIFIER_SPECS));
   const irregularPlurals = new Map();
   const irregularVerbs = new Map();
+  const arrangements = new Map(); // phrase -> { layout, diagramLayout, direction, relation }
 
-  // Exact LEX shards + required grammar/morphology/cue shards (avoids parsing large frame shards).
+  // Exact LEX shards + required grammar/morphology/cue/arrangement shards (avoids parsing huge frame shards).
   const enShards = [
     'closed-classes.sop',
     'determiners.sop',
     'pronouns.sop',
     'prepositions.sop',
     'clauses.sop',
+    'hand-arrangements.sop',
     'hand-cues.sop',
     'hand-cues-more.sop',
     'hand-cues-step.sop',
@@ -699,6 +729,16 @@ function loadGrammar(parse, worldsDir) {
         for (const t of texts) negations.set(t, { want: 'no' });
       }
 
+      if (w.type === 'w.lang.en.arrangement' && texts[0]) {
+        const entry = {
+          layout: one(w, 'layout') ?? null,
+          diagramLayout: one(w, 'diagram_layout') ?? null,
+          direction: one(w, 'direction') ?? null,
+          relation: one(w, 'relation') ?? null,
+        };
+        for (const t of texts) arrangements.set(t, entry);
+      }
+
       if (w.type === 'w.lang.en.cue') {
         cues.push({
           name: one(w, 'name') ?? '',
@@ -795,6 +835,7 @@ function loadGrammar(parse, worldsDir) {
     quantifiers,
     irregularPlurals,
     irregularVerbs,
+    arrangements,
   };
 }
 
