@@ -106,6 +106,14 @@ function getKbHelpers(kb) {
     'if possible',
     'if you can',
     'if you could',
+    "that's fine",
+    'thats fine',
+    "it's fine",
+    'sounds good',
+    'all good',
+    'got it',
+    'looks good',
+    'sure',
   ]);
   for (const ph of toArray(kb?.grammar?.fillerPhrases)) {
     const clean = String(ph).toLowerCase().replace(/\u2019/g, "'").trim();
@@ -444,8 +452,8 @@ const QUESTION_PHRASES = new Map([
 ]);
 
 const COPULA_QUESTION_WORDS = new Set(['is', 'are', 'was', 'were', 'do', 'does', 'did']);
-const SOFT_CHANGE_PREDS = new Set(['should be', 'be', 'want', 'need', 'would like']);
-const PLACE_OR_MAKE_VERBS = new Set(['place', 'put', 'stack', 'stick', 'drop', 'position', 'lay']);
+const SOFT_CHANGE_PREDS = new Set(['should be', 'be', 'want', 'need', 'would like', 'become', 'becomes', 'turn into', 'turns into']);
+const PLACE_OR_MAKE_VERBS = new Set(['place', 'put', 'stack', 'stick', 'drop', 'position', 'lay', 'give']);
 const PASSIVE_MODAL_PHRASES = new Set(['needs to be', 'need to be', 'has to be', 'have to be', 'must be', 'should be', 'ought to be', 'to be']);
 const NOUN_PRECEDING_WORDS = new Set(['the', 'a', 'an', 'this', 'that', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'per', 'by', 'of', 'in', 'on', 'for', 'from', 'to', 'with', 'without', 'each', 'every', 'first', 'second', 'third', 'last', 'new', 'old', 'next', 'previous']);
 const CHART_AGG_WORDS = new Map([
@@ -1277,6 +1285,22 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             cost: 1.5,
           });
         }
+        // "how about <X>?" / "what about <X>?" is a polite suggestion (mood=do: make/change) as well as a question!
+        if ((ph === 'how' || ph === 'what') && nextTok && nextTok.lower === 'about') {
+          emit({
+            kind: HYP_KINDS.PREDICATE,
+            startTok: i,
+            endTok: e + 1,
+            licensed: [
+              { act: 'make', mode: 'none', mood: 'do', question: 'none' },
+              { act: 'change', mode: 'none', mood: 'do', question: 'none' },
+              { act: 'ask', mode: 'none', mood: qSpec.mood, question: qSpec.question },
+            ],
+            isKeepingVerb: false,
+            intrinsicConstraints: [],
+            cost: 1.5,
+          });
+        }
         emit({
           kind: HYP_KINDS.PREDICATE,
           startTok: i,
@@ -1289,7 +1313,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    if (COPULA_QUESTION_WORDS.has(tok.lower)) {
+    // Copula / auxiliary yes-no question words ("is/are/do/does/did") ONLY license act=ask at clause start with '?'
+    // (never mid-clause or after "let's" / "we" / "please", e.g. "let's do the line dash-dot"!).
+    const isClauseStartQ = i === 0 || tokens[i - 1].isPunct;
+    if (COPULA_QUESTION_WORDS.has(tok.lower) && src.includes('?') && isClauseStartQ) {
       emit({
         kind: HYP_KINDS.PREDICATE,
         startTok: i,
@@ -1302,7 +1329,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         intrinsicConstraints: [],
         cost: 5,
       });
-    } else if (tok.lower === 'any' && src.includes('?') && (i === 0 || tokens[i - 1].isPunct)) {
+    } else if (tok.lower === 'any' && src.includes('?') && isClauseStartQ) {
       emit({
         kind: HYP_KINDS.PREDICATE,
         startTok: i,
@@ -2083,7 +2110,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      const scaleHit = SCALE_DEGREE_MAP.get(ph) ?? vocabMatch(kb?.domain?.scales, ph);
+      const isAcknowledgmentFine = ph === 'fine' && !(e + 1 < T && tokens[e + 1].kind === 'word' && !tokens[e + 1].isGrammar);
+      const scaleHit = isAcknowledgmentFine ? null : (SCALE_DEGREE_MAP.get(ph) ?? vocabMatch(kb?.domain?.scales, ph));
       if (scaleHit) {
         for (const attr of resolveAttrShortNames(tabKeys, ['size', 'length'])) {
           emitConstraint(attr, scaleHit, i, e, { operator: 'degree', cost: len === 2 ? 1.5 : 2 });
@@ -2205,6 +2233,57 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           cost: 1.5,
         });
       }
+    } else if (
+      tok.kind === 'number' &&
+      i + 1 < T &&
+      tokens[i + 1].kind === 'number' &&
+      Number(tok.text) >= 10 &&
+      Number(tokens[i + 1].text) >= 10
+    ) {
+      // Bare space-separated integer pair ("260 400", "400 30") -> (width, height) or (x, y)
+      const n1 = tok.text;
+      const n2 = tokens[i + 1].text;
+      for (const fam of coordFamilies) {
+        emitConstraint(`${fam}.x`, n1, i, i + 1, {
+          on: 'place',
+          pairedConstraints: [
+            { attribute: `${fam}.x`, value: n1, on: 'place' },
+            { attribute: `${fam}.y`, value: n2, on: 'place' },
+          ],
+          cost: 2.5,
+        });
+        if (tabKeys.has(`${fam}.width`) && tabKeys.has(`${fam}.height`)) {
+          emitConstraint(`${fam}.width`, n1, i, i + 1, {
+            on: 'attribute',
+            pairedConstraints: [
+              { attribute: `${fam}.width`, value: n1, on: 'attribute' },
+              { attribute: `${fam}.height`, value: n2, on: 'attribute' },
+            ],
+            cost: 2,
+          });
+        }
+      }
+    } else if (
+      tok.kind === 'number' &&
+      i + 2 < T &&
+      ['by', 'x'].includes(tokens[i + 1].lower) &&
+      tokens[i + 2].kind === 'number'
+    ) {
+      // Dimension pair ("400 by 30", "400 x 30") -> (width, height)
+      const wVal = tok.text;
+      const hVal = tokens[i + 2].text;
+      for (const fam of kb?.tabs?.[tab]?.families ?? coordFamilies) {
+        if (tabKeys.has(`${fam}.width`) && tabKeys.has(`${fam}.height`)) {
+          emitConstraint(`${fam}.width`, wVal, i, i + 2, {
+            on: 'attribute',
+            pairedConstraints: [
+              { attribute: `${fam}.width`, value: wVal, on: 'attribute' },
+              { attribute: `${fam}.height`, value: hVal, on: 'attribute' },
+            ],
+            cost: 1.5,
+          });
+        }
+      }
     }
 
     // 10f. Numbers & Number+Unit (also "a/an <unit>" -> measure=1, and comma-separated chart.values lists like "27, 23")
@@ -2250,7 +2329,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         for (const attr of attrs) {
           matchedUnit = true;
           const shortK = attr.split('.').slice(1).join('.');
-          const unitCost = shortK === 'shift' && !isShiftTrail ? 6 : 2;
+          const unitCost = shortK === 'shift' && !isShiftTrail ? 6
+            : shortK === 'length' ? 1.5
+            : shortK === 'duration' ? 3
+            : 2;
           emitConstraint(attr, String(numVal), i, i + 1, {
             measure: numVal,
             unit,
@@ -2271,10 +2353,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
       }
 
-      // Calendar "at 3" -> meeting.time / meeting.start
+      // Calendar "at 3" -> meeting.time / meeting.start, and "for 1" -> meeting.length
       if (tab === 'calendar' && i > 0 && tokens[i - 1].lower === 'at' && tok.kind === 'number' && numVal >= 0 && numVal <= 24) {
         if (tabKeys.has('meeting.time')) emitConstraint('meeting.time', tok.text, i, i, { cost: 2 });
         if (tabKeys.has('meeting.start')) emitConstraint('meeting.start', tok.text, i, i, { cost: 2.5 });
+      }
+      if (tab === 'calendar' && i > 0 && tokens[i - 1].lower === 'for' && tok.kind === 'number' && !matchedUnit && numVal > 0 && numVal <= 12) {
+        if (tabKeys.has('meeting.length')) emitConstraint('meeting.length', tok.text, i, i, { cost: 2 });
       }
 
       // Coordinated / indexed integer IDs right after a named entity or comma/and list:
@@ -2307,7 +2392,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           // Bare distance ("move it 40") only when NOT preceding an adjective/noun phrase ("three big boats" = count!)
           const nextIsModOrNoun = i + 1 < T && tokens[i + 1].kind === 'word' && !tokens[i + 1].isGrammar && !tokens[i + 1].isPunct && !UNIT_CANON.has(tokens[i + 1].lower);
           const allowBare = (['values', 'value'].includes(shortKey))
-            || (isInt && ['count', 'level', 'bins', 'index'].includes(shortKey))
+            || (isInt && shortKey === 'count' && numVal >= 1 && numVal <= 20)
+            || (isInt && ['level', 'bins', 'index'].includes(shortKey) && numVal >= 1 && numVal <= 50)
             || (isInt && shortKey === 'distance' && !nextIsModOrNoun)
             || (isFractionalUnit && ['barWidth', 'opacity', 'scale', 'pieRadius', 'labelPosition'].includes(shortKey));
           const bareCost = isFractionalUnit && shortKey === 'barWidth' ? 2
@@ -2440,7 +2526,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
           const ly = vocabMatch(kb?.domain?.layouts, f);
           if (ly && tabKeys.has('drawn.arrangement')) {
-            emitConstraint('drawn.arrangement', ly, i, e, { cost: 2 });
+            // Bare shape/object noun ("circle object", "a circle") is a TARGET_SORT unless preceded by arrangement prep ("in a circle", "as a row", "into a grid")!
+            const prev1 = i > 0 ? tokens[i - 1].lower : '';
+            const prev2 = i > 1 ? tokens[i - 2].lower : '';
+            const hasArrPrep = ['in', 'as', 'into'].includes(prev1) || (['a', 'an', 'the'].includes(prev1) && ['in', 'as', 'into'].includes(prev2));
+            const alsoShape = Boolean(vocabMatch(kb?.domain?.shapes, f));
+            emitConstraint('drawn.arrangement', ly, i, e, { cost: (alsoShape && !hasArrPrep) ? 10 : 2 });
           }
         }
       } else if (tab === 'diagram') {
@@ -2503,8 +2594,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         for (const f of forms) {
           const gen = vocabMatch(kb?.domain?.genres, f);
           if (gen) {
-            if (tabKeys.has('text.genre')) emitConstraint('text.genre', gen, i, e, { cost: 2 });
-            if (tabKeys.has('document.genre')) emitConstraint('document.genre', gen, i, e, { cost: 2.5 });
+            if (tabKeys.has('text.genre')) emitConstraint('text.genre', gen, i, e, { cost: 4 });
+            if (tabKeys.has('document.genre')) emitConstraint('document.genre', gen, i, e, { cost: 4.5 });
           }
         }
       }

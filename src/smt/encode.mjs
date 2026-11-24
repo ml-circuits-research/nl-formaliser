@@ -192,7 +192,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       `rstart_${r}`, `rend_${r}`, `tpos_${r}`, `ppos_${r}`, `ident_${r}`,
     );
     blockVars.push(`active_${r}`, `act_${r}`, `fam_${r}`, `tmode_${r}`);
-    semanticBlockVars.push(`active_${r}`, `act_${r}`, `mood_${r}`, `q_${r}`, `fam_${r}`, `tmode_${r}`);
+    semanticBlockVars.push(`active_${r}`, `act_${r}`, `q_${r}`, `fam_${r}`);
 
     // Compact domain for asked_r: only -1 or attrIds that actually have a KEY_WORD in this sentence!
     if (usedKwAttrIds.size === 0) {
@@ -874,9 +874,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const ANY_WH_RE = /^(what|what's|which|where|when|who|why|how|how many|how much|is there|are there|any)\b/i;
   for (const p of preds) {
     const isAskPred = (p.licensed ?? []).some((l) => l.act === 'ask');
+    const isSuggestionAbout = /^(how|what)\s+about\b/i.test(p.text) || (/^(how|what)$/i.test(p.text) && tokens[p.endTok + 1]?.lower === 'about');
     const isMedialRelWh = !hasQuestionMark && /^(which|who|where|when|what|how)\b/i.test(p.text)
       && p.startTok > 0 && tokens.slice(0, p.startTok).some((t) => t.isContent && !t.isFiller);
-    if (isAskPred && !isMedialRelWh && (STRONG_WH_RE.test(p.text) || (hasQuestionMark && ANY_WH_RE.test(p.text)))) {
+    if (isAskPred && !isSuggestionAbout && !isMedialRelWh && (STRONG_WH_RE.test(p.text) || (hasQuestionMark && ANY_WH_RE.test(p.text)))) {
       emit(`(assert-soft sel_${p.id} :weight 45)`);
     }
   }

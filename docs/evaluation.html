@@ -128,22 +128,23 @@
       </tbody>
     </table>
 
-    <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 6 --per-tab-topk 2</code>, fără hint de tab)</h3>
+    <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 8 --per-tab-topk 2</code>, fără hint de tab)</h3>
     <p>
       Aliniat protocolului Prolog / <code>LEGEND.md</code> v1.2: formalizatorul <strong>nu primește tab-ul</strong>,
-      generează propuneri diverse peste lumile compatibile (medie <code>4,52</code> propuneri/cerere, <code>goldTabInProposals = 89,2%</code>,
-      p50 <code>494 ms</code>), iar fiecare propunere este evaluată independent (fără combinare de fragmente):
-      <strong>L0</strong> <code>12.8%</code> (din care <code>10.8%</code> tab omis de pruning),
-      <strong>L1a</strong> <code>28.1%</code> (−7,5 pp vs single-choice),
-      <strong>L1b</strong> <code>8.0%</code>,
-      <strong>L1c</strong> <code>17.7%</code>,
-      <strong>L1d</strong> <code>11.2%</code>,
-      <strong>L2a</strong> <code>3.4%</code>,
-      <strong>L2b</strong> <code>3.8%</code>,
-      <strong>L2c</strong> <code>0.9%</code>,
-      <strong>L3</strong> <code>1.9%</code>,
-      <strong>L4</strong> <code>12.2%</code>,
-      <strong>Total rezonabile (L3 + L4) = 14.1%</strong> (<code>calendar</code> 47,5% Exact / 81,3% Act / 93,8% Fam; <code>document</code> 86,1% Act / 71,3% Fam).
+      rezolvă toate cele 4 lumi descoperite dinamic (fără pruning de tab-uri; medie <code>5,64</code> propuneri/cerere,
+      <code>goldTabInProposals = 99,6%</code>, <code>Valid = 99,8%</code>, p50 <code>616 ms</code>), iar fiecare propunere este evaluată independent:
+      <strong>L0</strong> <code>2.9%</code> (scăzut de la <code>12.8%</code>),
+      <strong>L1a</strong> <code>30.5%</code> (scăzut de la <code>35.6%</code>),
+      <strong>L1b</strong> <code>9.9%</code>,
+      <strong>L1c</strong> <code>19.3%</code>,
+      <strong>L1d</strong> <code>12.9%</code>,
+      <strong>L2a</strong> <code>3.5%</code>,
+      <strong>L2b</strong> <code>5.0%</code>,
+      <strong>L2c</strong> <code>0.8%</code>,
+      <strong>L3</strong> <code>2.0%</code>,
+      <strong>L4</strong> <code>13.3%</code>,
+      <strong>Total rezonabile (L3 + L4) = 15.3%</strong> (<code>Wrong</code> scăzut la <code>28.0%</code>, <code>AliasF1 = 0.409</code>;
+      <code>calendar</code> 46,3% Exact / 82,5% Act / 93,8% Fam / 0,779 F1; <code>document</code> 86,9% Act / 71,3% Fam / 0,566 F1).
     </p>
 
     <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>

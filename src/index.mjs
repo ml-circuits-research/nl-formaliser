@@ -237,7 +237,7 @@ export async function createFormaliser({
     previous = null,
     clock = null,
     topK = 1,
-    maxProposals = 6,
+    maxProposals = 8,
     perTabTopK = 2,
     maxRequests = 4,
     dumpSmt = false,
@@ -264,13 +264,10 @@ export async function createFormaliser({
         return { tab: t, score, exclusiveHits, lattice: lat };
       }).sort((a, b) => b.score - a.score);
 
-      const topScore = scored[0]?.score ?? 0;
-      const selectedTabs = scored.filter((s, idx) =>
-        idx === 0 || s.exclusiveHits > 0 || topScore <= 4 || s.score >= topScore * 0.35 || idx < 2
-      );
+      const selectedTabs = scored;
 
       const proposalMap = new Map();
-      const perTabTimeout = Math.max(1200, Math.floor(timeout / Math.min(3, selectedTabs.length)));
+      const perTabTimeout = Math.max(1200, Math.floor(timeout / Math.min(4, selectedTabs.length)));
 
       for (let ti = 0; ti < selectedTabs.length; ti++) {
         const { tab: candTab, score: domainScore } = selectedTabs[ti];

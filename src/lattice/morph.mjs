@@ -186,6 +186,16 @@ export function lemmatiseVerb(word, kb = null) {
     if (stem.endsWith('y') && stem.length >= 2) add(stem.slice(0, -1) + 'ie');
   }
 
+  // Productive English iterative prefix "re-" / "re" (rescale -> scale, resize -> size, recolor -> color, re-check -> check)
+  if (lower.startsWith('re-') && lower.length >= 6) {
+    for (const sub of lemmatiseVerb(lower.slice(3), kb)) add(sub);
+  } else if (lower.startsWith('re') && lower.length >= 6 && !lower.startsWith('read') && !lower.startsWith('real') && !lower.startsWith('rest')) {
+    const unprefixed = lower.slice(2);
+    if (unprefixed.length >= 4) {
+      for (const sub of lemmatiseVerb(unprefixed, kb)) add(sub);
+    }
+  }
+
   return out;
 }
 
