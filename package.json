@@ -1,0 +1,19 @@
+{
+  "name": "nl-formaliser",
+  "version": "0.1.0",
+  "description": "Symbolic Natural Language to SOP Lang (w.request) formaliser powered by Z3 MaxSMT",
+  "type": "module",
+  "main": "src/index.mjs",
+  "bin": {
+    "nl-formalise": "./bin/formalise.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "formalise": "node bin/formalise.mjs",
+    "bench": "node eval/benchmark.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "GPL-3.0-or-later"
+}
