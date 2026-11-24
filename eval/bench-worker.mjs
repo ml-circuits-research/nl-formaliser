@@ -31,11 +31,11 @@ function extractContextFromSop(sopText, verifier) {
   return { previous, clock };
 }
 
-const { knowledgeDir, source } = workerData;
+const { knowledgeDir, source, spellcheck = false, confidence = false } = workerData;
 
 const [verifier, formaliser] = await Promise.all([
   createVerifier({ knowledgeDir }),
-  createFormaliser({ knowledgeDir }),
+  createFormaliser({ knowledgeDir, spellcheck }),
 ]);
 
 function buildKnownVocab(kb) {
@@ -94,9 +94,24 @@ parentPort.on('message', async (msg) => {
     const clock = row.clock ?? ctx.clock;
 
     const t0 = performance.now();
-    const res = await formaliser.formalise(row.text, { tab: row.tab, previous, clock });
+    const res = await formaliser.formalise(row.text, {
+      tab: row.tab,
+      previous,
+      clock,
+      spellcheck,
+      confidence,
+    });
     const ms = performance.now() - t0;
     const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
+    const conf = res?.confidence
+      ? {
+          score: res.confidence.score,
+          band: res.confidence.band,
+          ambiguous: res.confidence.ambiguous,
+          signals: res.confidence.signals,
+        }
+      : null;
+    const spellChanged = Boolean(res?.spell?.changed);
 
     const cmp = compareCircuits({
       text: row.text,
@@ -112,6 +127,7 @@ parentPort.on('message', async (msg) => {
       verdict: cmp.verdict,
       fairCategory: cmp.fairCategory,
       attribution: cmp.attribution,
+      legendGrade: cmp.legendGrade,
       equivRedundantId: cmp.equivRedundantId,
       inputHasTypo: cmp.inputHasTypo,
       goldAnnotationFlawed: cmp.goldAnnotationFlawed,
@@ -140,6 +156,8 @@ parentPort.on('message', async (msg) => {
       idx,
       predSop,
       cmp: slimCmp,
+      conf,
+      spellChanged,
       ms,
     });
   } catch (err) {

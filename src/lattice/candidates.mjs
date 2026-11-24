@@ -141,7 +141,8 @@ function getKbHelpers(kb) {
     }
   }
 
-  // Dynamically ingest official w.lang.en.cue entries from sop-knowledge-worlds (general across worlds!)
+  // Dynamically ingest official w.lang.en.cue, w.lang.en.prep/hand-joins, w.lang.en.ellipsis,
+  // w.lang.en.determiners, and w.lang.en.lex from sop-knowledge-worlds (Single Source of Truth!).
   const undoCuePhrases = new Set(['put it back', 'put back', 'go back', 'revert', 'as it was', 'edit back', 'step back']);
   const redoCuePhrases = new Set(['do it again', 'one more time', 'start over']);
   const layoutCuePhrases = new Map();
@@ -157,8 +158,73 @@ function getKbHelpers(kb) {
       for (const l of leads) layoutCuePhrases.set(l, cue.value);
     }
   }
+  // Dynamically ingest `w.lang.en.ellipsis.repeat` ("again", "once more", "same again", "the same thing", ...)
+  for (const rep of toArray(kb?.grammar?.ellipsis?.repeats)) {
+    const clean = String(rep).toLowerCase().trim();
+    if (clean) redoCuePhrases.add(clean);
+  }
 
-  const helpers = { separableIndex, fillerPhrases, numberWords, undoCuePhrases, redoCuePhrases, layoutCuePhrases };
+  // Dynamically build determiner map from `w.lang.en/shards/determiners.sop` (fallback to DET_MAP for mock KBs)
+  const detMap = new Map(DET_MAP);
+  for (const [w, info] of mapEntries(kb?.grammar?.determiners)) {
+    if (info?.det) detMap.set(String(w).toLowerCase(), info.det);
+  }
+
+  // Dynamically build spatial & temporal relations from `w.lang.en/shards/prepositions.sop` + `hand-joins.sop`
+  // + `w.reader.en.requests` (fallback to SPATIAL_RELATIONS / TEMPORAL_RELATIONS for mock KBs)
+  const spatialRels = new Map(SPATIAL_RELATIONS);
+  const temporalRels = new Map(TEMPORAL_RELATIONS);
+  const rolePreps = new Map(); // prepPhrase -> role (from hand-joins.sop: instrument, criterion, arrangement, replacement, source)
+  for (const [prep, info] of mapEntries(kb?.grammar?.prepositions)) {
+    const p = String(prep).toLowerCase().trim();
+    if (!p || !info) continue;
+    if (info.role) rolePreps.set(p, info.role);
+    if (info.isTime && info.rel && ['before', 'after', 'during', 'between', 'until', 'since'].includes(info.rel)) {
+      temporalRels.set(p, info.rel);
+    }
+    if (info.rel && (info.space === 'static' || info.space === 'direction' || info.layout)) {
+      // Preserve `next_to` distinction for `next to`/`beside` while accepting all SOP spatial prepositions!
+      if ((p === 'next to' || p === 'beside') && spatialRels.has(p)) continue;
+      if (p === 'on top of' && spatialRels.has(p)) continue;
+      if (!['to', 'from', 'at', 'of', 'for', 'with'].includes(p)) {
+        spatialRels.set(p, info.rel);
+      }
+    }
+  }
+
+  // Dynamically pull `w.lang.en.lex` lexicons (diagram-frames.sop, hand-grammar.sop, etc.)
+  const lexicons = kb?.grammar?.lexicons ?? new Map();
+  const nameLetterAfter = lexicons.get?.('name.letter.after') ?? new Set(['connect', 'from', 'to', 'between', 'and', 'box', 'node', 'arrow', 'line', 'link', 'called', 'named']);
+  const diagramDirectionLex = lexicons.get?.('diagram.direction') ?? new Set();
+  const diagramEdgeFromLex = lexicons.get?.('diagram.edge.from') ?? new Set(['from', 'between']);
+  const orderCriterionLex = lexicons.get?.('order.criterion') ?? new Set();
+
+  // Dynamically build unit canonical map from `k.units` + fallback UNIT_CANON
+  const unitCanon = new Map(UNIT_CANON);
+  for (const [uForm, uSpec] of mapEntries(kb?.domain?.units)) {
+    const canon = typeof uSpec === 'string' ? uSpec : uSpec?.name;
+    if (canon && !unitCanon.has(uForm) && ['minute', 'hour', 'second', 'degree', 'percent', 'pixel', 'inch', 'cm', 'mm'].includes(canon)) {
+      unitCanon.set(uForm, canon);
+    }
+  }
+
+  const helpers = {
+    separableIndex,
+    fillerPhrases,
+    numberWords,
+    undoCuePhrases,
+    redoCuePhrases,
+    layoutCuePhrases,
+    detMap,
+    spatialRels,
+    temporalRels,
+    rolePreps,
+    nameLetterAfter,
+    diagramDirectionLex,
+    diagramEdgeFromLex,
+    orderCriterionLex,
+    unitCanon,
+  };
   if (kb && typeof kb === 'object') kbCache.set(kb, helpers);
   return helpers;
 }
@@ -732,7 +798,22 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   const src = String(text ?? '');
   const tokens = tokenize(src, kb);
   const T = tokens.length;
-  const { separableIndex, fillerPhrases, numberWords, undoCuePhrases, redoCuePhrases, layoutCuePhrases } = getKbHelpers(kb);
+  const {
+    separableIndex,
+    fillerPhrases,
+    numberWords,
+    undoCuePhrases,
+    redoCuePhrases,
+    layoutCuePhrases,
+    detMap,
+    spatialRels,
+    temporalRels,
+    rolePreps,
+    nameLetterAfter,
+    diagramDirectionLex,
+    diagramEdgeFromLex,
+    unitCanon,
+  } = getKbHelpers(kb);
   const {
     keys: tabKeys,
     families: tabFamilies,
@@ -807,24 +888,17 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     });
   };
 
-  // Helper: check preceding determiner before `tokIdx` (looks 1..2 tokens back across a single adjective/noun modifier,
-  // e.g. "a line chart", "a blue house", "the profit chart", "a striped fill")
+  // Helper: check preceding determiner before `tokIdx` using dynamic SOP determiners (`detMap`)
+  // Looks 1..3 tokens back across up to 2 adjectives/modifiers (e.g. "a small green parrot", "a medium brown bench")
   const checkDetBefore = (tokIdx) => {
     if (tokIdx <= 0) return { det: 'none', detTok: -1 };
-    const prev = tokens[tokIdx - 1];
-    if (prev.kind === 'word' && DET_MAP.has(prev.lower)) {
-      return { det: DET_MAP.get(prev.lower), detTok: tokIdx - 1 };
-    }
-    if (
-      tokIdx >= 2 &&
-      prev.kind === 'word' &&
-      !prev.isPunct &&
-      !prev.isGrammar &&
-      !isCommandVerbToken(prev, kb)
-    ) {
-      const prev2 = tokens[tokIdx - 2];
-      if (prev2.kind === 'word' && DET_MAP.has(prev2.lower)) {
-        return { det: DET_MAP.get(prev2.lower), detTok: tokIdx - 2 };
+    for (let step = 1; step <= 3 && tokIdx - step >= 0; step++) {
+      const cand = tokens[tokIdx - step];
+      if (cand.kind === 'word' && detMap.has(cand.lower)) {
+        return { det: detMap.get(cand.lower), detTok: tokIdx - step };
+      }
+      if (cand.kind !== 'word' || cand.isPunct || cand.isGrammar || isCommandVerbToken(cand, kb)) {
+        break;
       }
     }
     return { det: 'none', detTok: -1 };
@@ -1262,12 +1336,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // 5d. Reaction undo/redo cues from w.lang.en.cue ("put it back", "edit back", "go back", "do it again", "start over")
-    for (let len = 2; len <= 4 && i + len <= T; len++) {
+    // 5d. Reaction undo/redo & ellipsis-repeat cues from w.lang.en.cue & w.lang.en/shards/ellipsis.sop
+    for (let len = 1; len <= 4 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      if (undoCuePhrases.has(ph)) {
+      if (len >= 2 && undoCuePhrases.has(ph)) {
         emit({
           kind: HYP_KINDS.PREDICATE,
           startTok: i,
@@ -1277,7 +1351,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           intrinsicConstraints: [],
           cost: 1.5,
         });
-      } else if (redoCuePhrases.has(ph)) {
+      } else if (redoCuePhrases.has(ph) && (len >= 2 || ph === 'again')) {
         emit({
           kind: HYP_KINDS.PREDICATE,
           startTok: i,
@@ -1288,7 +1362,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           ],
           isKeepingVerb: false,
           intrinsicConstraints: [],
-          cost: 2,
+          cost: len >= 2 ? 2 : 5,
         });
       }
     }
@@ -1468,6 +1542,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           if (gen) {
             if (tabFamilies.includes('text')) addSort(gen, 'text');
             if (tabFamilies.includes('document')) addSort(gen, 'document');
+          }
+          // Structural section sorts matching w.request conventions (without pulling section requests into block)
+          if (['heading', 'paragraph'].includes(f) && tabFamilies.includes('section')) {
+            addSort(f, 'section');
           }
         }
         // Once singular matched a sort for this span, stop so plural duplicate ("clouds") isn't emitted alongside "cloud"
@@ -1709,6 +1787,34 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
               cost: 1.8,
             });
           }
+        }
+      }
+    }
+
+    // Single capital letter names driven dynamically by `w.lang.en.lex` `name.letter.after` (diagram-frames.sop):
+    // e.g. "connect A to C", "the arrow from A to B", "box A", "A, B and C"!
+    if (
+      tok.kind === 'word' &&
+      /^[A-Z]$/.test(tok.text) &&
+      i > 0 &&
+      (nameLetterAfter.has(tokens[i - 1].lower) ||
+        (tokens[i - 1].text === ',' && i >= 2 && /^[A-Z]$/.test(tokens[i - 2].text)))
+    ) {
+      emit({
+        kind: HYP_KINDS.TARGET_REF,
+        startTok: i,
+        endTok: i,
+        fill: 'written',
+        name: tok.text,
+        isProper: true,
+        det: 'definite',
+        detTok: -1,
+        families: tabFamilies,
+        cost: 3,
+      });
+      for (const attr of idKeys) {
+        if (attr.endsWith('.id')) {
+          emitConstraint(attr, tok.text, i, i, { phase: 'selector', cost: 4 });
         }
       }
     }
@@ -2042,13 +2148,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // 10d. Spatial & Temporal Relations (1..5 tokens)
+    // 10d. Spatial & Temporal Relations (1..5 tokens) — dynamically from w.lang.en/prepositions.sop + hand-joins.sop!
     for (let len = 1; len <= 5 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      const spRel = SPATIAL_RELATIONS.get(ph);
-      const tmRel = TEMPORAL_RELATIONS.get(ph);
+      const spRel = spatialRels.get(ph);
+      const tmRel = temporalRels.get(ph);
       if (spRel || tmRel) {
         for (const attr of relationKeys) {
           const isTemporalAttr = attr === 'meeting.relation' || attr === 'section.order';
@@ -2169,6 +2275,23 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       if (tab === 'calendar' && i > 0 && tokens[i - 1].lower === 'at' && tok.kind === 'number' && numVal >= 0 && numVal <= 24) {
         if (tabKeys.has('meeting.time')) emitConstraint('meeting.time', tok.text, i, i, { cost: 2 });
         if (tabKeys.has('meeting.start')) emitConstraint('meeting.start', tok.text, i, i, { cost: 2.5 });
+      }
+
+      // Coordinated / indexed integer IDs right after a named entity or comma/and list:
+      // e.g., "sections Intro, 2 and 3", "blocks Intro 2,3", "part Intro, row 2"
+      if (tok.kind === 'number' && Number.isInteger(numVal) && numVal >= 1 && numVal <= 99 && i >= 2) {
+        const p1 = tokens[i - 1];
+        const p2 = tokens[i - 2];
+        const afterNamedList =
+          (p1.text === ',' || p1.lower === 'and') &&
+          (p2.isProperCandidate || p2.kind === 'number' || p2.kind === 'code');
+        if (afterNamedList) {
+          for (const attr of idKeys) {
+            if (attr.endsWith('.id')) {
+              emitConstraint(attr, tok.text, i, i, { phase: 'selector', cost: 2.5 });
+            }
+          }
+        }
       }
 
       // Bare number constraints for number keys on the tab (NEVER allow bare word "pair"/"one" as x/y coordinates!)
@@ -2498,12 +2621,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // Spatial / temporal / order relation anchor triggers (up to 5 tokens, e.g. "on the right side of")
+    // Spatial / temporal / order relation anchor triggers (up to 5 tokens) — dynamically from SOP prepositions!
     for (let rLen = 1; rLen <= 5 && i - rLen + 1 >= 0; rLen++) {
       const rStart = i - rLen + 1;
       if (hasPunctInSpan(tokens, rStart, i)) break;
       const rPh = spanTextLower(tokens, rStart, i);
-      if ((SPATIAL_RELATIONS.has(rPh) || TEMPORAL_RELATIONS.has(rPh)) && nextStart < T) {
+      if ((spatialRels.has(rPh) || temporalRels.has(rPh)) && nextStart < T) {
         if (anchorKeys.length > 0) {
           emitOpenSpansStartingAt(nextStart, anchorKeys, {
             phase: 'selector',
@@ -2519,6 +2642,26 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           emitOpenSpansStartingAt(nextStart, ['drawn.seat'], { phase: 'selector', cost: 7 });
         }
       }
+      // Dynamically support `diagram.edge.from` ("going from A", "leading from A", "between A and B") from diagram-frames.sop!
+      if (tab === 'diagram' && diagramEdgeFromLex.has(rPh) && nextStart < T) {
+        emitOpenSpansStartingAt(nextStart, ['link.from'], { phase: 'result', cost: 3.5, maxLen: 2 });
+        if (rPh === 'between' && nextStart + 2 < T && tokens[nextStart + 1].lower === 'and') {
+          emitOpenSpansStartingAt(nextStart + 2, ['link.to'], { phase: 'result', cost: 3.5, maxLen: 2 });
+        }
+      }
+      // Dynamically support `capacity-frames.sop` triggers ("seating 6", "that seats 6", "with room for 6", "with seats for 6")!
+      if (['seating', 'that seats', 'with room for', 'with seats for', 'with places for'].includes(rPh) && nextStart < T) {
+        const capNum = parseNumeric(tokens[nextStart]);
+        if (capNum !== null && Number.isInteger(capNum)) {
+          if (tabKeys.has('room.seats')) emitConstraint('room.seats', String(capNum), nextStart, nextStart, { cost: 1.5 });
+          if (tabKeys.has('room.capacity')) emitConstraint('room.capacity', String(capNum), nextStart, nextStart, { cost: 2 });
+        }
+      }
+      // Dynamically support `hand-joins.sop` role=criterion markers ("according to", "in order of") -> diagram.by / chart.dimension!
+      if (rolePreps.get(rPh) === 'criterion' && nextStart < T) {
+        if (tabKeys.has('diagram.by')) emitOpenSpansStartingAt(nextStart, ['diagram.by'], { phase: 'result', cost: 2.5, maxLen: 2 });
+        if (tabKeys.has('chart.dimension')) emitOpenSpansStartingAt(nextStart, ['chart.dimension'], { phase: 'result', cost: 3, maxLen: 2 });
+      }
     }
 
     // Specific preposition & structural verb triggers
@@ -2526,7 +2669,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       if (tok.lower === 'from') {
         if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['link.from', 'chart.datasets', 'chart.dateRange'], { phase: 'result', cost: 4 });
       } else if (tok.lower === 'to' || tok.lower === 'into') {
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 4 });
+        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 2.5 });
         if (tab === 'document') {
           emitOpenSpansStartingAt(nextStart, ['inline.link_target', 'section.text', 'block.text', 'text.title'], { phase: 'result', cost: 6 });
         }
@@ -2538,7 +2681,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
         }
       } else if (tab === 'diagram' && ['connect', 'link', 'join', 'wire'].includes(tok.lower)) {
-        emitOpenSpansStartingAt(nextStart, ['link.from'], { phase: 'result', cost: 3, maxLen: 2 });
+        emitOpenSpansStartingAt(nextStart, ['link.from'], { phase: 'result', cost: 2.0, maxLen: 2 });
       } else if (tab === 'diagram' && CHART_AGG_WORDS.has(tok.lower)) {
         emitOpenSpansStartingAt(nextStart, ['chart.measure'], { phase: 'result', cost: 3, maxLen: 3 });
       } else if (tok.lower === 'of') {

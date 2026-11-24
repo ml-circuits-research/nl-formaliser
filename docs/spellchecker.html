@@ -24,11 +24,13 @@
   <main>
     <h1>6. Spellchecker Z3 (Layer 1 Independent) &amp; Estimare de Încredere</h1>
     <p>
-      <span class="badge ok">Layer 1 Implementat &amp; Testat (8/8 teste)</span>
-      <span class="badge warn">Confidence Calibration: Propunere</span>
-      Componenta de normalizare ortografică Z3 este implementată complet separat de formalizator în
+      <span class="badge ok">Layer 1 Implementat (8/8 teste)</span>
+      <span class="badge ok">Bridge Layer 1 → Layer 2 + Confidence Calibrat (v9)</span>
+      Componenta de normalizare ortografică Z3 este complet separată de formalizator în
       <code>src/spell/vocab.mjs</code>, <code>src/spell/z3-spell.mjs</code>, CLI <code>bin/spellcheck.mjs</code>
-      și testele dedicate <code>test/spell.test.mjs</code>. Propunerea completă de design &amp; estimator de încredere se află în <code>../spell_checker_z3.md</code>.
+      și testele dedicate <code>test/spell.test.mjs</code>.
+      Integrarea opțională Layer 1 → Layer 2 cu re-ancorare pe offset-urile brute stă în <code>src/pipeline.mjs</code>,
+      iar estimatorul calibrat de încredere &amp; ambiguitate (cu obiectiv exact Z3 <code>(get-objectives)</code> și calibrare out-of-sample <code>eval/calibrate.mjs</code>) stă în <code>src/confidence.mjs</code>.
     </p>
 
     <h2>6.1 Componentă independentă, generică (0 dependență de formalizator)</h2>

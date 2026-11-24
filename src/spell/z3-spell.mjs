@@ -219,8 +219,10 @@ function buildOrthographicLattice(segments, vocab) {
     }
 
     // OOV word segment: always include RAW_UNKNOWN fallback so valid unknown domain words aren't mangled.
+    // Conservative cost (8 for short words, 11 for longer words) ensures only high-confidence dist-1 /
+    // split / merge / shift_space typos are edited, preventing dist-2 hallucinations on valid OOV nouns!
     const q = seg.lower;
-    const rawUnknownCost = q.length <= 4 ? 10 : 17;
+    const rawUnknownCost = q.length <= 4 ? 8 : 11;
     addCand({
       startSeg: i,
       endSeg: i,

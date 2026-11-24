@@ -569,10 +569,52 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVo
     attribution = 'fail_z3_constraints_or_target';
   }
 
+  // WebMeet formalisation grades · v1.2 (webmeet-dataset/LEGEND.md):
+  // Assign L3 if normalized SOP text matches reference identically (and is valid/reasonable),
+  // L4 if semantically equivalent / alias-equivalent / redundant-id-equivalent / Z3 cleaner than flawed Gold,
+  // otherwise first applicable primary error grade in exact LEGEND.md order: L0, L1a, L1b, L1c, L1d, L2 (L2a/L2b/L2c).
+  const normSopText = (s) => String(s ?? '').replace(/\r\n/g, '\n').trim();
+  const textIdentical = predValid && normSopText(goldSop) === normSopText(predSop);
+  const allContentUnread =
+    predReqs.length > 0 &&
+    predSummary.unreads.length > 0 &&
+    predReqs.every((r) => (r.constraints?.length ?? 0) === 0 && !r.target?.sort && !r.target?.name && !(r.target?.ids?.length));
+
+  let legendGrade;
+  if (textIdentical && !goldAnnotationFlawed) {
+    legendGrade = 'L3';
+  } else if (predValid && (semanticExact || fairCategory === 'pred_better_than_gold' || equivRedundantId)) {
+    legendGrade = textIdentical ? 'L3' : 'L4';
+  } else if (!predValid || (goldReqs.length > 0 && predReqs.length === 0) || allContentUnread) {
+    legendGrade = 'L0';
+  } else if (
+    (reqCountExact && (!actExact || !moodExact || !questionExact)) ||
+    (goldReqs.length > 0 && predReqs.length > 0 && !primaryActMatch)
+  ) {
+    legendGrade = 'L1a';
+  } else if (reqCountExact && (!targetFamilyExact || !targetModeExact)) {
+    legendGrade = 'L1b';
+  } else if (reqCountExact && constraintAliasF1.fp > 0 && constraintAliasF1.fn > 0) {
+    legendGrade = 'L1c';
+  } else if (
+    predReqs.length > goldReqs.length ||
+    (goldReqs.length === 0 && predReqs.length > 0) ||
+    (constraintAliasF1.fp > 0 && constraintAliasF1.fn === 0)
+  ) {
+    legendGrade = 'L1d';
+  } else if (predReqs.length < goldReqs.length) {
+    legendGrade = 'L2a';
+  } else if (!targetSortOrNameMatch || !lookupMatch) {
+    legendGrade = 'L2b';
+  } else {
+    legendGrade = 'L2c';
+  }
+
   return {
     verdict: fairCategory,
     fairCategory,
     attribution,
+    legendGrade,
     equivRedundantId,
     inputHasTypo,
     goldAnnotationFlawed,

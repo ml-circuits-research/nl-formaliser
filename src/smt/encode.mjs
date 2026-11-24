@@ -3,6 +3,9 @@
 // ALL disambiguation (clause splitting, act/mode/mood, target family/mode/fill/lookup, key_word binding,
 // selector-vs-result phase, negation, and unread fallback) is decided globally by Z3.
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   ACTS,
   HYP_KINDS,
@@ -16,6 +19,9 @@ import {
   phaseToSmt,
   wantToSmt,
 } from '../contracts.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+export const DEFAULT_WEIGHTS = JSON.parse(readFileSync(join(HERE, 'weights.json'), 'utf8'));
 
 const VALID_ACT_SET = new Set(ACTS);
 const TOKEN_RE = /[A-Za-z0-9]+(?:['\u2019][A-Za-z]+)?/g;
@@ -64,7 +70,8 @@ function fillerHasHiddenContent(ft, kb) {
   return words.some((w) => !kb.isGrammarWord(w) && !lexFiller.has(w));
 }
 
-export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4 } = {}) {
+export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4, weights = null } = {}) {
+  const W = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
   const { tab, tokens, candidates: rawCandidates, hasQuestionMark } = lattice;
   const tabSpec = kb.tabs[tab];
   if (!tabSpec) throw new Error(`Unknown tab: ${tab}`);
@@ -221,7 +228,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     !tok.isContent || tokCover[idx].some((c) => c.kind === HYP_KINDS.FILLER)
   );
   if (canBeZeroReq) {
-    emit(`(assert-soft active_1 :weight 18)`);
+    emit(`(assert-soft active_1 :weight ${W.zeroReqActivate})`);
   } else {
     emit(`(assert active_1)`);
   }
@@ -231,7 +238,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (let r = 1; r < R; r++) {
     emit(`(assert (=> active_${r + 1} active_${r}))`);
     emit(`(assert (=> active_${r + 1} (< rend_${r} rstart_${r + 1})))`);
-    emit(`(assert-soft (not (= tmode_${r + 1} TM_BOUND)) :weight 12)`);
+    emit(`(assert-soft (not (= tmode_${r + 1} TM_BOUND)) :weight ${W.avoidBound})`);
 
     const splitGuards = [];
     for (const st of sepToks) {
@@ -505,7 +512,39 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       const isCreationVerb = (p.licensed ?? []).some((l) => l.act === 'make');
       const nextIsIndef = p.endTok + 1 < T && ['a', 'an'].includes(tokens[p.endTok + 1].lower);
       if (isCreationVerb && nextIsIndef) {
-        emit(`(assert-soft (=> (and sel_${p.id} (= own_${p.id} ${r})) (and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW))) :weight 32)`);
+        emit(`(assert-soft (=> (and sel_${p.id} (= own_${p.id} ${r})) (and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW))) :weight ${W.creationVerbIndefMakeNew})`);
+      }
+
+      // Dynamic `k.actions.marking` alignment in Z3 (Single Source of Truth from SOP k.actions/shards/verbs-*.sop!):
+      // When predicate `p` has a declared marking (verb, act, marker, role) AND that marker appears
+      // after `p` in the sentence, reward Z3 for selecting the marked `act`!
+      if (kb?.markings instanceof Map) {
+        const pTok = tokens[p.startTok];
+        const verbKeys = pTok?.lemmas ? [p.text.toLowerCase(), ...pTok.lemmas] : [p.text.toLowerCase()];
+        const matchedMarkingActs = new Set();
+        for (const vk of verbKeys) {
+          const mList = kb.markings.get(vk);
+          if (!mList) continue;
+          for (const mk of mList) {
+            if (!VALID_ACT_SET.has(mk.act) || !(p.licensed ?? []).some((l) => l.act === mk.act)) continue;
+            // Check if mk.marker appears within 1..8 tokens after p
+            const mParts = mk.marker.split(/\s+/);
+            for (let j = p.endTok + 1; j <= Math.min(T - mParts.length, p.endTok + 8); j++) {
+              let okM = true;
+              for (let u = 0; u < mParts.length; u++) {
+                if (tokens[j + u]?.lower !== mParts[u]) { okM = false; break; }
+              }
+              if (okM) {
+                matchedMarkingActs.add(mk.act);
+                break;
+              }
+            }
+          }
+        }
+        if (matchedMarkingActs.size === 1) {
+          const [onlyAct] = matchedMarkingActs;
+          emit(`(assert-soft (=> (and sel_${p.id} (= own_${p.id} ${r})) (= act_${r} ${actToSmt(onlyAct)})) :weight ${W.markingActAlign})`);
+        }
       }
     }
 
@@ -701,7 +740,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     ]);
     // Comparative delta ("shorter hair", "bigger house", "taller bars") presupposes an EXISTING baseline target!
     if (deltaConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} ${hasDeltaInR}) (and (not (= tmode_${r} TM_NEW)) (not (= act_${r} ACT_MAKE)))) :weight 35)`);
+      emit(`(assert-soft (=> (and active_${r} ${hasDeltaInR}) (and (not (= tmode_${r} TM_NEW)) (not (= act_${r} ACT_MAKE)))) :weight ${W.deltaExisting})`);
     }
     const explicitIndefInR = smtOr([
       ...tSorts.filter((s) => s.det === 'indefinite' || (s.count != null && s.det === 'none')).map((s) => `(and sel_${s.id} (= own_${s.id} ${r}))`),
@@ -709,10 +748,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       ...tRefs.filter((x) => x.det === 'indefinite').map((x) => `(and sel_${x.id} (= own_${x.id} ${r}))`),
     ]);
     if (placeConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} ${hasPlaceInR} (not ${explicitIndefInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_PLACE)) :weight 10)`);
+      emit(`(assert-soft (=> (and active_${r} ${hasPlaceInR} (not ${explicitIndefInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_PLACE)) :weight ${W.placeActAlign})`);
     }
     if (attrOnlyConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} ${hasAttrInR} (not ${hasPlaceInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_CHANGE)) :weight 10)`);
+      emit(`(assert-soft (=> (and active_${r} ${hasAttrInR} (not ${hasPlaceInR}) (not (= act_${r} ACT_MAKE)) (not (= act_${r} ACT_REMOVE)) (not (= act_${r} ACT_ASK))) (= act_${r} ACT_CHANGE)) :weight ${W.changeActAlign})`);
     }
     // Direction vs static region disambiguation in Z3:
     // Under ACT_PLACE without static prep ("move the boat left"), prefer *.direction; with "at/on/in" ("on the left"), prefer *.at!
@@ -720,7 +759,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const atConsInR = constraints.filter((c) => c.attribute?.endsWith('.at') && !(c.startTok > 0 && ['at', 'on', 'in'].includes(tokens[c.startTok - 1]?.lower ?? '')));
     if (dirConsInR.length > 0 && atConsInR.length > 0) {
       for (const a of atConsInR) {
-        emit(`(assert-soft (not (and active_${r} (= act_${r} ACT_PLACE) sel_${a.id} (= own_${a.id} ${r}))) :weight 10)`);
+        emit(`(assert-soft (not (and active_${r} (= act_${r} ACT_PLACE) sel_${a.id} (= own_${a.id} ${r}))) :weight ${W.placeDirOverAt})`);
       }
     }
     // Resultative "make <existing/bare target> <post-target attribute/size/colour>" ("make the house blue", "make boat 67 pixels wide")
@@ -731,7 +770,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         .map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (>= tpos_${r} 0) (> ${c.startTok} tpos_${r}))`)
     );
     if (attrOnlyConstraints.length > 0) {
-      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (not ${hasCreationHeadInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight 22)`);
+      emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0) ${postTargetPropInR} (not ${explicitIndefInR}) (not ${hasCreationHeadInR}) (or (= act_${r} ACT_MAKE) (= act_${r} ACT_CHANGE))) (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight ${W.resultativeMakeToChange})`);
     }
 
     // Verbless fragment discipline:
@@ -739,9 +778,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     emit(`(assert (=> (and active_${r} (< ppos_${r} 0)) (= amode_${r} MODE_NONE)))`);
     // - Verbless noun/chart/diagram phrase ("stove, please", "room for 6 called Birch", "bar graph, orange...") -> ACT_MAKE (unless delta comparative!)
     // - Verbless property/delta without creation head ("bigger!", "blue") -> ACT_CHANGE; verbless place/direction -> ACT_PLACE!
-    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR} (not ${hasDeltaInR})) (= act_${r} ACT_MAKE)) :weight 25)`);
-    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasAttrInR} (not ${hasPlaceInR})) (= act_${r} ACT_CHANGE)) :weight 15)`);
-    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasPlaceInR}) (= act_${r} ACT_PLACE)) :weight 15)`);
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR} (not ${hasDeltaInR})) (= act_${r} ACT_MAKE)) :weight ${W.verblessCreationMake})`);
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasAttrInR} (not ${hasPlaceInR})) (= act_${r} ACT_CHANGE)) :weight ${W.verblessAttrChange})`);
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) (not ${hasCreationHeadInR}) ${hasPlaceInR}) (= act_${r} ACT_PLACE)) :weight ${W.verblessPlace})`);
   }
 
   // Every selected KEY_WORD must serve a purpose
@@ -809,19 +848,19 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   for (let r = 1; r <= R; r++) {
     if (r > 1) {
-      emit(`(assert-soft (not active_${r}) :weight 28)`);
+      emit(`(assert-soft (not active_${r}) :weight ${W.extraRequestPenalty})`);
     }
-    emit(`(assert-soft (not lookup_${r}) :weight 7)`);
+    emit(`(assert-soft (not lookup_${r}) :weight ${W.lookupPenalty})`);
     // Prefer canonical base act (MODE_NONE) when a verb licenses both MODE_NONE and an optional finer mode (e.g. "set")
-    emit(`(assert-soft (=> active_${r} (= amode_${r} MODE_NONE)) :weight 6)`);
-    emit(`(assert-soft (=> active_${r} (>= ppos_${r} 0)) :weight 18)`);
-    emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0)) (= ppos_${r} rstart_${r})) :weight 12)`);
-    emit(`(assert-soft (=> active_${r} (= fam_${r} ${defaultFamId})) :weight 3)`);
+    emit(`(assert-soft (=> active_${r} (= amode_${r} MODE_NONE)) :weight ${W.preferModeNone})`);
+    emit(`(assert-soft (=> active_${r} (>= ppos_${r} 0)) :weight ${W.preferPredicate})`);
+    emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0)) (= ppos_${r} rstart_${r})) :weight ${W.preferClauseStartPred})`);
+    emit(`(assert-soft (=> active_${r} (= fam_${r} ${defaultFamId})) :weight ${W.defaultFamilyTieBreak})`);
     if (!hasQuestionMark) {
-      emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight 8)`);
+      emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight ${W.moodDoNoQ})`);
     } else {
       // Even with a '?', polite "can you / could you / would you" requests are mood=do!
-      emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight 4)`);
+      emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight ${W.moodDoWithQ})`);
     }
   }
 
@@ -855,11 +894,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
   }
-  // ACT_CONNECT creates a new link by default when family=link
+  // ACT_CONNECT creates a new link by default when family=link exists on this tab
   const linkFamId = famToId.get('link');
   if (linkFamId !== undefined) {
     for (let r = 1; r <= R; r++) {
-      emit(`(assert-soft (=> (and active_${r} (= act_${r} ACT_CONNECT) (= fam_${r} ${linkFamId})) (= tmode_${r} TM_NEW)) :weight 14)`);
+      emit(`(assert-soft (=> (and active_${r} (= act_${r} ACT_CONNECT)) (and (= fam_${r} ${linkFamId}) (= tmode_${r} TM_NEW))) :weight ${W.connectLinkNew})`);
     }
   }
 

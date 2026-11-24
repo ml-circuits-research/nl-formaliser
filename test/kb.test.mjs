@@ -154,7 +154,14 @@ test('domain lexicons are populated', () => {
   assert.ok(domain.colours.size > 150);
   assert.ok(domain.colours.has('red'));
   assert.ok(domain.colours.has('grey') && domain.colours.has('gray'));
-  assert.ok(domain.shades.has('dark') && domain.shades.has('pastel'));
+  assert.ok(domain.shades.has('dark') && domain.shades.has('pale') && domain.shades.has('bright'));
+  assert.ok(kb.meta.discoveredWorlds.length >= 15);
+  assert.ok(kb.meta.enShardsLoaded >= 50);
+  assert.ok(kb.meta.framesCount >= 400);
+  assert.ok(kb.meta.lexiconsCount >= 30);
+  assert.ok(kb.grammar.lexicons.has('diagram.kind'));
+  assert.ok(kb.grammar.lexicons.has('name.letter.after'));
+  assert.ok(kb.grammar.ellipsis.repeats.size >= 5);
   assert.ok(domain.objects.size > 1000);
   assert.ok(domain.objects.has('house') && domain.objects.has('cat'));
   assert.ok(domain.bodyParts.size > 50);

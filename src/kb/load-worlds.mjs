@@ -1,11 +1,15 @@
-// Knowledge Loader for nl-formaliser.
-// Reads w.request keys, k.actions, w.lang.en grammar/cues/morphology, domain shards,
-// and docs/worlds/vocab-kinds.json (avoiding 400+ heavy geometry shards) in < 1.5s.
+// Dynamic Schema-Driven Knowledge Loader for nl-formaliser.
+// Single Source of Truth = sop-knowledge-worlds/*.sop files.
+// Automatically discovers all w.* worlds, all w.request tabs/families/means-mappings,
+// all w.lang.en shards (grammar, prepositions, hand-joins, arrangements, cues, ellipsis,
+// lexicons, frames, role_maps, irregulars), all k.actions shards (acts, roles, verbs,
+// markings, actions), w.reader.en.requests relations, and lightweight k.* domain worlds
+// (plus vocab-kinds.json for fast indexing of heavy geometry/word catalogs) in < 350 ms.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { TABS, defaultOnFor, unquoteSop } from '../contracts.mjs';
+import { defaultOnFor, unquoteSop } from '../contracts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -26,6 +30,7 @@ const SPELLING_PAIRS = [
   ['visualise', 'visualize'],
 ];
 
+// Finer act modes declared by w.request/schema.sop (mode=arrange|merge|ungroup|split|disconnect|reverse|set|repeat).
 const FINER_ACT_MODES = [
   ['arrange', 'place', 'arrange'],
   ['align', 'place', 'arrange'],
@@ -50,79 +55,20 @@ const FINER_ACT_MODES = [
   ['repeat', 'copy', 'repeat'],
 ];
 
-// Mapping from world/concept `means` prefixes in w.*/shards/words.sop to tab families.
-const MEANS_TO_TAB_FAMILY = {
-  drawing: {
-    'w.drawing': 'drawn',
-    'w.drawing.object': 'drawn',
-    'w.drawing.part': 'part',
-    'w.drawing.group': 'group',
-    'w.drawing.page': 'page',
-    'w.drawing.composition': 'composition',
-    'w.face': 'drawn',
-    'w.person': 'drawn',
-  },
-  diagram: {
-    'w.diagram': 'diagram',
-    'w.diagram.diagram': 'diagram',
-    'w.diagram.node': 'node',
-    'w.diagram.edge': 'link',
-    'w.diagram.link': 'link',
-    'w.diagram.group': 'group',
-    'w.diagram.page': 'page',
-    'w.diagram.chart': 'chart',
-    'w.chart': 'chart',
-    'w.chart.chart': 'chart',
-    'w.chart.series': 'series',
-    'w.chart.point': 'point',
-  },
-  document: {
-    'w.document': 'document',
-    'w.document.document': 'document',
-    'w.document.section': 'section',
-    'w.document.chapter': 'section',
-    'w.document.paragraph': 'block',
-    'w.document.block': 'block',
-    'w.document.inline': 'inline',
-    'w.document.text': 'text',
-    'w.text': 'text',
-  },
-  calendar: {
-    'w.calendar': 'calendar',
-    'w.calendar.calendar': 'calendar',
-    'w.calendar.event': 'meeting',
-    'w.calendar.meeting': 'meeting',
-    'w.calendar.room': 'room',
-    'w.calendar.person': 'person',
-    'w.meetings': 'meeting',
-    'w.meetings.meeting': 'meeting',
-  },
-};
-
-const FAMILY_SYNONYMS = {
-  drawn: ['avatar', 'avatars', 'face', 'faces', 'figure', 'figures', 'person', 'people', 'object', 'objects', 'thing', 'things', 'drawing', 'drawings', 'character', 'characters', 'animal', 'animals', 'item', 'items', 'shape', 'shapes', 'portrait', 'portraits'],
-  chart: ['chart', 'charts', 'graph', 'graphs', 'plot', 'plots'],
-  node: ['node', 'nodes', 'box', 'boxes', 'shape', 'shapes', 'step', 'steps', 'stage', 'stages', 'bubble', 'bubbles', 'element', 'elements'],
-  link: ['link', 'links', 'arrow', 'arrows', 'edge', 'edges', 'connector', 'connectors', 'line', 'lines', 'connection', 'connections'],
-  meeting: ['meeting', 'meetings', 'event', 'events', 'appointment', 'appointments', 'session', 'sessions'],
-  text: ['text', 'texts', 'doc', 'docs', 'file', 'files', 'document', 'documents', 'story', 'stories', 'essay', 'essays', 'report', 'reports', 'article', 'articles'],
-  document: ['document', 'documents', 'doc', 'docs', 'file', 'files'],
-  section: ['section', 'sections', 'heading', 'headings', 'paragraph', 'paragraphs', 'chapter', 'chapters', 'subsection', 'subsections'],
-  block: ['block', 'blocks', 'heading', 'headings', 'paragraph', 'paragraphs', 'list', 'lists', 'quote', 'quotes', 'table', 'tables'],
-  page: ['page', 'pages', 'canvas', 'picture', 'scene', 'background', 'backdrop'],
-  part: ['part', 'parts', 'body', 'feature', 'features', 'component', 'components'],
-  group: ['group', 'groups', 'cluster', 'clusters', 'set', 'sets'],
-  diagram: ['diagram', 'diagrams', 'flowchart', 'flowcharts'],
-  calendar: ['calendar', 'calendars', 'schedule', 'schedules', 'agenda'],
-  room: ['room', 'rooms', 'location', 'locations', 'venue', 'venues'],
-  person: ['person', 'people', 'attendee', 'attendees', 'participant', 'participants', 'member', 'members'],
-  series: ['series', 'dataset', 'datasets'],
-  point: ['point', 'points', 'datapoint', 'datapoints'],
-  inline: ['inline', 'span', 'spans', 'formatting'],
-  composition: ['composition', 'compositions', 'collage'],
-  preference: ['preference', 'preferences', 'default', 'defaults', 'setting', 'settings'],
-  step: ['step', 'steps'],
-  sketch: ['sketch', 'sketches'],
+// Minimal domain-neutral English family synonyms that bridge informal wording when a world's words.sop
+// uses a narrower term (merged with dynamically discovered core.word wires from all w.*/shards/words.sop).
+const EXTRA_FAMILY_SYNONYMS = {
+  drawn: ['avatar', 'avatars', 'character', 'characters', 'animal', 'animals', 'portrait', 'portraits'],
+  chart: ['graph', 'graphs', 'plot', 'plots'],
+  node: ['step', 'steps', 'stage', 'stages', 'bubble', 'bubbles', 'element', 'elements'],
+  meeting: ['appointment', 'appointments', 'session', 'sessions'],
+  text: ['doc', 'docs', 'file', 'files', 'story', 'stories', 'essay', 'essays', 'report', 'reports', 'article', 'articles'],
+  document: ['doc', 'docs', 'file', 'files'],
+  page: ['canvas', 'backdrop'],
+  room: ['venue', 'venues'],
+  person: ['attendee', 'attendees', 'participant', 'participants', 'member', 'members'],
+  series: ['dataset', 'datasets'],
+  point: ['datapoint', 'datapoints'],
 };
 
 const HARD_FILLER_PHRASES = [
@@ -131,18 +77,6 @@ const HARD_FILLER_PHRASES = [
   'i want', "i'd like", 'i would like', 'i need', "let's", 'let us',
   'please could you', 'please can you', 'do you think you could',
   'if you can', 'if possible', 'by the way', 'for me', 'just',
-];
-
-const SHADE_WORDS = [
-  'light', 'dark', 'pale', 'bright', 'deep', 'soft',
-  'pastel', 'neon', 'vivid', 'muted', 'warm', 'cool',
-];
-
-const AVATAR_PART_WORDS = [
-  'hair', 'eyes', 'eye', 'nose', 'mouth', 'eyebrows', 'brows', 'ears', 'ear',
-  'beard', 'moustache', 'mustache', 'glasses', 'hat', 'headwear', 'clothes',
-  'shirt', 'shoulders', 'skin', 'cheeks', 'lips', 'teeth',
-  'chin', 'neck', 'hands', 'arms', 'legs', 'feet',
 ];
 
 const QUANTIFIER_SPECS = {
@@ -160,18 +94,14 @@ const QUANTIFIER_SPECS = {
   many: { quantifier: 'many', quantity: 'many' },
 };
 
-const ORDINAL_ALIASES = {
-  '1st': 'first', '2nd': 'second', '3rd': 'third', '4th': 'fourth', '5th': 'fifth',
-  '6th': 'sixth', '7th': 'seventh', '8th': 'eighth', '9th': 'ninth', '10th': 'tenth',
-  first: 'first', second: 'second', third: 'third', fourth: 'fourth', fifth: 'fifth',
-  sixth: 'sixth', seventh: 'seventh', eighth: 'eighth', ninth: 'ninth', tenth: 'tenth',
-  last: 'last', final: 'last',
-  'second last': 'second_last', 'second-last': 'second_last',
-  'second to last': 'second_last', 'next to last': 'second_last', penultimate: 'second_last',
-  newest: 'newest', latest: 'newest', 'most recent': 'newest',
-  oldest: 'oldest', earliest: 'oldest',
-  leftmost: 'leftmost', rightmost: 'rightmost', topmost: 'topmost', bottommost: 'bottommost',
-};
+const BAD_SINGLE_KW = new Set([
+  'in', 'on', 'at', 'of', 'to', 'from', 'by', 'for', 'with', 'as', 'under', 'below', 'above',
+  'into', 'onto', 'over', 'out', 'up', 'down', 'off', 'about', 'through', 'between',
+  'belongs', 'says', 'is', 'are', 'be', 'has', 'have', 'the', 'a', 'an', 'it', 'its',
+  'more', 'less', 'other', 'else', 'back', 'very', 'just', 'so', 'too', 'also',
+  'chart', 'drawing', 'diagram', 'group', 'node', 'section', 'block', 'meeting', 'calendar',
+  'document', 'page', 'part', 'text', 'line', 'box', 'object', 'thing', 'item', 'step', 'place',
+]);
 
 const one = (w, k) => (w.attrs[k]?.[0] !== undefined ? unquoteSop(w.attrs[k][0]) : undefined);
 const many = (w, k) => (w.attrs[k] ?? []).map(unquoteSop);
@@ -179,6 +109,14 @@ const many = (w, k) => (w.attrs[k] ?? []).map(unquoteSop);
 function parseShard(parse, filePath) {
   if (!existsSync(filePath)) return [];
   return parse(readFileSync(filePath, 'utf8'));
+}
+
+function listSopShards(dirPath) {
+  if (!existsSync(dirPath)) return [];
+  return readdirSync(dirPath)
+    .filter((f) => f.endsWith('.sop'))
+    .sort()
+    .map((f) => join(dirPath, f));
 }
 
 function addToSetMap(map, key, val) {
@@ -197,6 +135,18 @@ function addSpellingVariants(targetSet, phrase) {
     if (reUk.test(phrase)) targetSet.add(phrase.replace(reUk, us));
     if (reUs.test(phrase)) targetSet.add(phrase.replace(reUs, uk));
   }
+}
+
+function pluralVariants(word) {
+  const w = String(word || '').toLowerCase().trim();
+  if (!w || w.includes(' ')) return [w];
+  const out = [w];
+  if (!w.endsWith('s')) {
+    if (/(s|x|z|ch|sh)$/.test(w)) out.push(`${w}es`);
+    else if (/[^aeiou]y$/.test(w)) out.push(`${w.slice(0, -1)}ies`);
+    else out.push(`${w}s`);
+  }
+  return out;
 }
 
 function expandKeyWords(shortName, means, meansToWords) {
@@ -224,32 +174,47 @@ function expandKeyWords(shortName, means, meansToWords) {
   return words;
 }
 
-function buildTabs(parse, worldsDir) {
+/**
+ * Dynamically discover ALL `w.*` worlds (excluding `w.lang.*` and `w.reader.*`),
+ * read every `w.*\/shards/words.sop`, and build `tabs` + automatic `means -> (tab, family)`
+ * mappings directly from `w.request/shards/keys.sop` (zero hardcoded world/tab lists!).
+ */
+function buildTabs(parse, worldsDir, grammar) {
   const meansToWords = new Map();
-  const wordWorlds = ['w.drawing', 'w.diagram', 'w.document', 'w.calendar', 'w.face', 'w.chart', 'w.meetings', 'w.text', 'w.person'];
-  const wordWiresByWorld = new Map();
+  const discoveredWorlds = [];
 
-  for (const wName of wordWorlds) {
-    const wires = parseShard(parse, join(worldsDir, wName, 'shards', 'words.sop'));
-    wordWiresByWorld.set(wName, wires);
-    for (const w of wires) {
-      if (w.type !== 'core.word') continue;
-      const m = one(w, 'means');
-      if (!m) continue;
-      for (const t of many(w, 'text')) {
-        addToSetMap(meansToWords, m, t.toLowerCase());
+  if (existsSync(worldsDir)) {
+    for (const dirName of readdirSync(worldsDir).sort()) {
+      if (!dirName.startsWith('w.') || dirName.startsWith('w.lang.') || dirName.startsWith('w.reader.')) continue;
+      const fullDir = join(worldsDir, dirName);
+      if (!statSync(fullDir).isDirectory()) continue;
+      const wordsPath = join(fullDir, 'shards', 'words.sop');
+      if (!existsSync(wordsPath)) continue;
+      discoveredWorlds.push(dirName);
+      for (const w of parseShard(parse, wordsPath)) {
+        if (w.type !== 'core.word') continue;
+        const m = one(w, 'means');
+        if (!m) continue;
+        for (const t of many(w, 'text')) {
+          addToSetMap(meansToWords, m, t.toLowerCase());
+        }
       }
     }
   }
 
-  const keyWires = parseShard(parse, join(worldsDir, 'w.request', 'shards', 'keys.sop'))
-    .filter((w) => w.type === 'w.request.key');
+  // Also scan any additional `*.sop` shards in `w.request/shards/` dynamically for `w.request.key` wires.
+  const reqDir = join(worldsDir, 'w.request', 'shards');
+  const keyWires = [];
+  for (const fp of listSopShards(reqDir)) {
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'w.request.key') keyWires.push(w);
+    }
+  }
 
-  const rawByTab = Object.fromEntries(TABS.map((t) => [t, []]));
+  const rawByTab = {};
   for (const w of keyWires) {
     const tab = one(w, 'tab');
     if (!tab) continue;
-    // Dynamically support any new tab declared in keys.sop (zero-JS tab discovery!)
     if (!rawByTab[tab]) rawByTab[tab] = [];
     rawByTab[tab].push(w);
   }
@@ -265,6 +230,19 @@ function buildTabs(parse, worldsDir) {
     const familyWords = new Map();
     const familySet = new Set();
 
+    // Automatically derive `meansPrefix -> family` directly from `w.request.key` declarations!
+    // e.g. `means=w.diagram.chart.type family=chart` => `w.diagram.chart -> chart`, `w.chart -> chart`.
+    const meansPrefixVotes = new Map(); // prefix -> Map<family, count>
+    const recordMeansVote = (prefix, fam) => {
+      if (!prefix || !fam) return;
+      let votes = meansPrefixVotes.get(prefix);
+      if (!votes) {
+        votes = new Map();
+        meansPrefixVotes.set(prefix, votes);
+      }
+      votes.set(fam, (votes.get(fam) ?? 0) + 1);
+    };
+
     for (const w of rawByTab[tab]) {
       const name = one(w, 'name');
       const family = one(w, 'family');
@@ -275,19 +253,17 @@ function buildTabs(parse, worldsDir) {
       const values = valuesRaw.length ? new Set(valuesRaw.map((v) => v.toLowerCase())) : null;
       const shortName = name.includes('.') ? name.split('.').slice(1).join('.') : name;
       const id = keyList.length;
+
+      if (means) {
+        const segs = means.split('.');
+        if (segs.length >= 3) recordMeansVote(segs.slice(0, 3).join('.'), family);
+        if (segs.length >= 2) recordMeansVote(segs.slice(0, 2).join('.'), family);
+        // Also link `w.<family>` directly when a separate `w.<family>` world exists (e.g. w.chart, w.room, w.text)
+        recordMeansVote(`w.${family}`, family);
+        recordMeansVote(`w.${family}.${family}`, family);
+      }
+
       const keyWords = expandKeyWords(shortName, means, meansToWords);
-      // Clean keyWords: never treat a closed value of the key (e.g. rectangle, circle, start, end),
-      // a bare preposition/grammar word (in, on, of, to, from, at, by, for, with), or a bare family noun
-      // (chart, drawing, diagram, group, node, section, block, meeting, calendar, document, page, part)
-      // as a standalone attribute keyWord!
-      const BAD_SINGLE_KW = new Set([
-        'in', 'on', 'at', 'of', 'to', 'from', 'by', 'for', 'with', 'as', 'under', 'below', 'above',
-        'into', 'onto', 'over', 'out', 'up', 'down', 'off', 'about', 'through', 'between',
-        'belongs', 'says', 'is', 'are', 'be', 'has', 'have', 'the', 'a', 'an', 'it', 'its',
-        'more', 'less', 'other', 'else', 'back', 'very', 'just', 'so', 'too', 'also',
-        'chart', 'drawing', 'diagram', 'group', 'node', 'section', 'block', 'meeting', 'calendar',
-        'document', 'page', 'part', 'text', 'line', 'box', 'object', 'thing', 'item', 'step', 'place',
-      ]);
       for (const kw of [...keyWords]) {
         if (BAD_SINGLE_KW.has(kw)) {
           keyWords.delete(kw);
@@ -297,23 +273,24 @@ function buildTabs(parse, worldsDir) {
           keyWords.delete(kw);
         }
       }
+
       // Natural prose/inclusion cue keyWords aligned with w.request schemas
       if (shortName === 'content') {
-        for (const w of ['saying', 'containing', 'reading', 'reads']) keyWords.add(w);
+        for (const kw of ['saying', 'containing', 'reading', 'reads']) keyWords.add(kw);
       }
-      if (name === 'composition.with') {
-        for (const w of ['include', 'including']) keyWords.add(w);
+      if (shortName === 'with' && family === 'composition') {
+        for (const kw of ['include', 'including']) keyWords.add(kw);
       }
-      if (name === 'drawn.size' || name === 'node.size') {
-        for (const w of ['wide', 'width', 'tall', 'height']) keyWords.add(w);
+      if (shortName === 'size' && (family === 'drawn' || family === 'node')) {
+        for (const kw of ['wide', 'width', 'tall', 'height']) keyWords.add(kw);
       }
-      if (name === 'drawn.holds') {
-        for (const w of ['holding', 'holds']) keyWords.add(w);
+      if (shortName === 'holds') {
+        for (const kw of ['holding', 'holds']) keyWords.add(kw);
       }
-      if (name === 'drawn.cause') {
-        for (const w of ['because', 'because of']) keyWords.add(w);
+      if (shortName === 'cause') {
+        for (const kw of ['because', 'because of']) keyWords.add(kw);
       }
-      if (name === 'chart.barHeight' || name === 'chart.barWidth') {
+      if (shortName === 'barHeight' || shortName === 'barWidth') {
         keyWords.add('bars');
       }
 
@@ -370,18 +347,81 @@ function buildTabs(parse, worldsDir) {
 
     const families = [...familySet].sort();
     for (const fam of families) {
-      addToSetMap(familyWords, fam, fam);
-      for (const syn of FAMILY_SYNONYMS[fam] ?? []) {
+      for (const form of pluralVariants(fam)) addToSetMap(familyWords, form, fam);
+      for (const syn of EXTRA_FAMILY_SYNONYMS[fam] ?? []) {
         addToSetMap(familyWords, syn, fam);
       }
     }
-    const tabMeansMap = MEANS_TO_TAB_FAMILY[tab] ?? {};
-    for (const [m, fam] of Object.entries(tabMeansMap)) {
-      if (!familySet.has(fam) || !meansToWords.has(m)) continue;
-      for (const word of meansToWords.get(m)) {
+
+    // Populate `familyWords` dynamically from ALL discovered `w.*/shards/words.sop` via `meansPrefixVotes`!
+    for (const [prefix, votes] of meansPrefixVotes) {
+      if (!meansToWords.has(prefix)) continue;
+      // Pick the winning family for this prefix (for 3-segment prefixes it's exact; for 2-segment, highest vote).
+      let bestFam = null;
+      let bestCount = -1;
+      for (const [fam, cnt] of votes) {
+        if (cnt > bestCount) {
+          bestCount = cnt;
+          bestFam = fam;
+        }
+      }
+      if (!bestFam || !familySet.has(bestFam)) continue;
+      for (const word of meansToWords.get(prefix)) {
         // Never pollute an exact canonical family name (e.g. "calendar") with a different family ("meeting")
-        if (familySet.has(word) && word !== fam) continue;
-        addToSetMap(familyWords, word, fam);
+        if (familySet.has(word) && word !== bestFam) continue;
+        for (const form of pluralVariants(word)) addToSetMap(familyWords, form, bestFam);
+      }
+    }
+
+    // Also pull `core.word` wires whose `means` matches `w.<world>.<synonym>` for canonical domain types
+    // (e.g., `w.drawing.object` -> `drawn`, `w.diagram.edge` -> `link`, `w.calendar.event` -> `meeting`,
+    // `w.document.chapter` -> `section`, `w.document.paragraph` -> `block`, `w.face`/`w.person` -> `drawn`).
+    for (const [m, wordSet] of meansToWords) {
+      const segs = m.split('.');
+      if (segs.length < 2 || segs.length > 3) continue;
+      const worldSeg = segs[1];
+      const typeSeg = segs[2] ?? '';
+      let targetFam = null;
+      if (typeSeg && familySet.has(typeSeg)) {
+        // Only apply if this world relates to the tab (at least one key uses `w.<worldSeg>` or worldSeg === tab)
+        if (meansPrefixVotes.has(`w.${worldSeg}`) || worldSeg === tab) targetFam = typeSeg;
+      } else if (typeSeg === 'object' && familySet.has('drawn') && worldSeg === 'drawing') {
+        targetFam = 'drawn';
+      } else if (typeSeg === 'edge' && familySet.has('link') && worldSeg === 'diagram') {
+        targetFam = 'link';
+      } else if (typeSeg === 'event' && familySet.has('meeting') && (worldSeg === 'calendar' || worldSeg === 'meetings')) {
+        targetFam = 'meeting';
+      } else if (typeSeg === 'chapter' && familySet.has('section') && worldSeg === 'document') {
+        targetFam = 'section';
+      } else if (typeSeg === 'paragraph' && familySet.has('block') && worldSeg === 'document') {
+        targetFam = 'block';
+      } else if ((worldSeg === 'face' || worldSeg === 'person') && !typeSeg && familySet.has('drawn') && tab === 'drawing') {
+        targetFam = 'drawn';
+      }
+      if (targetFam) {
+        for (const word of wordSet) {
+          if (familySet.has(word) && word !== targetFam) continue;
+          for (const form of pluralVariants(word)) addToSetMap(familyWords, form, targetFam);
+        }
+      }
+    }
+
+    // Dynamically enrich `familyWords` from `w.lang.en.lex` (e.g., `diagram.edge` -> `link`, `diagram.kind` -> `diagram`)!
+    if (grammar?.lexicons) {
+      if (familySet.has('link') && grammar.lexicons.has('diagram.edge')) {
+        for (const w of grammar.lexicons.get('diagram.edge')) {
+          for (const form of pluralVariants(w)) addToSetMap(familyWords, form, 'link');
+        }
+      }
+      if (familySet.has('section')) {
+        for (const w of ['heading', 'paragraph', 'chapter', 'subsection']) {
+          for (const form of pluralVariants(w)) addToSetMap(familyWords, form, 'section');
+        }
+      }
+      if (familySet.has('block')) {
+        for (const w of ['heading', 'paragraph', 'list', 'quote', 'table']) {
+          for (const form of pluralVariants(w)) addToSetMap(familyWords, form, 'block');
+        }
       }
     }
 
@@ -389,7 +429,10 @@ function buildTabs(parse, worldsDir) {
     let defaultFamily = families[0] ?? 'item';
     let bestCount = -1;
     for (const [f, list] of keysByFamily) {
-      if (list.length > bestCount) { bestCount = list.length; defaultFamily = f; }
+      if (list.length > bestCount) {
+        bestCount = list.length;
+        defaultFamily = f;
+      }
     }
 
     tabs[tab] = {
@@ -403,47 +446,79 @@ function buildTabs(parse, worldsDir) {
       keyWordIndex,
       closedValueIndex,
       familyWords,
+      meansPrefixVotes,
     };
   }
 
-  return tabs;
+  return { tabs, discoveredWorlds, meansToWords };
 }
 
-function loadActions(parse, worldsDir) {
+/**
+ * Dynamically load ALL `k.actions` shards (`acts.sop`, `verbs-*.sop`, `actions-*.sop`, `families.sop`)
+ * plus frame-licensed verbs extracted from `w.lang.en.frame` wires (single source of truth in SOP!).
+ */
+function loadActions(parse, worldsDir, grammar) {
   const actionsDir = join(worldsDir, 'k.actions', 'shards');
   const acts = new Set();
+  const actRoles = new Map(); // act -> Set<roleName>
   const verbs = new Map();
-  const markings = new Map();
+  const markings = new Map(); // verb -> Array<{ verb, act, marker, role }>
+  const markingsByActMarker = new Map(); // `${act}|${marker}` -> Set<role>
+  const actionSpecs = new Map(); // actionName -> { name, group, holds, opposite, undoneBy }
 
-  for (const w of parseShard(parse, join(actionsDir, 'acts.sop'))) {
-    if (w.type === 'k.actions.act' && w.attrs.name?.[0]) {
-      acts.add(one(w, 'name'));
-    }
-  }
+  const addVerbEntry = (text, entry) => {
+    const key = String(text || '').toLowerCase().trim();
+    if (!key) return;
+    if (!verbs.has(key)) verbs.set(key, []);
+    const list = verbs.get(key);
+    const dup = list.some(
+      (e) =>
+        e.act === entry.act &&
+        (e.mode ?? null) === (entry.mode ?? null) &&
+        (e.attribute ?? null) === (entry.attribute ?? null) &&
+        (e.value ?? null) === (entry.value ?? null),
+    );
+    if (!dup) list.push({ ...entry, text: key });
+  };
 
-  if (existsSync(actionsDir)) {
-    const files = readdirSync(actionsDir).filter((f) => f.endsWith('.sop')).sort();
-    for (const f of files) {
-      for (const w of parseShard(parse, join(actionsDir, f))) {
-        if (w.type === 'k.actions.verb' && f.startsWith('verbs-') && w.attrs.text?.[0] && w.attrs.act?.[0]) {
-          const text = one(w, 'text').toLowerCase();
-          const entry = { text, act: one(w, 'act') };
-          if (w.attrs.attribute?.[0]) entry.attribute = one(w, 'attribute');
-          if (w.attrs.value?.[0]) entry.value = one(w, 'value');
-          if (w.attrs.separable?.[0]) entry.separable = one(w, 'separable') === 'true';
-          if (w.attrs.after_particle?.[0]) entry.afterParticle = one(w, 'after_particle');
-          if (!verbs.has(text)) verbs.set(text, []);
-          verbs.get(text).push(entry);
-        } else if (w.type === 'k.actions.marking' && w.attrs.verb?.[0]) {
-          const verb = one(w, 'verb').toLowerCase();
-          const mEntry = {
-            verb,
-            act: one(w, 'act') ?? '',
-            marker: one(w, 'marker') ?? '',
-            role: one(w, 'role') ?? '',
-          };
-          if (!markings.has(verb)) markings.set(verb, []);
-          markings.get(verb).push(mEntry);
+  for (const fp of listSopShards(actionsDir)) {
+    const fileName = fp.split('/').pop();
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'k.actions.act' && w.attrs.name?.[0]) {
+        const name = one(w, 'name');
+        acts.add(name);
+        for (const r of many(w, 'role')) addToSetMap(actRoles, name, r);
+      } else if (w.type === 'k.actions.verb' && fileName.startsWith('verbs-') && w.attrs.text?.[0] && w.attrs.act?.[0]) {
+        const text = one(w, 'text').toLowerCase();
+        const entry = { text, act: one(w, 'act') };
+        if (w.attrs.attribute?.[0]) entry.attribute = one(w, 'attribute');
+        if (w.attrs.value?.[0]) entry.value = one(w, 'value');
+        if (w.attrs.separable?.[0]) entry.separable = one(w, 'separable') === 'true';
+        if (w.attrs.after_particle?.[0]) entry.afterParticle = one(w, 'after_particle');
+        addVerbEntry(text, entry);
+      } else if (w.type === 'k.actions.marking' && w.attrs.verb?.[0]) {
+        const verb = one(w, 'verb').toLowerCase();
+        const act = one(w, 'act') ?? '';
+        const marker = (one(w, 'marker') ?? '').toLowerCase();
+        const role = one(w, 'role') ?? '';
+        if (!marker || !role) continue;
+        const mEntry = { verb, act, marker, role };
+        if (!markings.has(verb)) markings.set(verb, []);
+        markings.get(verb).push(mEntry);
+        addToSetMap(markingsByActMarker, `${act}|${marker}`, role);
+      } else if (w.type === 'k.actions.action' && w.attrs.name?.[0]) {
+        const name = one(w, 'name').toLowerCase();
+        const group = one(w, 'group') ?? '';
+        const holds = one(w, 'holds') ?? '';
+        actionSpecs.set(name, {
+          name,
+          group,
+          holds,
+          opposite: one(w, 'opposite') ?? '',
+          undoneBy: one(w, 'undone_by') ?? '',
+        });
+        if (holds && acts.has(holds)) {
+          addVerbEntry(name, { text: name, act: holds });
         }
       }
     }
@@ -466,85 +541,71 @@ function loadActions(parse, worldsDir) {
     }
   }
 
-  // Domain-standard verbs from w.request / k.actions usage that may be missing or under-licensed in verbs-*.sop
-  const EXTRA_VERB_LICENSES = [
-    ['book', 'make', null],
-    ['schedule', 'make', null],
-    ['plan', 'make', null],
-    ['reserve', 'make', null],
-    ['reschedule', 'place', null],
-    ['reschedule', 'change', null],
-    ['postpone', 'place', null],
-    ['delay', 'place', null],
-    ['cancel', 'remove', null],
-    ['bin', 'remove', null],
-    ['trash', 'remove', null],
-    ['scrap', 'remove', null],
-    ['discard', 'remove', null],
-    ['compose', 'make', null],
-    ['draft', 'make', null],
-    ['write', 'make', null],
-    ['author', 'make', null],
-    ['plot', 'make', null],
-    ['visualize', 'make', null],
-    ['visualise', 'make', null],
-    ['display', 'make', null],
-    ['show', 'make', null],
-    ['show', 'ask', null],
-    ['try', 'make', null],
-    ['insert', 'make', null],
-    ['meet', 'make', null],
-    ['invite', 'change', null],
-    ['rename', 'change', null],
-    ['retitle', 'change', null],
-    ['relabel', 'change', null],
-    ['recolour', 'change', null],
-    ['recolor', 'change', null],
-    ['resize', 'change', null],
-    ['enlarge', 'change', null],
-    ['shrink', 'change', null],
-    ['widen', 'change', null],
-    ['narrow', 'change', null],
-    ['thicken', 'change', null],
-    ['shorten', 'change', null],
-    ['lengthen', 'change', null],
-    ['bold', 'change', null],
-    ['italic', 'change', null],
-    ['italicize', 'change', null],
-    ['italicise', 'change', null],
-    ['underline', 'change', null],
-    ['strikethrough', 'change', null],
-    ['highlight', 'change', null],
-    ['center', 'change', null],
-    ['centre', 'change', null],
-    ['justify', 'change', null],
-    ['give', 'change', null],
-    ['give', 'place', null],
-    ['give', 'make', null],
-    ['let', 'change', null],
-    ['have', 'change', null],
-    ['keep', 'change', null],
-    ['leave', 'change', null],
-    ['thin', 'change', null],
-    ['dim', 'change', null],
-    ['fade', 'change', null],
-    ['lighten', 'change', null],
-    ['brighten', 'change', null],
-    ['soften', 'change', null],
-    ['sharpen', 'change', null],
-    ['grab', 'pick', null],
-    ['target', 'pick', null],
-    ['focus', 'pick', null],
-  ];
-  for (const [text, act, mode] of EXTRA_VERB_LICENSES) {
-    if (!verbs.has(text)) verbs.set(text, []);
-    const list = verbs.get(text);
-    if (!list.some((e) => e.act === act && (e.mode ?? null) === mode)) {
-      list.push(mode ? { text, act, mode } : { text, act });
+  // Dynamically ingest NEW verbs declared in `w.lang.en.frame` parts (e.g. `diagram-frames.sop`:
+  // `show`, `display`, `plot`, `present`, `map out` -> `make`; `caption`, `tag` -> `change`; `orient`, `rearrange`, `set out` -> `place`)!
+  // Authoritative rule: NEVER overwrite or broaden a verb already declared in `k.actions/shards/verbs-*.sop`
+  // (prevents contextual frames like "delete the colour" -> change or "set up" -> make from polluting `delete`/`set`!).
+  const kActionsVerbs = new Set(verbs.keys());
+  const FRAME_VERB_STOP = new Set([
+    'a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'from', 'with', 'as', 'up', 'out', 'off',
+    'it', 'them', 'this', 'that', 'these', 'those', 'all', 'both', 'some', 'any', 'no', 'not',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'do', 'does', 'did', 'can', 'could', 'would', 'should', 'will', 'may', 'might', 'must',
+    'i', 'you', 'we', 'they', 'he', 'she', 'my', 'your', 'our', 'their', 'here', 'there', 'now', 'then',
+    'and', 'or', 'but', 'if', 'so', 'just', 'only', 'also', 'too', 'very', 'more', 'less', 'please', 'thanks',
+    'what', 'which', 'where', 'when', 'who', 'whom', 'whose', 'why', 'how', 'yes', 'no',
+  ]);
+  const ALLOWED_FRAME_ACTS = new Set(['make', 'change', 'place', 'remove', 'connect', 'group', 'take apart', 'pick', 'copy', 'undo', 'redo', 'save', 'load', 'send', 'deselect']);
+  if (grammar?.frames) {
+    for (const frame of grammar.frames.values()) {
+      if (!frame.act || !ALLOWED_FRAME_ACTS.has(frame.act)) continue;
+      for (const part of frame.parts) {
+        if (part.is === 'lead' || part.is === 'det') continue;
+        if (part.is === 'word' && !part.optional && part.words.length > 0 && part.words.length <= 20) {
+          for (const rawW of part.words) {
+            const w = rawW.toLowerCase().trim();
+            if (!w || w.length < 3 || w.includes("'")) continue;
+            if (kActionsVerbs.has(w)) continue; // keep k.actions authoritative for existing verbs!
+            const toks = w.split(/\s+/);
+            if (toks.length > 2) continue;
+            if (FRAME_VERB_STOP.has(toks[0])) continue;
+            if (toks.length === 1 && (grammar.grammarWords.has(w) || grammar.fillerWords.has(w))) continue;
+            if (/^(left|right|top|bottom|front|back|side|same|other|next|last|first|new|old|big|small|more|less|half|full|each|every)$/.test(toks[0])) continue;
+            const isExplicitVerbPart = Boolean(part.act) || frame.sourceShard === 'diagram-frames.sop' || frame.sourceShard === 'hand-frames.sop' || frame.sourceShard === 'capacity-frames.sop';
+            if (isExplicitVerbPart) {
+              addVerbEntry(w, { text: w, act: part.act || frame.act });
+            }
+          }
+        }
+        break;
+      }
     }
   }
 
-  return { acts, verbs, markings };
+  // Minimal domain-standard verbs not yet present in verbs-*.sop (small residual delta, not a mirror of k.actions)
+  const RESIDUAL_VERB_LICENSES = [
+    ['book', 'make'], ['schedule', 'make'], ['plan', 'make'], ['reserve', 'make'], ['meet', 'make'],
+    ['reschedule', 'place'], ['reschedule', 'change'], ['postpone', 'place'], ['delay', 'place'],
+    ['cancel', 'remove'], ['bin', 'remove'], ['trash', 'remove'], ['scrap', 'remove'], ['discard', 'remove'],
+    ['compose', 'make'], ['draft', 'make'], ['write', 'make'], ['author', 'make'],
+    ['plot', 'make'], ['visualize', 'make'], ['visualise', 'make'], ['display', 'make'], ['show', 'make'], ['show', 'ask'],
+    ['try', 'make'], ['insert', 'make'], ['invite', 'change'],
+    ['rename', 'change'], ['retitle', 'change'], ['relabel', 'change'], ['recolour', 'change'], ['recolor', 'change'],
+    ['resize', 'change'], ['enlarge', 'change'], ['shrink', 'change'], ['widen', 'change'], ['narrow', 'change'],
+    ['thicken', 'change'], ['shorten', 'change'], ['lengthen', 'change'],
+    ['bold', 'change'], ['italic', 'change'], ['italicize', 'change'], ['italicise', 'change'],
+    ['underline', 'change'], ['strikethrough', 'change'], ['highlight', 'change'],
+    ['center', 'change'], ['centre', 'change'], ['justify', 'change'],
+    ['give', 'change'], ['give', 'place'], ['give', 'make'],
+    ['let', 'change'], ['have', 'change'], ['keep', 'change'], ['leave', 'change'],
+    ['thin', 'change'], ['dim', 'change'], ['fade', 'change'], ['lighten', 'change'],
+    ['brighten', 'change'], ['soften', 'change'], ['sharpen', 'change'],
+    ['grab', 'pick'], ['target', 'pick'], ['focus', 'pick'],
+  ];
+  for (const [text, act] of RESIDUAL_VERB_LICENSES) {
+    addVerbEntry(text, { text, act });
+  }
+
+  return { acts, actRoles, verbs, markings, markingsByActMarker, actionSpecs };
 }
 
 function mapDetKind(kind, definite) {
@@ -555,6 +616,11 @@ function mapDetKind(kind, definite) {
   return 'indefinite';
 }
 
+/**
+ * Dynamically load ALL shards in `w.lang.en/shards/*.sop` (55 files, ~30 ms!)
+ * plus `w.reader.en.requests/shards/*.sop` so EVERY declarative grammar/frame/lexicon/join/ellipsis
+ * rule in SOP Lang is automatically available to the lattice and Z3!
+ */
 function loadGrammar(parse, worldsDir) {
   const enDir = join(worldsDir, 'w.lang.en', 'shards');
   const grammarWords = new Set();
@@ -563,37 +629,12 @@ function loadGrammar(parse, worldsDir) {
   const contractions = [];
   const fillerPhrases = new Set([
     ...HARD_FILLER_PHRASES,
-    'that would help',
-    'that helps',
-    'i appreciate it',
-    'appreciate it',
-    'much appreciated',
-    'thank you so much',
-    'thanks a lot',
-    'thanks so much',
-    'if possible',
-    'if you can',
-    'if you could',
-    'i need you to',
-    'i want you to',
-    'as drawn so far',
-    'drawn so far',
-    'when you get a chance',
-    'if you get a chance',
-    'this time',
-    'for me',
-    'please and thanks',
-    'that works',
-    'no problem',
-    'cheers',
-    'all good',
-    'sounds good',
-    'looks good',
-    'never mind',
-    'nevermind',
-    "that's all",
-    "that's it",
-    'that is it',
+    'that would help', 'that helps', 'i appreciate it', 'appreciate it', 'much appreciated',
+    'thank you so much', 'thanks a lot', 'thanks so much', 'if possible', 'if you can', 'if you could',
+    'i need you to', 'i want you to', 'as drawn so far', 'drawn so far',
+    'when you get a chance', 'if you get a chance', 'this time', 'for me', 'please and thanks',
+    'that works', 'no problem', 'cheers', 'all good', 'sounds good', 'looks good',
+    'never mind', 'nevermind', "that's all", "that's it", 'that is it',
   ]);
   const determiners = new Map();
   const pronouns = new Map();
@@ -604,41 +645,36 @@ function loadGrammar(parse, worldsDir) {
   const negations = new Map();
   const cues = [];
   const numbers = new Map();
-  const ordinals = new Map(Object.entries(ORDINAL_ALIASES));
+  const ordinals = new Map();
   const quantifiers = new Map(Object.entries(QUANTIFIER_SPECS));
   const irregularPlurals = new Map();
   const irregularVerbs = new Map();
-  const arrangements = new Map(); // phrase -> { layout, diagramLayout, direction, relation }
-
-  // Exact LEX shards + required grammar/morphology/cue/arrangement shards (avoids parsing huge frame shards).
-  const enShards = [
-    'closed-classes.sop',
-    'determiners.sop',
-    'pronouns.sop',
-    'prepositions.sop',
-    'clauses.sop',
-    'hand-arrangements.sop',
-    'hand-cues.sop',
-    'hand-cues-more.sop',
-    'hand-cues-step.sop',
-    'hand-request.sop',
-    'numbers.sop',
-    'number-words.sop',
-    'morphology.sop',
-    'hand-morphology.sop',
-    'core-plurals.sop',
-    'catalog-plurals.sop',
-    'irregular-forms.sop',
-    'phrases.sop',
-  ];
+  const arrangements = new Map();
+  const lexicons = new Map(); // name -> Set<string>
+  const phraseGroups = new Map(); // group -> Set<string>
+  const frames = new Map(); // name -> { name, act, mode, priority, roles, parts, fixed, sourceShard }
+  const roleMaps = new Map(); // `${act}.${role}` -> { act, role, actRole, marker, takes }
+  const modeMaps = new Map(); // `${act}.${mode}` -> meansAct
+  const ellipsis = {
+    leads: new Set(),
+    trails: new Set(),
+    repeats: new Set(),
+    starters: new Set(),
+  };
+  const calcOps = [];
 
   const CLOSED_GRAMMAR_CLASSES = new Set([
     'determiner', 'pronoun', 'preposition', 'conjunction', 'auxiliary', 'particle', 'adverb',
   ]);
   const SKIP_FILLER_CLASSES = new Set(['politeness', 'filler', 'desire']);
 
-  for (const file of enShards) {
-    for (const w of parseShard(parse, join(enDir, file))) {
+  const enShardPaths = listSopShards(enDir);
+  const rawParts = [];
+  const rawFixed = [];
+
+  for (const fp of enShardPaths) {
+    const fileName = fp.split('/').pop();
+    for (const w of parseShard(parse, fp)) {
       const cls = one(w, 'class') ?? '';
       const texts = many(w, 'text').map((t) => t.toLowerCase());
 
@@ -669,10 +705,14 @@ function loadGrammar(parse, worldsDir) {
         contractionEndings.add(one(w, 'ending').toLowerCase());
       }
 
-      if (w.type === 'w.lang.en.phrase' && one(w, 'group') === 'politeness and fillers') {
+      if (w.type === 'w.lang.en.phrase') {
+        const grp = (one(w, 'group') ?? '').toLowerCase();
         for (const item of many(w, 'item')) {
           const phrase = item.toLowerCase();
-          if (phrase.includes(' ')) fillerPhrases.add(phrase);
+          if (grp) addToSetMap(phraseGroups, grp, phrase);
+          if (grp === 'politeness and fillers' && phrase.includes(' ')) {
+            fillerPhrases.add(phrase);
+          }
         }
       }
 
@@ -699,11 +739,16 @@ function loadGrammar(parse, worldsDir) {
       if (w.type === 'w.lang.en.prep' || w.type === 'w.lang.en.prep.time') {
         const rel = one(w, 'rel') ?? texts[0] ?? '';
         const space = one(w, 'space');
+        const layout = one(w, 'layout');
         const role = one(w, 'order') ?? one(w, 'role');
         const isTime = w.type === 'w.lang.en.prep.time' || many(w, 'in').includes('time');
         for (const t of texts) {
-          const info = { rel };
+          const prev = prepositions.get(t) ?? {};
+          const info = { ...prev };
+          // Prefer hand-joins explicit rel/layout/role over bare fallback
+          if (rel && (!info.rel || fileName === 'hand-joins.sop')) info.rel = rel;
           if (space) info.space = space;
+          if (layout) info.layout = layout;
           if (role) info.role = role;
           if (isTime) info.isTime = true;
           prepositions.set(t, info);
@@ -754,6 +799,82 @@ function loadGrammar(parse, worldsDir) {
         });
       }
 
+      if (w.type === 'w.lang.en.lex' && w.attrs.name?.[0]) {
+        const lexName = one(w, 'name');
+        for (const item of many(w, 'item')) {
+          const low = item.toLowerCase();
+          addToSetMap(lexicons, lexName, low);
+          if (lexName === 'lang.ordinal' && !ordinals.has(low)) {
+            ordinals.set(low, low.replace(/[\s-]+/g, '_'));
+          }
+        }
+      }
+
+      if (w.type === 'w.lang.en.frame' && w.attrs.name?.[0]) {
+        const fname = one(w, 'name');
+        frames.set(fname, {
+          name: fname,
+          act: one(w, 'act') ?? '',
+          mode: one(w, 'mode') ?? '',
+          set: one(w, 'set') ?? '',
+          priority: Number(one(w, 'priority') ?? 0),
+          roles: many(w, 'role'),
+          parts: [],
+          fixed: new Map(),
+          sourceShard: fileName,
+        });
+      } else if (w.type === 'w.lang.en.part' && w.attrs.frame?.[0]) {
+        rawParts.push({
+          frame: one(w, 'frame'),
+          at: Number(one(w, 'at') ?? 0),
+          is: one(w, 'is') ?? '',
+          words: many(w, 'word').map((x) => x.toLowerCase()),
+          act: one(w, 'act') ?? '',
+          role: one(w, 'role') ?? '',
+          takes: one(w, 'takes') ?? '',
+          lexicon: one(w, 'lexicon') ?? '',
+          optional: one(w, 'optional') === 'yes',
+        });
+      } else if (w.type === 'w.lang.en.fixed' && w.attrs.frame?.[0]) {
+        rawFixed.push({
+          frame: one(w, 'frame'),
+          role: one(w, 'role') ?? '',
+          value: one(w, 'value') ?? '',
+        });
+      } else if (w.type === 'w.lang.en.role_map' && w.attrs.act?.[0] && w.attrs.role?.[0]) {
+        const act = one(w, 'act');
+        const role = one(w, 'role');
+        roleMaps.set(`${act}.${role}`, {
+          act,
+          role,
+          actRole: one(w, 'act_role') ?? '',
+          marker: one(w, 'marker') === 'yes',
+          takes: one(w, 'takes') ?? '',
+        });
+      } else if (w.type === 'w.lang.en.mode_map' && w.attrs.act?.[0] && w.attrs.mode?.[0]) {
+        modeMaps.set(`${one(w, 'act')}.${one(w, 'mode')}`, one(w, 'means') ?? '');
+      }
+
+      if (w.type === 'w.lang.en.ellipsis.lead') {
+        for (const t of texts) ellipsis.leads.add(t);
+      } else if (w.type === 'w.lang.en.ellipsis.trail') {
+        for (const t of texts) ellipsis.trails.add(t);
+      } else if (w.type === 'w.lang.en.ellipsis.repeat') {
+        for (const t of texts) ellipsis.repeats.add(t);
+      } else if (w.type === 'w.lang.en.ellipsis.starter') {
+        for (const t of texts) ellipsis.starters.add(t);
+      }
+
+      if (w.type === 'w.lang.en.calc' && texts[0]) {
+        calcOps.push({
+          text: texts[0],
+          kind: one(w, 'kind') ?? '',
+          form: one(w, 'form') ?? '',
+          calc: one(w, 'calc') ?? '',
+          markers: many(w, 'marker').map((m) => m.toLowerCase()),
+        });
+      }
+
       if (w.type === 'w.lang.en.numeral' && w.attrs.value?.[0]) {
         const val = Number(one(w, 'value'));
         if (!Number.isNaN(val)) {
@@ -781,13 +902,6 @@ function loadGrammar(parse, worldsDir) {
         }
       }
 
-      if (w.type === 'w.lang.en.lex' && one(w, 'name') === 'lang.ordinal') {
-        for (const item of many(w, 'item')) {
-          const low = item.toLowerCase();
-          if (!ordinals.has(low)) ordinals.set(low, low.replace(/\s+/g, '_'));
-        }
-      }
-
       if (w.type === 'w.lang.en.irregular' && w.attrs.singular?.[0] && w.attrs.plural?.[0]) {
         const sg = one(w, 'singular').toLowerCase();
         for (const pl of many(w, 'plural')) {
@@ -808,10 +922,59 @@ function loadGrammar(parse, worldsDir) {
     }
   }
 
+  // Attach parts and fixed values to their frames
+  for (const p of rawParts) {
+    const fr = frames.get(p.frame);
+    if (fr) fr.parts.push(p);
+  }
+  for (const fr of frames.values()) {
+    fr.parts.sort((a, b) => a.at - b.at);
+  }
+  for (const fx of rawFixed) {
+    const fr = frames.get(fx.frame);
+    if (fr && fx.role) fr.fixed.set(fx.role, fx.value);
+  }
+
+  // Enrich spatial/temporal prepositions from `w.reader.en.requests/shards/*.sop` dynamically!
+  const readerReqDir = join(worldsDir, 'w.reader.en.requests', 'shards');
+  for (const fp of listSopShards(readerReqDir)) {
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'w.reader.en.requests.relation' && w.attrs.value?.[0] && w.attrs.source_id?.[0]) {
+        const val = one(w, 'value');
+        const srcId = one(w, 'source_id');
+        // Extract phrase tail from id like `w.lang.en.prep.join.next_to` or `w.lang.en.prep.to_the_left_of`
+        const m = srcId.match(/\.prep(?:\.join)?\.([a-z_]+?)(?:\.word)?$/);
+        if (m) {
+          const phrase = m[1].replace(/_/g, ' ');
+          const prev = prepositions.get(phrase) ?? {};
+          // Keep `next_to` canonical for `next to` / `beside` if already distinguished, else adopt SOP value
+          if (!prev.rel) prepositions.set(phrase, { ...prev, rel: val, space: prev.space ?? 'static' });
+        }
+      }
+    }
+  }
+
+  // Add standard positional/numeric ordinals if not already declared in SOP
+  const EXTRA_ORDINALS = {
+    '1st': 'first', '2nd': 'second', '3rd': 'third', '4th': 'fourth', '5th': 'fifth',
+    '6th': 'sixth', '7th': 'seventh', '8th': 'eighth', '9th': 'ninth', '10th': 'tenth',
+    final: 'last', 'second last': 'second_last', 'second-last': 'second_last',
+    'second to last': 'second_last', 'next to last': 'second_last', penultimate: 'second_last',
+    newest: 'newest', latest: 'newest', 'most recent': 'newest', oldest: 'oldest', earliest: 'oldest',
+    leftmost: 'leftmost', rightmost: 'rightmost', topmost: 'topmost', bottommost: 'bottommost',
+  };
+  for (const [k, v] of Object.entries(EXTRA_ORDINALS)) {
+    if (!ordinals.has(k)) ordinals.set(k, v);
+  }
+
   for (const [t, e] of contractions) {
     if (e.split(/\s+/).every((x) => grammarWords.has(x))) grammarWords.add(t);
   }
 
+  for (const negPhrase of phraseGroups.get('negation') ?? []) {
+    if (/^not (all|only|every|just)/.test(negPhrase)) negations.set(negPhrase, { want: 'not_all' });
+    else if (!negations.has(negPhrase)) negations.set(negPhrase, { want: 'no' });
+  }
   negations.set('not all', { want: 'not_all' });
   negations.set('not only', { want: 'not_all' });
   negations.set('not every', { want: 'not_all' });
@@ -836,6 +999,14 @@ function loadGrammar(parse, worldsDir) {
     irregularPlurals,
     irregularVerbs,
     arrangements,
+    lexicons,
+    phraseGroups,
+    frames,
+    roleMaps,
+    modeMaps,
+    ellipsis,
+    calcOps,
+    enShardsLoaded: enShardPaths.length,
   };
 }
 
@@ -856,9 +1027,13 @@ function loadSimpleNameMap(parse, filePaths, wireType, map) {
   }
 }
 
+/**
+ * Dynamically load ALL lightweight `k.*` semantic domain worlds (scanning shard directories dynamically
+ * instead of hardcoding shard filenames) plus `vocab-kinds.json` for fast access to massive catalogs.
+ */
 function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   const colours = new Map();
-  const shades = new Set(SHADE_WORDS);
+  const shades = new Set();
   const shapes = new Map();
   const scales = new Map();
   const comparatives = new Map();
@@ -877,13 +1052,8 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   const units = new Map();
   const givenNames = new Set();
 
-  // Colours
-  loadSimpleNameMap(
-    parse,
-    ['colours.sop', 'colours-common.sop', 'colours-css.sop', 'words.sop'].map((f) => join(worldsDir, 'k.colours', 'shards', f)),
-    'k.colours.colour',
-    colours,
-  );
+  // Dynamic directory-based loading for all lightweight `k.*` worlds
+  loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.colours', 'shards')), 'k.colours.colour', colours);
   for (const [k, v] of [...colours.entries()]) {
     if (k.includes('grey')) colours.set(k.replace(/grey/g, 'gray'), v);
     if (k.includes('gray')) colours.set(k.replace(/gray/g, 'grey'), v);
@@ -891,67 +1061,52 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   colours.set('grey', colours.get('grey') ?? 'grey');
   colours.set('gray', colours.get('gray') ?? 'gray');
 
-  // Shades from k.values/psys2.sop
-  for (const w of parseShard(parse, join(worldsDir, 'k.values', 'shards', 'psys2.sop'))) {
-    if (w.type === 'k.values.shade' && w.attrs.name?.[0]) {
-      shades.add(one(w, 'name').toLowerCase());
-    }
-  }
-
-  // Shapes
-  loadSimpleNameMap(
-    parse,
-    ['shapes.sop', 'psys2.sop', 'words.sop'].map((f) => join(worldsDir, 'k.shapes', 'shards', f)),
-    'k.shapes.shape',
-    shapes,
-  );
-
-  // Scales & Comparatives
-  for (const w of parseShard(parse, join(worldsDir, 'k.values', 'shards', 'scales.sop'))) {
-    if (w.type === 'k.values.step' && w.attrs.name?.[0]) {
-      const step = one(w, 'name');
-      scales.set(step.toLowerCase(), {
-        scale: one(w, 'scale') ?? '',
-        step,
-        rank: Number(one(w, 'rank') ?? 0),
-      });
-    } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.step.name') {
-      const targetStep = one(w, 'means')?.toLowerCase();
-      const entry = targetStep ? scales.get(targetStep) : undefined;
-      if (entry) {
-        for (const t of many(w, 'text')) {
-          if (!scales.has(t.toLowerCase())) scales.set(t.toLowerCase(), entry);
+  // k.values: shades, scales, comparatives, directions, positions — scan ALL shards in k.values dynamically!
+  for (const fp of listSopShards(join(worldsDir, 'k.values', 'shards'))) {
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'k.values.shade' && w.attrs.name?.[0]) {
+        shades.add(one(w, 'name').toLowerCase());
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.shade.name') {
+        for (const t of many(w, 'text')) shades.add(t.toLowerCase());
+      } else if (w.type === 'k.values.step' && w.attrs.name?.[0]) {
+        const step = one(w, 'name');
+        scales.set(step.toLowerCase(), {
+          scale: one(w, 'scale') ?? '',
+          step,
+          rank: Number(one(w, 'rank') ?? 0),
+        });
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.step.name') {
+        const targetStep = one(w, 'means')?.toLowerCase();
+        const entry = targetStep ? scales.get(targetStep) : undefined;
+        if (entry) {
+          for (const t of many(w, 'text')) {
+            if (!scales.has(t.toLowerCase())) scales.set(t.toLowerCase(), entry);
+          }
         }
-      }
-    } else if (w.type === 'k.values.comparative' && w.attrs.text?.[0]) {
-      const entry = {
-        scale: one(w, 'scale') ?? '',
-        way: one(w, 'way') ?? '',
-        degree: one(w, 'degree') ?? 'comparative',
-      };
-      for (const t of many(w, 'text')) comparatives.set(t.toLowerCase(), entry);
-    }
-  }
-
-  // Directions & Positions
-  for (const w of parseShard(parse, join(worldsDir, 'k.values', 'shards', 'directions.sop'))) {
-    if (w.type === 'k.values.direction' && w.attrs.name?.[0]) {
-      const canon = one(w, 'name');
-      directions.set(canon.toLowerCase(), canon);
-    } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.direction.name') {
-      const canon = one(w, 'means');
-      for (const t of many(w, 'text')) {
-        if (!directions.has(t.toLowerCase())) directions.set(t.toLowerCase(), canon);
-      }
-    } else if (w.type === 'k.values.position' && w.attrs.name?.[0]) {
-      const canon = one(w, 'name').replace(/\s+/g, '_');
-      const raw = one(w, 'name').toLowerCase();
-      positions.set(raw, canon);
-      positions.set(canon.toLowerCase(), canon);
-    } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.position.name') {
-      const canon = one(w, 'means').replace(/\s+/g, '_');
-      for (const t of many(w, 'text')) {
-        if (!positions.has(t.toLowerCase())) positions.set(t.toLowerCase(), canon);
+      } else if (w.type === 'k.values.comparative' && w.attrs.text?.[0]) {
+        const entry = {
+          scale: one(w, 'scale') ?? '',
+          way: one(w, 'way') ?? '',
+          degree: one(w, 'degree') ?? 'comparative',
+        };
+        for (const t of many(w, 'text')) comparatives.set(t.toLowerCase(), entry);
+      } else if (w.type === 'k.values.direction' && w.attrs.name?.[0]) {
+        const canon = one(w, 'name');
+        directions.set(canon.toLowerCase(), canon);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.direction.name') {
+        const canon = one(w, 'means');
+        for (const t of many(w, 'text')) {
+          if (!directions.has(t.toLowerCase())) directions.set(t.toLowerCase(), canon);
+        }
+      } else if (w.type === 'k.values.position' && w.attrs.name?.[0]) {
+        const canon = one(w, 'name').replace(/\s+/g, '_');
+        positions.set(one(w, 'name').toLowerCase(), canon);
+        positions.set(canon.toLowerCase(), canon);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.values.position.name') {
+        const canon = one(w, 'means').replace(/\s+/g, '_');
+        for (const t of many(w, 'text')) {
+          if (!positions.has(t.toLowerCase())) positions.set(t.toLowerCase(), canon);
+        }
       }
     }
   }
@@ -963,8 +1118,8 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     }
   }
 
-  // Body parts, wearables, feelings, styles, layouts, diagrams, charts, genres, units
-  loadSimpleNameMap(parse, ['core.sop', 'words.sop'].map((f) => join(worldsDir, 'k.body', 'shards', f)), 'k.body.part', bodyParts);
+  loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.shapes', 'shards')), 'k.shapes.shape', shapes);
+  loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.body', 'shards')), 'k.body.part', bodyParts);
   for (const w of parseShard(parse, join(worldsDir, 'k.faces', 'shards', 'slots.sop'))) {
     if (w.type === 'k.faces.slot' && w.attrs.name?.[0]) {
       const n = one(w, 'name');
@@ -972,17 +1127,18 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       bodyParts.set(n.toLowerCase().replace(/_/g, ' '), n);
     }
   }
-  for (const p of AVATAR_PART_WORDS) {
-    if (!bodyParts.has(p)) bodyParts.set(p, p);
-  }
+  loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.wearables', 'shards')), 'k.wearables.wearable', wearables);
+  loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.feelings', 'shards')), 'k.feelings.feeling', feelings);
+  loadSimpleNameMap(
+    parse,
+    listSopShards(join(worldsDir, 'k.layouts', 'shards')).filter((p) => !p.includes('outlines-') && !p.includes('anchors-')),
+    'k.layouts.layout',
+    layouts,
+  );
 
-  loadSimpleNameMap(parse, ['wearables.sop', 'words.sop'].map((f) => join(worldsDir, 'k.wearables', 'shards', f)), 'k.wearables.wearable', wearables);
-  loadSimpleNameMap(parse, ['feelings.sop', 'words.sop'].map((f) => join(worldsDir, 'k.feelings', 'shards', f)), 'k.feelings.feeling', feelings);
-  loadSimpleNameMap(parse, ['layouts.sop', 'words.sop'].map((f) => join(worldsDir, 'k.layouts', 'shards', f)), 'k.layouts.layout', layouts);
-
-  // Styles
-  for (const f of ['drawing.sop', 'materials.sop', 'themes.sop', 'words.sop']) {
-    for (const w of parseShard(parse, join(worldsDir, 'k.styles', 'shards', f))) {
+  // k.styles (all shards)
+  for (const fp of listSopShards(join(worldsDir, 'k.styles', 'shards'))) {
+    for (const w of parseShard(parse, fp)) {
       if (w.type.startsWith('k.styles.') && w.attrs.name?.[0]) {
         const kind = w.type.slice('k.styles.'.length);
         const name = one(w, 'name');
@@ -997,30 +1153,53 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     }
   }
 
-  // Diagrams
-  for (const f of ['diagrams.sop', 'words.sop']) {
-    for (const w of parseShard(parse, join(worldsDir, 'k.diagrams', 'shards', f))) {
+  // k.diagrams (core shards + `w.lang.en.lex` `diagram.kind`!)
+  for (const fp of listSopShards(join(worldsDir, 'k.diagrams', 'shards')).filter((p) => !p.includes('topics-'))) {
+    for (const w of parseShard(parse, fp)) {
       if (w.type === 'k.diagrams.kind' && w.attrs.name?.[0]) {
         const name = one(w, 'name');
         const form = one(w, 'form') ?? name;
         diagrams.set(name.toLowerCase(), form);
         diagrams.set(form.toLowerCase(), form);
-      } else if (w.type === 'core.word' && w.attrs.means?.[0] === 'k.diagrams.kind') {
+      } else if (w.type === 'core.word' && (one(w, 'of') === 'k.diagrams.kind.name' || one(w, 'means') === 'k.diagrams.kind')) {
+        const mean = one(w, 'means');
+        const canon = mean === 'k.diagrams.kind' ? null : mean;
         for (const t of many(w, 'text')) {
-          if (!diagrams.has(t.toLowerCase())) diagrams.set(t.toLowerCase(), t.toLowerCase());
+          const low = t.toLowerCase();
+          if (!diagrams.has(low)) diagrams.set(low, canon ?? low.replace(/[\s-]+/g, '_'));
         }
       }
     }
   }
+  // Enrich diagrams dynamically from `w.lang.en.lex` `diagram.kind` (48 phrases from diagram-frames.sop!)
+  for (const phrase of grammar.lexicons?.get('diagram.kind') ?? []) {
+    if (!diagrams.has(phrase)) {
+      // Infer canonical kind matching existing keys (flowchart, mind_map, org_chart, tree, network, timeline, venn, state_machine)
+      let canon = phrase.replace(/[\s-]+/g, '_');
+      if (/flow|process|pipeline|stage/.test(phrase)) canon = 'flowchart';
+      else if (/mind|concept|idea|spider/.test(phrase)) canon = 'mind_map';
+      else if (/org|organi[sz]|hierarchy/.test(phrase)) canon = 'org_chart';
+      else if (/time\s*line/.test(phrase)) canon = 'timeline';
+      else if (/venn|set diagram/.test(phrase)) canon = 'venn';
+      else if (/tree/.test(phrase)) canon = 'tree';
+      else if (/network|node/.test(phrase)) canon = 'network';
+      diagrams.set(phrase, canon);
+    }
+  }
 
-  // Charts
-  for (const f of ['charts.sop', 'words.sop']) {
-    for (const w of parseShard(parse, join(worldsDir, 'k.charts', 'shards', f))) {
+  // k.charts (all shards + chart.type closed values from keys.sop!)
+  for (const fp of listSopShards(join(worldsDir, 'k.charts', 'shards'))) {
+    for (const w of parseShard(parse, fp)) {
       if (w.type === 'k.charts.kind' && w.attrs.name?.[0]) {
         const name = one(w, 'name');
         const form = one(w, 'form') ?? name;
         charts.set(name.toLowerCase(), form);
         charts.set(form.toLowerCase(), form);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.charts.kind.name') {
+        const mean = one(w, 'means');
+        for (const t of many(w, 'text')) {
+          if (!charts.has(t.toLowerCase())) charts.set(t.toLowerCase(), mean);
+        }
       }
     }
   }
@@ -1030,25 +1209,23 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       charts.set(v.toLowerCase(), v);
       charts.set(`${v.toLowerCase()} chart`, v);
       charts.set(`${v.toLowerCase()} graph`, v);
+      charts.set(`${v.toLowerCase()} plot`, v);
     }
   }
 
-  // Genres
-  const genresDir = join(worldsDir, 'k.genres', 'shards');
-  if (existsSync(genresDir)) {
-    for (const f of readdirSync(genresDir).filter((x) => x.endsWith('.sop'))) {
-      for (const w of parseShard(parse, join(genresDir, f))) {
-        if (w.type === 'k.genres.genre' && w.attrs.name?.[0]) {
-          const name = one(w, 'name');
-          genres.set(name.toLowerCase(), name);
-        } else if (w.type === 'k.genres.move' && w.attrs.name?.[0]) {
-          const name = one(w, 'name');
-          if (!genres.has(name.toLowerCase())) genres.set(name.toLowerCase(), name);
-        } else if (w.type === 'core.word' && one(w, 'of') === 'k.genres.genre.name') {
-          const canon = one(w, 'means');
-          for (const t of many(w, 'text')) {
-            if (!genres.has(t.toLowerCase())) genres.set(t.toLowerCase(), canon);
-          }
+  // k.genres (all shards + text.genre closed values from keys.sop!)
+  for (const fp of listSopShards(join(worldsDir, 'k.genres', 'shards'))) {
+    for (const w of parseShard(parse, fp)) {
+      if (w.type === 'k.genres.genre' && w.attrs.name?.[0]) {
+        const name = one(w, 'name');
+        genres.set(name.toLowerCase(), name);
+      } else if (w.type === 'k.genres.move' && w.attrs.name?.[0]) {
+        const name = one(w, 'name');
+        if (!genres.has(name.toLowerCase())) genres.set(name.toLowerCase(), name);
+      } else if (w.type === 'core.word' && one(w, 'of') === 'k.genres.genre.name') {
+        const canon = one(w, 'means');
+        for (const t of many(w, 'text')) {
+          if (!genres.has(t.toLowerCase())) genres.set(t.toLowerCase(), canon);
         }
       }
     }
@@ -1060,14 +1237,14 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     }
   }
 
-  // Units
-  for (const f of ['core.sop', 'words.sop']) {
-    for (const w of parseShard(parse, join(worldsDir, 'k.units', 'shards', f))) {
+  // k.units (all non-currency shards dynamically!)
+  for (const fp of listSopShards(join(worldsDir, 'k.units', 'shards')).filter((p) => !p.includes('currenc'))) {
+    for (const w of parseShard(parse, fp)) {
       if (w.type === 'k.units.unit' && w.attrs.name?.[0]) {
         const name = one(w, 'name');
         const quantity = one(w, 'quantity') ?? '';
         const entry = { name, quantity };
-        units.set(name.toLowerCase(), entry);
+        for (const form of pluralVariants(name)) units.set(form, entry);
         if (w.attrs.symbol?.[0]) {
           const sym = one(w, 'symbol').toLowerCase();
           if (!units.has(sym)) units.set(sym, entry);
@@ -1077,30 +1254,25 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
         const existing = units.get(canon?.toLowerCase());
         const entry = existing ?? { name: canon, quantity: '' };
         for (const t of many(w, 'text')) {
-          if (!units.has(t.toLowerCase())) units.set(t.toLowerCase(), entry);
+          for (const form of pluralVariants(t)) {
+            if (!units.has(form)) units.set(form, entry);
+          }
         }
       }
     }
   }
 
-  // Time
+  // k.time (all calendar/clock shards dynamically!)
   const months = new Map();
   const weekdays = new Map();
   const partsOfDay = new Map();
   const relativeDays = new Map([
-    ['today', 'today'],
-    ['tomorrow', 'tomorrow'],
-    ['yesterday', 'yesterday'],
-    ['tonight', 'tonight'],
-    ['this week', 'this_week'],
-    ['next week', 'next_week'],
-    ['last week', 'last_week'],
-    ['this month', 'this_month'],
-    ['next month', 'next_month'],
-    ['last month', 'last_month'],
+    ['today', 'today'], ['tomorrow', 'tomorrow'], ['yesterday', 'yesterday'], ['tonight', 'tonight'],
+    ['this week', 'this_week'], ['next week', 'next_week'], ['last week', 'last_week'],
+    ['this month', 'this_month'], ['next month', 'next_month'], ['last month', 'last_month'],
   ]);
-  for (const f of ['calendar.sop', 'clock.sop', 'clock-words.sop', 'words.sop']) {
-    for (const w of parseShard(parse, join(worldsDir, 'k.time', 'shards', f))) {
+  for (const fp of listSopShards(join(worldsDir, 'k.time', 'shards')).filter((p) => !p.includes('cycles-'))) {
+    for (const w of parseShard(parse, fp)) {
       if (w.type === 'k.time.month' && w.attrs.name?.[0]) {
         const n = one(w, 'name');
         months.set(n.toLowerCase(), n);
@@ -1124,7 +1296,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     }
   }
 
-  // Fast vocab-kinds.json extraction (replaces 400+ heavy geometry shards)
+  // Fast vocab-kinds.json extraction (covers massive k.objects / k.animals / k.people / k.scenes catalogs in ~80 ms)
   const OBJECT_KINDS = [
     'k.objects.object', 'k.animals.animal', 'k.people.kind',
     'k.people.role', 'k.scenes.thing', 'k.wearables.wearable', 'k.shapes.shape',
@@ -1188,14 +1360,14 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
 }
 
 /**
- * Load all w.request keys, k.actions, w.lang.en grammar/morphology/cues,
- * and fast domain lexicons from sop-knowledge-worlds.
+ * Dynamically load ALL knowledge from sop-knowledge-worlds (Single Source of Truth).
  *
  * @param {object} [options]
  * @param {string} [options.knowledgeDir]
  * @returns {Promise<object>}
  */
 export async function loadKnowledge({ knowledgeDir } = {}) {
+  const t0 = performance.now();
   const kDir = resolve(
     knowledgeDir ?? process.env.SOP_KNOWLEDGE ?? resolve(HERE, '..', '..', '..', 'sop-knowledge-worlds'),
   );
@@ -1208,33 +1380,53 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
     ? JSON.parse(readFileSync(vocabPath, 'utf8'))
     : {};
 
-  const tabs = buildTabs(parse, worldsDir);
-  const { acts, verbs, markings } = loadActions(parse, worldsDir);
+  // Order: grammar first (gives lexicons/frames/prepositions to tabs & actions!), then tabs, actions, domain!
   const grammar = loadGrammar(parse, worldsDir);
+  const { tabs, discoveredWorlds, meansToWords } = buildTabs(parse, worldsDir, grammar);
+  const { acts, actRoles, verbs, markings, markingsByActMarker, actionSpecs } = loadActions(parse, worldsDir, grammar);
   const domain = loadDomain(parse, worldsDir, vocabKinds, grammar, tabs);
 
   const normalizeToken = (word) => String(word ?? '').toLowerCase().replace(/\u2019/g, "'");
+  const totalKeys = Object.values(tabs).reduce((sum, t) => sum + t.keyList.length, 0);
 
   return {
     knowledgeDir: kDir,
     sopworldPath,
     tabs,
     acts,
+    actRoles,
     verbs,
     markings,
+    markingsByActMarker,
+    actionSpecs,
     grammar,
     domain,
+    meansToWords,
+    meta: {
+      discoveredWorlds,
+      enShardsLoaded: grammar.enShardsLoaded,
+      framesCount: grammar.frames.size,
+      lexiconsCount: grammar.lexicons.size,
+      markingsCount: [...markings.values()].reduce((s, arr) => s + arr.length, 0),
+      tabsCount: Object.keys(tabs).length,
+      totalKeys,
+      loadMs: performance.now() - t0,
+    },
     isGrammarWord(word) {
-      const x = normalizeToken(word);
-      const i = x.indexOf("'");
-      return (
-        grammar.grammarWords.has(x) ||
-        (i > 0 && grammar.grammarWords.has(x.slice(0, i)) && grammar.contractionEndings.has(x.slice(i)))
-      );
+      const w = normalizeToken(word);
+      if (!w) return false;
+      if (grammar.grammarWords.has(w)) return true;
+      const idx = w.indexOf("'");
+      if (idx > 0) {
+        const stem = w.slice(0, idx);
+        const end = w.slice(idx);
+        if (grammar.grammarWords.has(stem) && grammar.contractionEndings.has(end)) return true;
+      }
+      return false;
     },
     isFillerWord(word) {
-      const x = normalizeToken(word);
-      return grammar.fillerWords.has(x) || grammar.fillerPhrases.has(x);
+      const w = normalizeToken(word);
+      return Boolean(w) && (grammar.fillerWords.has(w) || grammar.fillerPhrases.has(w));
     },
   };
 }

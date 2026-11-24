@@ -30,7 +30,153 @@
       adnotării Gold, typo-uri în textul de intrare și erori reale ale formalizatorului Z3.
     </p>
 
-    <h2>5.1 Atribuirea cauzelor de eșec: Ce pică din cauza Gold vs. Typo vs. Z3? (Iterația v8)</h2>
+    <h2>5.1 Gradele oficiale <code>WebMeet formalisation grades · v1.2</code> (<code>webmeet-dataset/LEGEND.md</code>) — Iteratia v9</h2>
+    <p>
+      <strong>Eșantion:</strong> 1% random holdout din <code>webmeet-dataset</code> (<code>N = 1.892</code>, <code>seed = 42</code>;
+      <code>drawing=931, diagram=759, document=122, calendar=80</code>).<br>
+      <strong>Context disponibil formalizatorului:</strong> text-only + schemele <code>sop-knowledge-worlds</code> (încărcare 100% dinamică; fără stare live a aplicației).
+      Validitate formală <code>check.mjs</code>: <strong>100,0% (1.892 / 1.892)</strong>.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Grade (<code>LEGEND.md</code> v1.2)</th>
+          <th>Semnificație</th>
+          <th class="num">N</th>
+          <th class="num">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>L0 – Fail</strong></td>
+          <td>Fără citire utilizabilă / SOP invalid / totul în <code>unread</code></td>
+          <td class="num">54</td>
+          <td class="num">2.9%</td>
+        </tr>
+        <tr>
+          <td><strong>L1a – Wrong intent</strong></td>
+          <td>Acțiunea principală, întrebarea sau polaritatea se schimbă</td>
+          <td class="num">674</td>
+          <td class="num">35.6%</td>
+        </tr>
+        <tr>
+          <td><strong>L1b – Wrong target</strong></td>
+          <td>Acțiune plauzibilă, dar obiect / familie / mod greșit</td>
+          <td class="num">196</td>
+          <td class="num">10.4%</td>
+        </tr>
+        <tr>
+          <td><strong>L1c – Wrong detail or role</strong></td>
+          <td>Țintă și acțiune plauzibile, dar valoare / relație / rol greșit</td>
+          <td class="num">318</td>
+          <td class="num">16.8%</td>
+        </tr>
+        <tr>
+          <td><strong>L1d – Invented instruction</strong></td>
+          <td>Adaugă acțiune, condiție sau detaliu nesusținut de text</td>
+          <td class="num">239</td>
+          <td class="num">12.6%</td>
+        </tr>
+        <tr>
+          <td><strong>L2 – Incomplete</strong></td>
+          <td>Sens util, dar lipsește o parte esențială (<code>L2a + L2b + L2c</code>)</td>
+          <td class="num">139</td>
+          <td class="num">7.3%</td>
+        </tr>
+        <tr>
+          <td>&nbsp;&nbsp;<code>L2a</code></td>
+          <td>Lipsește o acțiune, întrebare sau etapă cerută</td>
+          <td class="num">62</td>
+          <td class="num">3.3%</td>
+        </tr>
+        <tr>
+          <td>&nbsp;&nbsp;<code>L2b</code></td>
+          <td>Lipsește un obiect, endpoint sau referință</td>
+          <td class="num">63</td>
+          <td class="num">3.3%</td>
+        </tr>
+        <tr>
+          <td>&nbsp;&nbsp;<code>L2c</code></td>
+          <td>Lipsește o valoare, proprietate, plasare, scope sau condiție</td>
+          <td class="num">14</td>
+          <td class="num">0.7%</td>
+        </tr>
+        <tr>
+          <td><strong>L3 – Identical to dataset</strong></td>
+          <td>Textul SOP normalizat coincide identic cu referința</td>
+          <td class="num">35</td>
+          <td class="num">1.8%</td>
+        </tr>
+        <tr>
+          <td><strong>L4 – Reasonable alternative</strong></td>
+          <td>Intenție și detalii esențiale păstrate (aliasuri canonice / Z3 mai bun decât Gold defect)</td>
+          <td class="num">237</td>
+          <td class="num">12.5%</td>
+        </tr>
+        <tr>
+          <td><strong>Reasonable total (<code>L3 + L4</code>)</strong></td>
+          <td>Total citiri rezonabile combinate</td>
+          <td class="num"><strong>272</strong></td>
+          <td class="num"><strong>14.4%</strong></td>
+        </tr>
+        <tr>
+          <td><em>Dataset error flag</em> (separat)</td>
+          <td>Adnotarea de referință are defecte verificabile la <code>check.mjs</code> (nu se scade din gradele primare)</td>
+          <td class="num">600</td>
+          <td class="num">31.7%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>
+    <p>
+      Estimatorul simbolic <code>src/confidence.mjs</code> (calibrat out-of-sample pe split-ul disjunct <code>seed=1337</code>)
+      separă curat cazurile de încredere ridicată de cazurile ambigue sau de abținere:
+      <strong>AUROC(EffSuccess) = 0.777</strong> (<strong>0.799</strong> cu <code>--spellcheck</code>),
+      <strong>AUROC(NotWrong) = 0.706</strong>, <strong>Brier = 0.119</strong> (<code>0.110</code> cu <code>--spellcheck</code>).
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Bandă</th>
+          <th class="num">N</th>
+          <th class="num">Cotă</th>
+          <th class="num">MeanScore</th>
+          <th class="num">EffSuccess</th>
+          <th class="num">Act+Fam</th>
+          <th class="num">Wrong</th>
+          <th class="num">Ambiguous</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge ok">high</span></td>
+          <td class="num">490</td><td class="num">25.9%</td><td class="num">0.403</td>
+          <td class="num"><strong>30.2%</strong></td><td class="num"><strong>68.0%</strong></td>
+          <td class="num"><strong>10.2%</strong></td><td class="num">0.0%</td>
+        </tr>
+        <tr>
+          <td><span class="badge warn">medium</span></td>
+          <td class="num">438</td><td class="num">23.2%</td><td class="num">0.336</td>
+          <td class="num">16.0%</td><td class="num">42.9%</td>
+          <td class="num">31.3%</td><td class="num">89.0%</td>
+        </tr>
+        <tr>
+          <td><span class="badge warn">low</span></td>
+          <td class="num">468</td><td class="num">24.8%</td><td class="num">0.158</td>
+          <td class="num">4.5%</td><td class="num">38.2%</td>
+          <td class="num">35.3%</td><td class="num">39.7%</td>
+        </tr>
+        <tr>
+          <td><span class="badge bad">abstain</span></td>
+          <td class="num">494</td><td class="num">26.1%</td><td class="num">0.068</td>
+          <td class="num">4.0%</td><td class="num">26.5%</td>
+          <td class="num">49.2%</td><td class="num">48.2%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5.3 Atribuirea cauzelor de eșec: Gold vs. Typo vs. Z3 (v9)</h2>
     <table>
       <thead>
         <tr>
@@ -43,9 +189,9 @@
       <tbody>
         <tr>
           <td><strong>Exact Match</strong> (<code>success_exact</code>)</td>
-          <td class="num"><strong>12.5%</strong> (236)</td>
+          <td class="num"><strong>12.2%</strong> (231)</td>
           <td class="num"><strong>11.0%</strong> (55)</td>
-          <td><span class="badge ok">Succes Z3</span> (+2.1 pp vs v7 pe webmeet; <code>document</code> 3.3×, <code>calendar</code> +15 pp)</td>
+          <td><span class="badge ok">Succes Z3</span> (<code>calendar</code> Exact <strong>46.3%</strong>, <code>drawing</code> Fam <strong>72.5%</strong>)</td>
         </tr>
         <tr>
           <td><strong>Z3 mai bun decât Gold defect</strong> (<code>success_z3_better_than_gold</code>)</td>
@@ -61,62 +207,58 @@
         </tr>
         <tr>
           <td><strong>Gold defect la <code>check.mjs</code></strong> (<code>fail_gold_annotation_flawed</code>)</td>
-          <td class="num"><strong>30.2%</strong> (571)</td>
+          <td class="num"><strong>29.9%</strong> (565)</td>
           <td class="num"><strong>56.4%</strong> (282)</td>
           <td><span class="badge warn">Date adnotate</span> (<code>unread</code>, cuvinte neacoperite, filler greșit, overlap)</td>
         </tr>
         <tr>
           <td><strong>Typo / spații corupte în input</strong> (<code>fail_input_typo</code>)</td>
-          <td class="num"><strong>10.6%</strong> (200)</td>
+          <td class="num"><strong>10.3%</strong> (195)</td>
           <td class="num"><strong>4.2%</strong> (21)</td>
-          <td><span class="badge warn">Zgomot input</span> (ținta Layer 1 <a href="spellchecker.html">Spellchecker Z3</a>)</td>
+          <td><span class="badge warn">Zgomot input</span> (cu <code>--spellcheck</code> scade la <code>8.1%</code> / <code>2.2%</code>)</td>
         </tr>
         <tr>
           <td><strong>Eroare Z3 — 0-cereri / filler pur</strong></td>
           <td class="num">0.7% (13)</td>
           <td class="num">0.2% (1)</td>
-          <td><span class="badge bad">Formalizator Z3</span> (redus de la 1.7% în v7)</td>
+          <td><span class="badge bad">Formalizator Z3</span></td>
         </tr>
         <tr>
           <td><strong>Eroare Z3 — Act / Mood / Question / Split</strong></td>
-          <td class="num">19.8% (374)</td>
+          <td class="num">19.8% (375)</td>
           <td class="num">7.6% (38)</td>
-          <td><span class="badge bad">Formalizator Z3</span> (redus de la 21.5% în v7)</td>
+          <td><span class="badge bad">Formalizator Z3</span></td>
         </tr>
         <tr>
           <td><strong>Eroare Z3 — Target Family / Mode</strong></td>
-          <td class="num">4.9% (92)</td>
+          <td class="num">5.3% (100)</td>
           <td class="num">2.2% (11)</td>
           <td><span class="badge bad">Formalizator Z3</span></td>
         </tr>
         <tr>
           <td><strong>Eroare Z3 — Constraints / Target Identity</strong></td>
-          <td class="num">19.3% (365)</td>
+          <td class="num">19.7% (372)</td>
           <td class="num">12.2% (61)</td>
           <td><span class="badge bad">Formalizator Z3</span></td>
         </tr>
         <tr>
           <td><strong>TOTAL erori reale Z3 (pe Gold curat &amp; text curat)</strong></td>
-          <td class="num"><strong>44.6%</strong> (844)</td>
+          <td class="num"><strong>45.5%</strong> (860)</td>
           <td class="num"><strong>22.2%</strong> (111)</td>
-          <td>Suma celor 4 linii de mai sus (v7: 46.6% pe webmeet)</td>
+          <td>Suma celor 4 linii de mai sus</td>
         </tr>
       </tbody>
     </table>
 
     <div class="callout ok">
-      <strong>Progres v7 → v8 (exclusiv reguli generale Z3/schemă, zero patch-uri pe propoziții):</strong>
-      Pe același eșantion 1% din <code>webmeet-dataset</code> (<code>N = 1.892, seed = 42</code>):
-      <strong>Valid = 100,0%</strong>, <strong>Wrong</strong> a scăzut de la <code>36,5%</code> la <strong><code>30,9%</code></strong> (−5,6 pp),
-      <strong>Act</strong> a crescut de la <code>48,9%</code> la <strong><code>54,6%</code></strong> (+5,7 pp),
-      <strong>Family</strong> de la <code>58,1%</code> la <strong><code>62,2%</code></strong> (+4,1 pp),
-      <strong>AliasF1</strong> de la <code>0,362</code> la <strong><code>0,390</code></strong>,
-      <strong>Exact</strong> pe <code>document</code> a sărit <code>7,4% → 24,6%</code> (3,3×) și pe <code>calendar</code> <code>28,8% → 43,8%</code> (+15 pp),
-      iar latența p50 a scăzut <code>158 ms → 133 ms</code>.
-      Pe <code>psys2 test.jsonl</code>, <code>document</code> a ajuns la <strong>100,0% Act</strong> și <strong>0,0% Wrong</strong> (<code>37,8%</code> EffSuccess).
+      <strong>Progres v8 → v9 (încărcare 100% dinamică din SOP Lang + Z3 ierarhic în 2 etape + încredere calibrată):</strong>
+      Zero tabele de lumi hardcodate în <code>load-worlds.mjs</code> (19 lumi <code>w.*</code> + 55 shard-uri <code>w.lang.en</code> + 90 <code>k.actions.marking</code> descoperite dinamic),
+      latența p95 în modul rapid (fără top-2) a scăzut la jumătate (<code>1.590 ms → 783 ms</code>),
+      <code>Family</code> a urcat la <strong>63,2%</strong>, <code>calendar</code> Exact la <strong>46,3%</strong>,
+      iar estimatorul simbolic de încredere oferă separare monotonică de <strong>7,5×</strong> (<code>30,2%</code> vs <code>4,0%</code> EffSuccess, <code>10,2%</code> vs <code>49,2%</code> Wrong) între benzile <code>high</code> și <code>abstain</code>.
     </div>
 
-    <h2>5.2 Detaliu per tab — <code>webmeet-dataset</code> 1% random (<code>N = 1.892</code>, <code>seed = 42</code>)</h2>
+    <h2>5.4 Detaliu per tab — <code>webmeet-dataset</code> 1% random (<code>N = 1.892</code>, <code>seed = 42</code>, v9)</h2>
     <table>
       <thead>
         <tr>
@@ -133,39 +275,40 @@
           <th class="num">Act</th>
           <th class="num">Fam</th>
           <th class="num">AliasF1</th>
-          <th class="num">p50ms</th>
+          <th class="num">p50ms*</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><code>drawing</code></td><td class="num">931</td><td class="num">100.0%</td><td class="num">50.3%</td><td class="num">27.4%</td>
-          <td class="num">14.2%</td><td class="num">2.3%</td><td class="num"><strong>16.4%</strong></td><td class="num">56.5%</td><td class="num">27.1%</td>
-          <td class="num">53.7%</td><td class="num">69.8%</td><td class="num">0.439</td><td class="num">111</td>
+          <td><code>drawing</code></td><td class="num">931</td><td class="num">100.0%</td><td class="num">51.6%</td><td class="num">27.1%</td>
+          <td class="num">13.7%</td><td class="num">2.1%</td><td class="num"><strong>15.9%</strong></td><td class="num">57.5%</td><td class="num">26.6%</td>
+          <td class="num">55.0%</td><td class="num">72.5%</td><td class="num">0.447</td><td class="num">225</td>
         </tr>
         <tr>
-          <td><code>diagram</code></td><td class="num">759</td><td class="num">100.0%</td><td class="num">46.1%</td><td class="num">44.7%</td>
-          <td class="num">5.1%</td><td class="num">0.8%</td><td class="num"><strong>5.9%</strong></td><td class="num">53.5%</td><td class="num">40.6%</td>
-          <td class="num">49.1%</td><td class="num">48.5%</td><td class="num">0.267</td><td class="num">157</td>
+          <td><code>diagram</code></td><td class="num">759</td><td class="num">100.0%</td><td class="num">45.1%</td><td class="num">44.3%</td>
+          <td class="num">5.4%</td><td class="num">0.9%</td><td class="num"><strong>6.3%</strong></td><td class="num">51.1%</td><td class="num">42.6%</td>
+          <td class="num">47.2%</td><td class="num">48.9%</td><td class="num">0.272</td><td class="num">342</td>
         </tr>
         <tr>
           <td><code>document</code></td><td class="num">122</td><td class="num">100.0%</td><td class="num">69.7%</td><td class="num">9.8%</td>
-          <td class="num">24.6%</td><td class="num">0.8%</td><td class="num"><strong>25.4%</strong></td><td class="num">59.8%</td><td class="num">14.8%</td>
-          <td class="num">84.4%</td><td class="num">70.5%</td><td class="num">0.538</td><td class="num">139</td>
+          <td class="num">20.5%</td><td class="num">0.8%</td><td class="num"><strong>21.3%</strong></td><td class="num">63.1%</td><td class="num">15.6%</td>
+          <td class="num">83.6%</td><td class="num">62.3%</td><td class="num">0.508</td><td class="num">296</td>
         </tr>
         <tr>
-          <td><code>calendar</code></td><td class="num">80</td><td class="num">100.0%</td><td class="num">88.8%</td><td class="num">1.3%</td>
-          <td class="num">43.8%</td><td class="num">0.0%</td><td class="num"><strong>43.8%</strong></td><td class="num">48.8%</td><td class="num">7.5%</td>
-          <td class="num">71.3%</td><td class="num">91.3%</td><td class="num">0.762</td><td class="num">110</td>
+          <td><code>calendar</code></td><td class="num">80</td><td class="num">100.0%</td><td class="num">88.8%</td><td class="num">0.0%</td>
+          <td class="num">46.3%</td><td class="num">0.0%</td><td class="num"><strong>46.3%</strong></td><td class="num">45.0%</td><td class="num">8.8%</td>
+          <td class="num">70.0%</td><td class="num">91.3%</td><td class="num">0.765</td><td class="num">217</td>
         </tr>
         <tr>
-          <td><strong>ALL</strong></td><td class="num"><strong>1.892</strong></td><td class="num"><strong>100.0%</strong></td><td class="num"><strong>51.5%</strong></td><td class="num"><strong>32.1%</strong></td>
-          <td class="num"><strong>12.5%</strong></td><td class="num"><strong>1.5%</strong></td><td class="num"><strong>14.0%</strong></td><td class="num"><strong>55.2%</strong></td><td class="num"><strong>30.9%</strong></td>
-          <td class="num"><strong>54.6%</strong></td><td class="num"><strong>62.2%</strong></td><td class="num"><strong>0.390</strong></td><td class="num"><strong>133</strong></td>
+          <td><strong>ALL</strong></td><td class="num"><strong>1.892</strong></td><td class="num"><strong>100.0%</strong></td><td class="num"><strong>51.7%</strong></td><td class="num"><strong>31.7%</strong></td>
+          <td class="num"><strong>12.2%</strong></td><td class="num"><strong>1.5%</strong></td><td class="num"><strong>13.7%</strong></td><td class="num"><strong>54.8%</strong></td><td class="num"><strong>31.6%</strong></td>
+          <td class="num"><strong>54.3%</strong></td><td class="num"><strong>63.2%</strong></td><td class="num"><strong>0.394</strong></td><td class="num"><strong>276</strong></td>
         </tr>
       </tbody>
     </table>
+    <p><small>*Latența p50/p95 cu <code>--confidence</code> include a doua rezolvare Z3 pentru marginea de ambiguitate Top-2 (<code>276 ms</code> / <code>1.466 ms</code>). Fără <code>--confidence</code>, v9 are p50 <strong>131 ms</strong> și p95 <strong>783 ms</strong>.</small></p>
 
-    <h2>5.3 Detaliu per tab — <code>psys2/official-dataset/test.jsonl</code> (<code>N = 500</code>) &amp; <code>keys.sop</code> (<code>N = 430</code>)</h2>
+    <h2>5.5 Detaliu per tab — <code>psys2/official-dataset/test.jsonl</code> (<code>N = 500</code>) &amp; <code>keys.sop</code> (<code>N = 430</code>)</h2>
     <table>
       <thead>
         <tr>
@@ -217,7 +360,7 @@
       <strong>Valid = 100,0%</strong> (<code>430/430</code>), <strong>KeyHit = 27,4%</strong>, latență p50 <strong>49,7 ms</strong> / p95 <strong>115,1 ms</strong>.
     </p>
 
-    <h2>5.4 Tipologia defectelor din datele Gold (măsurate independent de <code>check.mjs</code>)</h2>
+    <h2>5.6 Tipologia defectelor din datele Gold (măsurate independent de <code>check.mjs</code>)</h2>
     <ul>
       <li><code>gold_left_unread</code> — <strong>16.0%</strong> pe <code>webmeet</code> / <strong>29.0%</strong> pe <code>test.jsonl</code> (sens lăsat în <code>unread</code> deși adesea există cheie în schemă, ex. <code>drawn.sex=male</code>, <code>drawn.age</code>).</li>
       <li><code>gold_uncovered_words</code> — <strong>16.0%</strong> pe <code>webmeet</code> / <strong>59.6%</strong> pe <code>test.jsonl</code> (cuvinte de conținut din text pe care niciun wire din adnotarea Gold nu le formalizează).</li>

@@ -456,7 +456,7 @@ function summarizeGroup(records) {
   };
 }
 
-async function runWithWorkerPool(rows, { workers, source, knowledgeDir }) {
+async function runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck = false, confidence = false }) {
   const n = rows.length;
   const results = new Array(n);
   if (n === 0) return results;
@@ -488,7 +488,7 @@ async function runWithWorkerPool(rows, { workers, source, knowledgeDir }) {
 
     for (let i = 0; i < numWorkers; i++) {
       const w = new Worker(WORKER_FILE, {
-        workerData: { knowledgeDir, source },
+        workerData: { knowledgeDir, source, spellcheck, confidence },
       });
       pool.push(w);
       w.on('message', (msg) => {
@@ -536,11 +536,13 @@ async function main() {
   const limit = args.limit !== undefined ? Number(args.limit) : null;
   const seed = Number(args.seed ?? 42);
   const workers = Math.max(1, Number(args.workers ?? 1));
+  const spellcheck = Boolean(args.spellcheck);
+  const confidence = Boolean(args.confidence);
   const verbose = Boolean(args.verbose);
   const jsonOut = typeof args.json === 'string' ? resolve(args.json) : null;
 
   const rows = loadRows({ source, datasetDir, officialDir, knowledgeDir, tabs, samplePct, limit, seed });
-  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers})`);
+  console.log(`Loaded ${rows.length} rows (source=${source}, tabs=${tabs.join(',')}, seed=${seed}, workers=${workers}, spellcheck=${spellcheck}, confidence=${confidence})`);
 
   let verifier = null;
   let formaliseFn = null;
@@ -553,7 +555,7 @@ async function main() {
       console.error(`Failed to import ../src/index.mjs: ${err.message}`);
       process.exit(1);
     }
-    const formaliser = await createFormaliser({ knowledgeDir });
+    const formaliser = await createFormaliser({ knowledgeDir, spellcheck });
     formaliseFn = typeof formaliser === 'function' ? formaliser : formaliser.formalise.bind(formaliser);
   }
 
@@ -598,17 +600,17 @@ async function main() {
   const errorClusters = new Map();
 
   if (workers > 1) {
-    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir });
+    const resList = await runWithWorkerPool(rows, { workers, source, knowledgeDir, spellcheck, confidence });
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const { predSop, cmp, ms } = resList[i];
+      const { predSop, cmp, conf, spellChanged, ms } = resList[i];
       for (const reason of cmp.goldIssueReasons) {
         goldIssueCounts.set(reason, (goldIssueCounts.get(reason) ?? 0) + 1);
       }
       for (const reason of cmp.predErrorReasons) {
         errorClusters.set(reason, (errorClusters.get(reason) ?? 0) + 1);
       }
-      records.push({ row, predSop, cmp, ms });
+      records.push({ row, predSop, cmp, conf, spellChanged, ms });
     }
   } else {
     for (const row of rows) {
@@ -617,9 +619,11 @@ async function main() {
       const clock = row.clock ?? ctx.clock;
 
       const t0 = performance.now();
-      const res = await formaliseFn(row.text, { tab: row.tab, previous, clock });
+      const res = await formaliseFn(row.text, { tab: row.tab, previous, clock, spellcheck, confidence });
       const ms = performance.now() - t0;
       const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
+      const conf = res?.confidence ?? null;
+      const spellChanged = Boolean(res?.spell?.changed);
 
       const cmp = compareCircuits({
         text: row.text,
@@ -636,7 +640,7 @@ async function main() {
         errorClusters.set(reason, (errorClusters.get(reason) ?? 0) + 1);
       }
 
-      records.push({ row, predSop, cmp, ms });
+      records.push({ row, predSop, cmp, conf, spellChanged, ms });
 
       if (verbose && (cmp.fairCategory === 'pred_wrong' || cmp.fairCategory === 'pred_better_than_gold')) {
         console.log(`\n[${cmp.fairCategory}] (${row.source}) "${row.text}"`);
@@ -665,6 +669,33 @@ async function main() {
       `${g.p50Ms.toFixed(1)} | ${g.p95Ms.toFixed(1)} |`
     );
   }
+
+  // WebMeet formalisation grades · v1.2 (webmeet-dataset/LEGEND.md)
+  const legendCounts = { L0: 0, L1a: 0, L1b: 0, L1c: 0, L1d: 0, L2a: 0, L2b: 0, L2c: 0, L3: 0, L4: 0 };
+  let datasetErrorCount = 0;
+  for (const r of records) {
+    const g = r.cmp.legendGrade;
+    if (g && Object.hasOwn(legendCounts, g)) legendCounts[g]++;
+    if (r.cmp.goldAnnotationFlawed) datasetErrorCount++;
+  }
+  const l2Total = legendCounts.L2a + legendCounts.L2b + legendCounts.L2c;
+  const reasonableTotal = legendCounts.L3 + legendCounts.L4;
+  console.log('\nWebMeet formalisation grades · v1.2 (LEGEND.md):');
+  console.log('| Grade | Meaning | N | % |');
+  console.log('|---|---|---:|---:|');
+  console.log(`| **L0 – Fail** | No usable reading / invalid SOP / all unread | ${legendCounts.L0} | ${pct(legendCounts.L0, records.length)} |`);
+  console.log(`| **L1a – Wrong intent** | Main action, question, or polarity changes | ${legendCounts.L1a} | ${pct(legendCounts.L1a, records.length)} |`);
+  console.log(`| **L1b – Wrong target** | Action plausible, wrong object/family/mode | ${legendCounts.L1b} | ${pct(legendCounts.L1b, records.length)} |`);
+  console.log(`| **L1c – Wrong detail or role** | Target & action plausible, wrong value/relation/role | ${legendCounts.L1c} | ${pct(legendCounts.L1c, records.length)} |`);
+  console.log(`| **L1d – Invented instruction** | Adds unsupported action/condition/detail | ${legendCounts.L1d} | ${pct(legendCounts.L1d, records.length)} |`);
+  console.log(`| **L2 – Incomplete** | Useful meaning, essential part missing (L2a+L2b+L2c) | ${l2Total} | ${pct(l2Total, records.length)} |`);
+  console.log(`| &nbsp;&nbsp;L2a | Missing requested action, question, or step | ${legendCounts.L2a} | ${pct(legendCounts.L2a, records.length)} |`);
+  console.log(`| &nbsp;&nbsp;L2b | Missing object, endpoint, or reference | ${legendCounts.L2b} | ${pct(legendCounts.L2b, records.length)} |`);
+  console.log(`| &nbsp;&nbsp;L2c | Missing value, property, placement, scope, or condition | ${legendCounts.L2c} | ${pct(legendCounts.L2c, records.length)} |`);
+  console.log(`| **L3 – Identical to dataset** | Normalized SOP text matches reference | ${legendCounts.L3} | ${pct(legendCounts.L3, records.length)} |`);
+  console.log(`| **L4 – Reasonable alternative** | Intent & essential details preserved (alias / Z3>Gold) | ${legendCounts.L4} | ${pct(legendCounts.L4, records.length)} |`);
+  console.log(`| **Reasonable total (L3 + L4)** | Combined reasonable readings | **${reasonableTotal}** | **${pct(reasonableTotal, records.length)}** |`);
+  console.log(`| *Dataset error flag* (separate) | Reference annotation has check.mjs defects | ${datasetErrorCount} | ${pct(datasetErrorCount, records.length)} |`);
 
   const attributionCounts = new Map();
   for (const r of records) {
@@ -702,6 +733,61 @@ async function main() {
     for (const [reason, count] of [...errorClusters.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)) {
       console.log(`  ${count}\t(${pct(count, records.length)})\t${reason}`);
     }
+  }
+
+  // Confidence & Calibration report when --confidence is enabled
+  let confidenceSummary = null;
+  if (confidence && records.some((r) => r.conf)) {
+    const computeAuroc = (pairs) => {
+      const pos = pairs.filter((p) => p.y === 1);
+      const neg = pairs.filter((p) => p.y === 0);
+      if (!pos.length || !neg.length) return null;
+      let wins = 0;
+      for (const p of pos) {
+        for (const n of neg) {
+          if (p.s > n.s) wins += 1;
+          else if (p.s === n.s) wins += 0.5;
+        }
+      }
+      return wins / (pos.length * neg.length);
+    };
+
+    const withConf = records.filter((r) => r.conf);
+    const effPairs = withConf.map((r) => ({
+      s: r.conf.score,
+      y: r.cmp.fairCategory === 'exact_match' || r.cmp.fairCategory === 'pred_better_than_gold' ? 1 : 0,
+    }));
+    const notWrongPairs = withConf.map((r) => ({
+      s: r.conf.score,
+      y: r.cmp.fairCategory !== 'pred_wrong' ? 1 : 0,
+    }));
+    const aurocEff = computeAuroc(effPairs);
+    const aurocNotWrong = computeAuroc(notWrongPairs);
+    const brierEff = effPairs.reduce((a, p) => a + (p.s - p.y) ** 2, 0) / Math.max(1, effPairs.length);
+
+    const bandStats = {};
+    console.log('\nConfidence calibration by operational band:');
+    console.log('| Band | N | Share | MeanScore | EffSuccess | Act+Fam | Wrong | Ambiguous |');
+    console.log('|---|---:|---:|---:|---:|---:|---:|---:|');
+    for (const band of ['high', 'medium', 'low', 'abstain']) {
+      const sub = withConf.filter((r) => r.conf.band === band);
+      const nB = sub.length;
+      const meanS = nB ? sub.reduce((a, r) => a + r.conf.score, 0) / nB : 0;
+      const effB = sub.filter((r) => r.cmp.fairCategory === 'exact_match' || r.cmp.fairCategory === 'pred_better_than_gold').length;
+      const afB = sub.filter((r) => r.cmp.actExact && r.cmp.targetFamilyExact).length;
+      const wrongB = sub.filter((r) => r.cmp.fairCategory === 'pred_wrong').length;
+      const ambB = sub.filter((r) => r.conf.ambiguous).length;
+      bandStats[band] = { n: nB, meanScore: Number(meanS.toFixed(3)), effSuccess: effB, actFam: afB, wrong: wrongB, ambiguous: ambB };
+      console.log(
+        `| ${band} | ${nB} | ${pct(nB, withConf.length)} | ${meanS.toFixed(3)} | ${pct(effB, nB)} | ${pct(afB, nB)} | ${pct(wrongB, nB)} | ${pct(ambB, nB)} |`,
+      );
+    }
+    const spellEdits = records.filter((r) => r.spellChanged).length;
+    console.log(
+      `\nConfidence metrics: AUROC(EffSuccess)=${aurocEff?.toFixed(3) ?? 'n/a'}, AUROC(NotWrong)=${aurocNotWrong?.toFixed(3) ?? 'n/a'}, Brier=${brierEff.toFixed(3)}` +
+      (spellcheck ? `, spellEdits=${spellEdits} (${pct(spellEdits, records.length)})` : ''),
+    );
+    confidenceSummary = { aurocEff, aurocNotWrong, brierEff, spellEdits, bandStats };
   }
 
   if (jsonOut) {

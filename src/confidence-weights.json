@@ -1,0 +1,17 @@
+{
+  "version": "v9-calibrated",
+  "note": "Calibrated out-of-sample on clean-Gold disjoint webmeet-dataset rows (seed=1337, disjoint from seed=42 eval).",
+  "bias": -0.661,
+  "wCoverage": 0.2643,
+  "wUnreadCount": -0.15,
+  "wWarningCount": -0.9796,
+  "wEnergyPerTok": -0.005,
+  "wMarginClamped": 0.01,
+  "wAmbiguous": -0.2467,
+  "wSpellEditCost": -0.0912,
+  "bands": {
+    "high": 0.38,
+    "medium": 0.24,
+    "low": 0.12
+  }
+}

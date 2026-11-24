@@ -5,7 +5,7 @@ Symbolic Natural Language → **SOP Lang (`w.request`)** formaliser powered by *
 ## Quickstart
 
 ```bash
-# Run full test suite (50 tests: KB, lattice, standalone Z3 spellchecker, Z3 core, verifier, E2E)
+# Run full test suite (57 tests: dynamic SOP KB, lattice, standalone Z3 spellchecker, v9 2-stage Z3 + confidence, verifier, E2E)
 npm test
 
 # Run standalone Layer 1 Z3 Spellchecker (independent of formaliser)
@@ -13,14 +13,16 @@ npm run test:spell
 node bin/spellcheck.mjs --top 2 "the losing months should stando ut, so make theb ars below 7 teal"
 node bin/spellcheck.mjs --tab diagram --json "bar ch art"
 
-# Formalise a single utterance (Layer 2 Z3 MaxSMT formaliser)
-node bin/formalise.mjs --tab drawing "make the house blue" --verify
-node bin/formalise.mjs --tab diagram "make a bar chart of the stadiums by country" --top 3 --verify
+# Formalise a single utterance (Layer 2 Z3 MaxSMT, optional Layer 1 --spellcheck and calibrated --confidence)
+node bin/formalise.mjs --tab drawing "make the house blue" --verify --confidence
+node bin/formalise.mjs --tab drawing "copy the atble" --spellcheck --verify --confidence
+node bin/formalise.mjs --tab diagram "make a bar chart of the stadiums by country" --top 3 --verify --confidence
 node bin/formalise.mjs --tab drawing "please switch to the robot preset" --dump-smt
 
-# Run parallel stratified benchmarks (with Gold vs. Typo vs. Z3 error attribution)
-node eval/benchmark.mjs --source webmeet --sample-pct 1 --seed 42 --workers 10
-node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10
+# Calibrate confidence weights on disjoint dev split (seed=1337) & run parallel benchmarks (seed=42)
+node eval/calibrate.mjs
+node eval/benchmark.mjs --source webmeet --sample-pct 1 --seed 42 --workers 10 --spellcheck --confidence
+node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10 --spellcheck --confidence
 node eval/benchmark.mjs --source keys --workers 10
 ```
 

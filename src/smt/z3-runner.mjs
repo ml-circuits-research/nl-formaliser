@@ -23,17 +23,20 @@ async function loadZ3Module(explicitModule) {
   return await import('z3-solver');
 }
 
-// Parse an S-expression string returned by Z3's (get-value (...)) into a Map<name, value>.
+// Parse an S-expression string returned by Z3's (get-objectives) + (get-value (...))
+// into { status, values: Map<name, value>, objective: number|null, raw }.
 export function parseSmtValues(output) {
-  const lines = String(output || '').split(/\r?\n/);
+  const rawStr = String(output || '');
+  const lines = rawStr.split(/\r?\n/);
   const statusLine = lines.find((l) => /^(sat|unsat|unknown)\b/.test(l.trim()))?.trim() ?? 'unknown';
   const map = new Map();
-  if (statusLine !== 'sat') return { status: statusLine, values: map, raw: output };
+  let objective = null;
+  if (statusLine !== 'sat') return { status: statusLine, values: map, objective, raw: output };
 
-  // Find the S-expr list starting after the status line.
-  const idx = output.indexOf('(');
-  if (idx < 0) return { status: statusLine, values: map, raw: output };
-  const body = output.slice(idx);
+  // Find the first S-expr block starting after the status line.
+  const idx = rawStr.indexOf('(');
+  if (idx < 0) return { status: statusLine, values: map, objective, raw: output };
+  const body = rawStr.slice(idx);
 
   // Tokenize S-expressions: '(', ')', or atom/string.
   const toks = [];
@@ -70,27 +73,51 @@ export function parseSmtValues(output) {
 
   function decodeAtom(expr) {
     if (Array.isArray(expr)) {
-      // Negative integer: (- 1)
-      if (expr.length === 2 && expr[0] === '-' && /^\d+$/.test(expr[1])) return -Number(expr[1]);
+      if (expr.length === 2 && expr[0] === '-' && /^\d+(\.\d+)?$/.test(expr[1])) return -Number(expr[1]);
+      if (expr.length === 3 && expr[0] === '/' && /^\d+$/.test(expr[1]) && /^\d+$/.test(expr[2])) {
+        return Number(expr[1]) / Number(expr[2]);
+      }
       return expr;
     }
     if (expr === 'true') return true;
     if (expr === 'false') return false;
-    if (/^-?\d+$/.test(expr)) return Number(expr);
+    if (/^-?\d+(\.\d+)?$/.test(expr)) return Number(expr);
     return expr;
   }
 
-  // There may be one or more (get-value ...) blocks; merge them.
+  // Parse (objectives (...)) and (get-value (...)) blocks cleanly.
   while (pos < toks.length) {
     const block = readExpr();
     if (!Array.isArray(block)) continue;
+    if (block[0] === 'objectives') {
+      let sum = 0;
+      let foundObj = false;
+      for (let j = 1; j < block.length; j++) {
+        const entry = block[j];
+        if (Array.isArray(entry) && entry.length >= 1) {
+          const val = decodeAtom(entry[entry.length - 1]);
+          if (typeof val === 'number' && !Number.isNaN(val)) {
+            sum += val;
+            foundObj = true;
+          }
+        } else if (typeof entry === 'string') {
+          const val = decodeAtom(entry);
+          if (typeof val === 'number' && !Number.isNaN(val)) {
+            sum += val;
+            foundObj = true;
+          }
+        }
+      }
+      if (foundObj) objective = sum;
+      continue;
+    }
     for (const pair of block) {
       if (Array.isArray(pair) && pair.length === 2 && typeof pair[0] === 'string') {
         map.set(pair[0], decodeAtom(pair[1]));
       }
     }
   }
-  return { status: statusLine, values: map, raw: output };
+  return { status: statusLine, values: map, objective, raw: output };
 }
 
 export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 } = {}) {
@@ -127,6 +154,7 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
     solveCount++;
 
     const solutions = [];
+    const objectives = [];
     const blocks = [];
 
     for (let k = 0; k < topK; k++) {
@@ -137,6 +165,7 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
         smtBody,
         ...blocks,
         '(check-sat)',
+        '(get-objectives)',
         getVal,
         '(pop 1)',
       ].join('\n');
@@ -145,15 +174,16 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
       if (/\(error\b/.test(String(raw))) {
         // Recover clean stack in case push succeeded before error.
         try { await Z3.eval_smtlib2_string(ctx.ptr, '(pop 1)'); } catch {}
-        return { ok: false, status: 'error', error: String(raw).trim(), solutions };
+        return { ok: false, status: 'error', error: String(raw).trim(), solutions, objectives };
       }
 
       const parsed = parseSmtValues(raw);
       if (parsed.status !== 'sat') {
         if (solutions.length > 0) break;
-        return { ok: false, status: parsed.status, solutions, raw };
+        return { ok: false, status: parsed.status, solutions, objectives, raw };
       }
       solutions.push(parsed.values);
+      objectives.push(parsed.objective);
 
       if (k + 1 < topK && blockVars.length > 0) {
         const lits = [];
@@ -170,7 +200,7 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
       }
     }
 
-    return { ok: solutions.length > 0, status: solutions.length > 0 ? 'sat' : 'unsat', solutions };
+    return { ok: solutions.length > 0, status: solutions.length > 0 ? 'sat' : 'unsat', solutions, objectives };
   }
 
   // Diagnose an UNSAT core by wrapping named hard assertions in a fresh plain check.
