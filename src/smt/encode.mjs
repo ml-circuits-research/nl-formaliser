@@ -786,8 +786,15 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
 
     // Verbless fragment discipline:
-    // - Verbless request never invents a finer mode like mode=arrange
-    emit(`(assert (=> (and active_${r} (< ppos_${r} 0)) (= amode_${r} MODE_NONE)))`);
+    // - Verbless request never invents a finer mode like mode=arrange unless a layout/arrangement constraint is selected!
+    const layoutConsInR = smtOr(
+      constraints
+        .filter((c) => c.attribute?.endsWith('.layout') || c.attribute?.endsWith('.arrangement'))
+        .map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`)
+    );
+    emit(`(assert (=> (and active_${r} (< ppos_${r} 0) (not ${layoutConsInR})) (= amode_${r} MODE_NONE)))`);
+    // - Verbless layout ("a radial for me, Roadmap") -> ACT_PLACE + MODE_ARRANGE!
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${layoutConsInR}) (and (= act_${r} ACT_PLACE) (= amode_${r} MODE_ARRANGE))) :weight 22)`);
     // - Verbless noun/chart/diagram phrase ("stove, please", "room for 6 called Birch", "bar graph, orange...") -> ACT_MAKE (unless delta comparative!)
     // - Verbless property/delta without creation head ("bigger!", "blue") -> ACT_CHANGE; verbless place/direction -> ACT_PLACE!
     emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR} (not ${hasDeltaInR})) (= act_${r} ACT_MAKE)) :weight ${W.verblessCreationMake})`);

@@ -128,23 +128,25 @@
       </tbody>
     </table>
 
-    <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 8 --per-tab-topk 2</code>, fără hint de tab)</h3>
+    <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 8 --per-tab-topk 2</code>, fără hint de tab — v9.4)</h3>
     <p>
       Aliniat protocolului Prolog / <code>LEGEND.md</code> v1.2: formalizatorul <strong>nu primește tab-ul</strong>,
-      rezolvă toate cele 4 lumi descoperite dinamic (fără pruning de tab-uri; medie <code>5,64</code> propuneri/cerere,
-      <code>goldTabInProposals = 99,6%</code>, <code>Valid = 99,8%</code>, p50 <code>616 ms</code>), iar fiecare propunere este evaluată independent:
-      <strong>L0</strong> <code>2.9%</code> (scăzut de la <code>12.8%</code>),
-      <strong>L1a</strong> <code>30.5%</code> (scăzut de la <code>35.6%</code>),
-      <strong>L1b</strong> <code>9.9%</code>,
-      <strong>L1c</strong> <code>19.3%</code>,
-      <strong>L1d</strong> <code>12.9%</code>,
+      rezolvă toate cele 4 lumi descoperite dinamic (medie <code>6,18</code> propuneri/cerere,
+      <code>goldTabInProposals = 99,6%</code>, <code>Valid = 99,9%</code>, p50 <code>665 ms</code>), iar fiecare propunere este evaluată independent:
+      <strong>L0</strong> <code>2.7%</code> (scăzut de la <code>12.8%</code>),
+      <strong>L1a</strong> <code>29.0%</code> (scăzut de la <code>35.6%</code>),
+      <strong>L1b</strong> <code>10.2%</code>,
+      <strong>L1c</strong> <code>19.9%</code>,
+      <strong>L1d</strong> <code>9.1%</code> (scăzut de la <code>12.9%</code>),
       <strong>L2a</strong> <code>3.5%</code>,
-      <strong>L2b</strong> <code>5.0%</code>,
-      <strong>L2c</strong> <code>0.8%</code>,
-      <strong>L3</strong> <code>2.0%</code>,
-      <strong>L4</strong> <code>13.3%</code>,
-      <strong>Total rezonabile (L3 + L4) = 15.3%</strong> (<code>Wrong</code> scăzut la <code>28.0%</code>, <code>AliasF1 = 0.409</code>;
-      <code>calendar</code> 46,3% Exact / 82,5% Act / 93,8% Fam / 0,779 F1; <code>document</code> 86,9% Act / 71,3% Fam / 0,566 F1).
+      <strong>L2b</strong> <code>4.1%</code>,
+      <strong>L2c</strong> <code>1.4%</code>,
+      <strong>L3</strong> <code>2.2%</code>,
+      <strong>L4</strong> <code>18.0%</code>,
+      <strong>Total rezonabile (L3 + L4) = 20.2%</strong> (<code>+6,1 pp</code> / <code>+43%</code> relativ față de <code>14.1%</code>;
+      <code>Wrong</code> scăzut la <code>26.5%</code>, <code>Act = 62.4%</code>, <code>Fam = 68.1%</code>, <code>AliasF1 = 0.418</code>;
+      <code>calendar</code> 47,5% Exact / 93,8% Fam / 0,780 F1; <code>document</code> 23,8% EffSuccess / 86,1% Act;
+      <code>drawing</code> 21,5% EffSuccess / 77,8% Fam; <code>diagram</code> 11,7% EffSuccess — 2,3× față de 5,1%).
     </p>
 
     <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>

@@ -326,6 +326,41 @@ export async function createFormaliser({
             });
           }
         }
+
+        // Dual-path spellcheck safety in multi-proposal mode: when Layer 1 edited the text,
+        // also keep the raw-text #1 reading for the top 2 worlds so valid OOV nouns are never lost!
+        if (preSpellRes?.changed && ti < 2) {
+          const rawSub = await formalise(rawText, {
+            tab: candTab,
+            previous,
+            clock,
+            topK: 1,
+            maxRequests,
+            dumpSmt: false,
+            verify: true,
+            spellcheck: false,
+            confidence: false,
+            hierarchical,
+            weights: effWeights,
+            timeout: Math.min(1000, perTabTimeout),
+          });
+          if (rawSub.ok && rawSub.sop) {
+            const rawChk = verifier ? verifier.check(rawText, rawSub.sop, candTab) : { ok: true, warnings: [] };
+            if (rawChk.ok) {
+              const rawKey = rawSub.sop.replace(/\r\n/g, '\n').trim();
+              if (!proposalMap.has(rawKey)) {
+                proposalMap.set(rawKey, {
+                  sop: rawSub.sop,
+                  tab: candTab,
+                  objective: typeof rawSub.objectives?.[0] === 'number' ? rawSub.objectives[0] : null,
+                  warnings: rawChk.warnings?.length ?? 0,
+                  domainScore,
+                  rankInTab: 1,
+                });
+              }
+            }
+          }
+        }
       }
 
       const sortedAll = [...proposalMap.values()].sort((a, b) => {

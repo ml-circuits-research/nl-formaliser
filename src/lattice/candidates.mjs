@@ -1438,6 +1438,16 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           intrinsicConstraints: [],
           cost: 1.5,
         });
+      } else if (['as a group', 'into a group'].includes(ph)) {
+        emit({
+          kind: HYP_KINDS.PREDICATE,
+          startTok: i,
+          endTok: e,
+          licensed: [{ act: 'group', mode: 'none', mood: 'do', question: 'none' }],
+          isKeepingVerb: false,
+          intrinsicConstraints: [],
+          cost: 1.5,
+        });
       } else if (redoCuePhrases.has(ph) && (len >= 2 || ph === 'again')) {
         emit({
           kind: HYP_KINDS.PREDICATE,
@@ -2153,7 +2163,9 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         COLOUR_SHADES.has(tokens[i].lower) ||
         Boolean(vocabMatch(kb?.domain?.shades, tokens[i].lower));
       if (len === 2 && !isShade) continue;
-      const tailColour = vocabMatch(kb?.domain?.colours, tokens[e].lower);
+      const tailColour =
+        vocabMatch(kb?.domain?.colours, tokens[e].lower) ??
+        (tokens[e].lower === 'blonde' ? vocabMatch(kb?.domain?.colours, 'blond') : null);
       if (tailColour) {
         const val = len === 2 ? `${tokens[i].lower} ${tailColour}` : tailColour;
         for (const attr of colourKeys) {

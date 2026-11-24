@@ -293,6 +293,9 @@ function buildTabs(parse, worldsDir, grammar) {
       if (shortName === 'barHeight' || shortName === 'barWidth') {
         keyWords.add('bars');
       }
+      if (shortName === 'errorCap') {
+        for (const kw of ['cap', 'caps', 'error cap', 'error caps']) keyWords.add(kw);
+      }
 
       const spec = {
         id,
