@@ -951,6 +951,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       chartCreationScope: extra.chartCreationScope ?? null,
       chartAxisPair: extra.chartAxisPair ?? null,
       chartAxisOrder: extra.chartAxisOrder ?? 0,
+      chartAxisAssignment: extra.chartAxisAssignment ?? false,
       predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -3755,7 +3756,17 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     const chartHeads = rawCandidates.filter((head) =>
       [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
       head.family === 'chart' && ['indefinite', 'none'].includes(head.det) &&
-      mapGet(familyWords, tokens[head.endTok].lower)?.has('chart'));
+      mapGet(familyWords, tokens[head.endTok].lower)?.has('chart'))
+      .sort((a, b) => a.startTok - b.startTok || b.endTok - a.endTok);
+    const scatterLabelAt = (index) => tokens[index]?.kind === 'word' && tokens[index].lower === 'scatter' &&
+      tokens[index + 1]?.text === ':';
+    const scatterLabels = rawCandidates.filter((head) => head.kind === HYP_KINDS.TARGET_SORT &&
+      head.family === 'chart' && ['indefinite', 'none'].includes(head.det) &&
+      head.startTok === head.endTok && scatterLabelAt(head.startTok));
+    const startsClause = (start, boundary) =>
+      tokens.slice(boundary + 1, start).every((token) => !token.isContent || token.isFiller);
+    const headStart = (head) => head.detTok >= 0 ? head.detTok : head.startTok;
+    const bodyMarker = (head) => ['of', ':'].includes(tokens[head.endTok + 1]?.lower);
     const directiveStarts = new Set(writtenPredicates.filter(({ startTok, endTok }) =>
       !(tokens[endTok + 1]?.lower === 'by' && (chartFieldRole(tokens[startTok], kb) ||
         tokens[startTok].lower.endsWith('ed')))).map(({ startTok }) => startTok));
@@ -3765,7 +3776,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       if (field.cueStart !== undefined) {
         emit({
           kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd, attrs: [field.attribute],
-          families: ['chart'], cost: 0,
+          families: ['chart'], chartAxisPair: field.chartAxisAssignment ? field.chartAxisPair : null,
+          chartAxisAssignment: field.chartAxisAssignment, cost: 0,
         });
       }
       emitConstraint(field.attribute, field.value, field.startTok, field.endTok, {
@@ -3773,6 +3785,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         chartCreationScope: [predicate.scopeStart ?? predicate.startTok, Math.max(field.endTok, predicate.scopeEnd ?? -1)],
         chartAxisPair: field.chartAxisPair,
         chartAxisOrder: field.chartAxisOrder,
+        chartAxisAssignment: field.chartAxisAssignment,
         words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
       });
     };
@@ -3784,18 +3797,23 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
           tabKeys.has('chart.xField') && tabKeys.has('chart.yField')) {
         const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
         const limit = boundaries.reduce((next, { startTok }) => startTok > i ? Math.min(next, startTok) : next, T);
-        const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < limit &&
+        const owner = [...chartHeads, ...scatterLabels].find((head) => head.startTok > boundary && head.endTok < limit &&
           tokens.slice(Math.max(boundary + 1, head.startTok - 1), head.endTok + 1).some(({ kind, lower }) =>
             kind === 'word' && lower === 'scatter'));
         if (owner) {
           const predicate = creationPredicates.find((p) =>
             p.startTok > boundary && p.endTok < Math.min(owner.startTok, i) &&
-            tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
-          const bare = owner.det === 'none' && owner.endTok < i && tokens[owner.endTok + 1]?.lower === 'of' &&
-            tokens.slice(boundary + 1, owner.startTok).every((token) => !token.isContent || token.isFiller);
+            startsClause(p.startTok, boundary));
+          const bare = owner.endTok < i && bodyMarker(owner) && startsClause(headStart(owner), boundary);
           const creation = predicate ? { ...predicate, scopeEnd: owner.endTok } :
             bare ? { startTok: -1, scopeStart: owner.startTok, scopeEnd: owner.endTok } : null;
-          const yStart = owner.endTok < i ? owner.endTok + 2 : (predicate?.endTok ?? i) + 1;
+          let labelEnd = owner.endTok;
+          if (owner.endTok < i) {
+            for (let j = owner.endTok + 1; j + 2 < i; j++) {
+              if (scatterLabelAt(j)) labelEnd = j;
+            }
+          }
+          const yStart = owner.endTok < i ? labelEnd + 2 : (predicate?.endTok ?? i) + 1;
           const plotted = marker === 'against' && tokens[i - 1]?.kind === 'word' &&
             lemmatiseVerb(tokens[i - 1].lower, kb).includes('plot');
           const cue = plotted ? i - 1 : i;
@@ -3806,8 +3824,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
               break;
             }
           }
-          const ownerMarker = (owner.detTok >= 0 ? owner.detTok : owner.startTok) - 1;
-          const ownerLinked = owner.endTok < i ? tokens[owner.endTok + 1]?.lower === 'of' :
+          const ownerMarker = headStart(owner) - 1;
+          const ownerLinked = owner.endTok < i ? bodyMarker(owner) || labelEnd !== owner.endTok :
             ['as', 'in', 'on'].includes(tokens[ownerMarker]?.lower) && ownerMarker >= xEnd;
           const fields = [tokens.slice(yStart, cue), tokens.slice(i + 1, xEnd)];
           if (creation && ownerLinked && fields.every((span) => span.length > 0 &&
@@ -3817,9 +3835,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
               [['chart.yField', 'chart.xField'], ['chart.xField', 'chart.yField']];
             const qualifierStart = xEnd + (tokens[xEnd]?.text === ',' ? 1 : 0);
             const qualifier = tokens[qualifierStart]?.lower;
+            let assignment;
             if (orders.length > 1 && qualifier === 'with') {
               const forms = chartFieldAxisForms(kb);
-              const limitWith = chartFieldEnd(tokens, qualifierStart + 1, limit, kb);
               for (const [fieldIndex, field] of fields.entries()) {
                 const on = qualifierStart + 1 + field.length;
                 const axisStart = on + (tokens[on + 1]?.lower === 'the' ? 2 : 1);
@@ -3827,17 +3845,32 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
                   const written = tokens[qualifierStart + 1 + offset];
                   return written?.kind === token.kind && written.lower === token.lower;
                 })) continue;
+                const limitWith = chartFieldEnd(tokens, axisStart, limit, kb);
                 const axis = forms.find(({ words }) => axisStart + words.length === limitWith &&
-                  words.every((word, offset) => tokens[axisStart + offset]?.lower === word));
+                  words.every((word, offset) => tokens[axisStart + offset]?.kind === 'word' &&
+                    tokens[axisStart + offset].lower === word));
                 if (!axis) continue;
                 orders = orders.filter((order) => order[fieldIndex] === axis.attribute);
+                assignment = { fieldIndex, cueStart: qualifierStart, cueEnd: limitWith - 1,
+                  chartAxisAssignment: true };
               }
             }
+            if (assignment && orders.length) {
+              emit({
+                kind: HYP_KINDS.UNREAD, startTok: assignment.cueStart, endTok: assignment.cueEnd,
+                note: 'scatter axis assignment', chartAxisPair: i, chartAxisAssignment: true,
+                chartCreationPredicate: creation.startTok,
+                chartCreationScope: [creation.scopeStart ?? creation.startTok, assignment.cueEnd], cost: 0,
+              });
+            }
             for (const [chartAxisOrder, [left, right]] of orders.entries()) {
+              const comparison = { cueStart: cue, cueEnd: i };
               emitField({ attribute: left, value: literalField(yStart, cue - 1),
-                startTok: yStart, endTok: cue - 1, wordsStart: yStart, chartAxisPair: i, chartAxisOrder }, creation);
+                startTok: yStart, endTok: cue - 1, wordsStart: yStart, chartAxisPair: i, chartAxisOrder,
+                ...(assignment?.fieldIndex === 0 ? assignment : assignment ? comparison : {}) }, creation);
               emitField({ attribute: right, value: literalField(i + 1, xEnd - 1),
-                startTok: i + 1, endTok: xEnd - 1, wordsStart: i + 1, cueStart: cue, cueEnd: i,
+                startTok: i + 1, endTok: xEnd - 1, wordsStart: i + 1,
+                ...(assignment?.fieldIndex === 1 ? assignment : comparison),
                 chartAxisPair: i, chartAxisOrder }, creation);
             }
             if (['for', 'just'].includes(qualifier)) {
@@ -3857,7 +3890,10 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         }
       }
       if (tokens[i + 1]?.lower === 'by' && i + 2 < T) {
-        const attribute = chartFieldRole(tokens[i], kb);
+        const colourCode = tokens[i].kind === 'word' && tokens[i].lower === 'coded' &&
+          /^(?:colour|color)$/.test(tokens[i - 1]?.lower);
+        const cueStart = colourCode ? i - 1 : i;
+        const attribute = chartFieldRole(tokens[cueStart], kb);
         if (attribute) {
           const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
           const limit = boundaries.reduce((next, { startTok }) => startTok > i ? Math.min(next, startTok) : next, T);
@@ -3867,9 +3903,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
             (head.endTok < i || (head.startTok > fieldEnd && ['as', 'in'].includes(tokens[fieldEnd]?.lower))));
           const predicate = owner?.det === 'indefinite' && creationPredicates.find((p) =>
             p.startTok > boundary && p.endTok < Math.min(owner.startTok, i) &&
-            tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
-          const bareChart = owner?.det === 'none' && owner.endTok < i && tokens[owner.endTok + 1]?.lower === 'of' &&
-            tokens.slice(boundary + 1, owner.startTok).every((token) => !token.isContent || token.isFiller);
+            startsClause(p.startTok, boundary));
+          const bareChart = owner && owner.endTok < i && bodyMarker(owner) && startsClause(headStart(owner), boundary);
           const creation = predicate ? { ...predicate, scopeEnd: owner.endTok } : bareChart ? {
             startTok: -1, endTok: owner.startTok - 1, scopeStart: owner.startTok, scopeEnd: owner.endTok,
           } : null;
@@ -3898,7 +3933,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
               }
             }
             emitField({ attribute: fieldAttribute, value: literalField(i + 2, fieldEnd - 1), startTok: i + 2,
-              endTok: fieldEnd - 1, wordsStart: i + 2, cueStart: i, cueEnd: i + 1 }, creation);
+              endTok: fieldEnd - 1, wordsStart: i + 2, cueStart, cueEnd: i + 1 }, creation);
             if (tabKeys.has('chart.dimension') && !sourceDimensions.has(owner.startTok) &&
                 owner.endTok < i && tokens[owner.endTok + 1]?.lower === 'of') {
               const first = owner.endTok + 2;
@@ -4187,6 +4222,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.chartCreationPredicate ?? '',
       c.chartAxisPair ?? '',
       c.chartAxisOrder ?? 0,
+      c.chartAxisAssignment ? 1 : 0,
       c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
       c.modalWantHeads ? 1 : 0,

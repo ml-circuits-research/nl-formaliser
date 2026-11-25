@@ -99,3 +99,5 @@
 - 2026-11-25 — Q-NL-055 pairs native scatter X/Y source fields and preserves scoped chart clauses during hierarchical segmentation. Eleven of 16 published probes retain both fields; the exact dependent-read defect is covered. Focused 10/10, full serial 252/252. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-056 preserves both scatter axis orders for unmarked “versus/vs” and follows an attached explicit field assignment. Both directions survive in five of ten published probes. Focused 3/3, full serial 253/253. Review and the owner-output request are in `questions.md`.
+
+- 2026-11-25 — Q-NL-057 consumes literal axis assignments, removes duplicate proposals and retains paired readings across written clause breaks and grounded scatter labels. Focused 5/5, repeat 6/6, full serial 255/255, axis check 11/14. Review requested.

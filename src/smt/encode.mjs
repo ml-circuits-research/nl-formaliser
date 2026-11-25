@@ -398,13 +398,16 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const valueFrames = propertyFrames.filter((fm) => sameSpan(c, fm.valSpan) && fm.expectedAttrs.includes(c.attribute));
     if (c.attribute && kwByAttr.has(c.attribute)) {
       for (const k of kwByAttr.get(c.attribute)) {
-        const scoped = k.chartEditPredicate != null || c.chartEditPredicate != null;
-        if (scoped && k.chartEditPredicate !== c.chartEditPredicate) continue;
+        const scopedEdit = k.chartEditPredicate != null || c.chartEditPredicate != null;
+        if (scopedEdit && k.chartEditPredicate !== c.chartEditPredicate) continue;
+        const scopedAxis = Boolean(k.chartAxisAssignment || c.chartAxisAssignment);
+        if (scopedAxis && (!k.chartAxisAssignment || !c.chartAxisAssignment ||
+            k.chartAxisPair !== c.chartAxisPair)) continue;
         const overlaps = !(k.endTok < c.startTok || c.endTok < k.startTok);
         if (overlaps) continue;
         const lo = Math.min(k.endTok, c.endTok);
         const hi = Math.max(k.startTok, c.startTok);
-        if (!scoped && hi - lo > 5) {
+        if (!scopedEdit && !scopedAxis && hi - lo > 5) {
           const frames = valueFrames.filter((fm) => sameSpan(k, fm.attrSpan));
           if (frames.length === 0) continue;
           longKwFrames.set(k.id, frames);
@@ -990,6 +993,24 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       chartAxisOrderVars.push(selected);
     }
     for (const qualifier of pair.filter(({ kind }) => kind === HYP_KINDS.UNREAD)) {
+      if (qualifier.chartAxisAssignment) {
+        const keyword = pair.find(({ kind, chartAxisAssignment }) => kind === HYP_KINDS.KEY_WORD && chartAxisAssignment);
+        if (keyword) {
+          const bindings = axes.filter(({ chartAxisAssignment }) => chartAxisAssignment)
+            .map((axis) => `(= ${kwExprOf.get(axis.id)} ${keyword.id})`);
+          emit(`(assert (= sel_${keyword.id} ${smtOr(bindings)}))`);
+          emit(`(assert (or sel_${keyword.id} sel_${qualifier.id}))`);
+        } else {
+          emit(`(assert sel_${qualifier.id})`);
+        }
+        const predicate = qualifier.chartCreationPredicate < 0 ? '(- 1)' : qualifier.chartCreationPredicate;
+        for (let r = 1; r <= R; r++) {
+          emit(`(assert (=> (= own_${qualifier.id} ${r}) (and
+            (= fam_${r} ${famToId.get('chart')}) (= act_${r} ACT_MAKE)
+            (= tmode_${r} TM_NEW) (= ppos_${r} ${predicate}))))`);
+        }
+        continue;
+      }
       emit(`(assert (= sel_${qualifier.id} ${smtOr(selected)}))`);
       for (const axisId of leaders) {
         emit(`(assert (=> sel_${axisId} (= own_${axisId} own_${qualifier.id})))`);

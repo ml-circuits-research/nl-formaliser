@@ -302,7 +302,7 @@ export async function createFormaliser({
       }
       const clause = { clauseText: subText, sop: subSop };
       clauseResults.push(clause);
-      if (alternateClauses.length < topK - 1) {
+      if (topK > 1) {
         const model = subSolved.solutions[0];
         const choices = subEnc.chartAxisOrderVars.flatMap((orders) =>
           orders.some((order) => model.get(order) === true)
@@ -337,13 +337,16 @@ export async function createFormaliser({
 
     const alternatives = [];
     const objectives = hasObj ? [totalObjective] : [];
+    const seen = new Set([stitched]);
     for (const { clause, sop, objective, baseline } of alternateClauses) {
       const alternative = stitch(clauseResults.map((original) =>
         original === clause ? { ...original, sop } : original));
-      if (alternative === stitched || !verifier.check(text, alternative).ok) continue;
+      if (seen.has(alternative) || !verifier.check(text, alternative).ok) continue;
+      seen.add(alternative);
       alternatives.push(alternative);
       objectives.push(hasObj && typeof objective === 'number' && typeof baseline === 'number'
         ? totalObjective - baseline + objective : null);
+      if (alternatives.length >= topK - 1) break;
     }
     return {
       sop: stitched,
@@ -762,13 +765,19 @@ export async function createFormaliser({
         })
       : undefined;
 
-    const emittedAlts = topK > 1 ? alternatives.slice(0, topK - 1) : alternatives;
-    const proposals = [sop, ...emittedAlts].filter(Boolean).map((pSop, idx) => ({
-      sop: pSop,
-      ...(!catalog ? { tab } : {}),
-      objective: typeof objectives[idx] === 'number' ? objectives[idx] : null,
-      ...unresolvedFields(),
-    }));
+    const seen = new Set();
+    const proposals = [];
+    for (const [idx, pSop] of [sop, ...alternatives].entries()) {
+      if (!pSop || seen.has(pSop)) continue;
+      seen.add(pSop);
+      proposals.push({
+        sop: pSop,
+        ...(!catalog ? { tab } : {}),
+        objective: typeof objectives[idx] === 'number' ? objectives[idx] : null,
+        ...unresolvedFields(),
+      });
+      if (topK > 1 && proposals.length >= topK) break;
+    }
 
     return {
       ok: true,
@@ -776,9 +785,9 @@ export async function createFormaliser({
       ...unresolvedFields(),
       sop,
       ...(!catalog ? { tab } : {}),
-      alternatives: emittedAlts,
+      alternatives: proposals.slice(1).map((proposal) => proposal.sop),
       proposals,
-      objectives,
+      objectives: objectives.length ? proposals.map((proposal) => proposal.objective) : [],
       check: verify ? checkResult : undefined,
       confidence,
       spell: spellRes ?? undefined,

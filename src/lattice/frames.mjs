@@ -296,7 +296,8 @@ function chartClauseQualifier(tokens, separator, end, grammar) {
 
 export function chartFieldRole(token, kb) {
   if (token?.kind !== 'word') return null;
-  const lemmas = lemmatiseVerb(token.lower, kb);
+  const word = /^(colou?r)-coded$/.exec(token.lower)?.[1] ?? token.lower;
+  const lemmas = lemmatiseVerb(word, kb);
   if (kb.catalog.keys.has('chart.colourBy') && lemmas.some((lemma) =>
     /^(?:colour|color)$/.test(lemma) && kb.verbs.get(lemma)?.some(({ act }) => act === 'change'))) {
     return 'chart.colourBy';

@@ -1264,3 +1264,21 @@ Q055 was independently accepted in review commit `3cb6bf4`, including the depend
 ### READY Q-NL-056 — review request
 
 Focused groups 3/3, final full serial suite 253/253, and final exact WebMeet probes 10/10 native-valid with 5/10 retaining both orientations. Please independently review and publish this scope, including the attached X-axis assignment and the preservation of the independent drawing request in both stitched proposals. No new 1% aggregate was run.
+
+## Q-NL-057 — Consume explicit scatter assignments and preserve typed creation scopes
+
+The attached assignment now supplies the full exact key wording for its selected X or Y result. “With turnover on the y-axis” binds Y=turnover and is unavailable as composition or page-style evidence. Where a candidate cannot bind the pair, it retains the exact assignment unread on the chart creation. An independent grid-stroke edit is preserved as a second request. Quoted field names remain literal. A heading named “with turnover on the y-axis” does not orient the chart.
+
+The proposal emitter now removes identical SOP circuits before applying the output limit, with the original scores attached to the retained proposals. Where an explicit separator is present, the reader solves both axis readings on their own clause and stitches each with the other requests. Scoped chart creation also recognizes a typed name followed by a colon and a repeated “scatter:” label inside a grounded chart request. A leading indefinite chart noun can own its fields without a written imperative. The longest chart head at the same start retains the real attachment point for “of”, and “colour-coded by” or “colour coded by” assigns the written field to the existing colour channel.
+
+Please report reviewer acceptance for Q056 separately from the Q057 checks and include the historical aggregate L0–L4 table from Q045 in the owner output. No new aggregate run was started.
+
+The final run on 14 selected `23f19aa:diagram/charts-01.csv` texts returned native-valid proposals on all 14. Eleven returned the expected axis roles on one new chart. Both orders were retained for 3378, 3718, 3722, 3731, 3737, 3740, 3746 and 3774. The written “against” order was retained for 3726, 3901 and 3910. The three unresolved cases (3727, 3732, 3742) have a field or colour preamble before the only scatter label or before a trailing chart noun. This is an operand result, and the whole compounds can contain other incomplete bindings.
+
+The native request catalog already defines `chart.colourBy` as the field whose values determine mark colours. Consider publishing a reusable channel-to-field lexical frame that covers “colour-coded by FIELD” and “with the colours showing FIELD”. Require a known channel plus a field span. This would support independently maintained readers, with palette constraints and colour values in their own roles.
+
+The reviewer confirmed that the earlier draft's `colour_by` slot reference was erroneous. The code uses only the existing request key. The proposed native field slot, its `means` binding and the shared lexical frame remain canonical preparation.
+
+### READY Q-NL-057 — review request
+
+Focused groups 5/5, repeated compound checks 6/6, final full serial suite 255/255, and final selected WebMeet run 14/14 native-valid with 11/14 expected axis bindings. Please independently review and publish the exact X/Y evidence, deduplication, preservation of independent requests, and typed scatter-label scope. For the owner output, keep the targeted counts separate from the dated Q045 table.

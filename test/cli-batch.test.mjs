@@ -1014,6 +1014,7 @@ test('scatter versus preserves both paired axis readings and independent request
         left: '"Profit and Margin"', right: '"Net sales"', sibling: 'dog' },
     ]) {
       const { candidates } = await reader.propose(text);
+      assert.equal(new Set(candidates.map(({ sop }) => sop)).size, candidates.length, text);
       const orientations = new Set();
       for (const { check, sop } of candidates) {
         assert.ok(check.ok, sop);
@@ -1047,6 +1048,83 @@ test('scatter versus preserves both paired axis readings and independent request
         assert.ok(check.ok, sop);
         assert.doesNotMatch(sop, /attribute=chart\.[xy]Field/);
       }
+    }
+  } finally {
+    await reader.close();
+  }
+});
+
+test('scatter axis assignment uses the entire attached phrase without synthetic effects', async () => {
+  const reader = await createReader({ topK: 4 });
+  try {
+    const cases = [
+      {
+        text: 'Create a scatter plot of amount versus rate, with amount on the x-axis',
+        x: 'amount', y: 'rate', assignment: 'with amount on the x-axis',
+      },
+      {
+        text: 'Create a scatter plot of margin versus turnover, with turnover on the y-axis',
+        x: 'margin', y: 'turnover', assignment: 'with turnover on the y-axis',
+      },
+      {
+        text: 'Create a scatter plot of "Margin and surplus" versus "Net turnover", with "Net turnover" on the y axis; then set the grid lines to dashed',
+        x: '"Margin and surplus"', y: '"Net turnover"', assignment: 'with \\"Net turnover\\" on the y axis',
+        style: true,
+      },
+    ];
+    for (const { text, x, y, assignment, style } of cases) {
+      const { candidates } = await reader.propose(text);
+      assert.ok(candidates.length > 0, text);
+      const best = candidates[0].sop;
+      assert.ok(best.includes(`attribute=chart.xField value=${x}`), best);
+      assert.ok(best.includes(`attribute=chart.yField value=${y}`), best);
+      assert.ok(best.includes(`key_words="${assignment}"`), best);
+      if (style) assert.match(best, /@r2\.c\d+ .*attribute=chart\.gridStyle value=dashed/);
+      for (const { sop, check } of candidates) {
+        assert.ok(check.ok, sop);
+        assert.doesNotMatch(sop, /attribute=(?:composition\.with|page\.style)/);
+        assert.doesNotMatch(sop, /act=place .*predicate=scatter/);
+      }
+    }
+
+    const quoted = await reader.propose('Make a scatter plot of margin versus turnover; then add a heading called "with turnover on the y-axis"');
+    assert.equal(quoted.candidates.length, 2);
+    for (const { sop, check } of quoted.candidates) {
+      assert.ok(check.ok, sop);
+      assert.match(sop, /@r2\.c\d+ .*value="with turnover on the y-axis"/);
+      assert.doesNotMatch(sop, /key_words="with turnover on the y-axis"/);
+    }
+  } finally {
+    await reader.close();
+  }
+});
+
+test('written scatter labels and bare chart heads retain scoped creation fields', async () => {
+  const reader = await createReader({ topK: 4 });
+  try {
+    const fragment = await reader.propose('Scatter: margin versus turnover');
+    const embedded = await reader.propose('Give me a scatter plot of colour-coded by region scatter: sales versus profit');
+    for (const [{ candidates }, left, right] of [[fragment, 'margin', 'turnover'], [embedded, 'sales', 'profit']]) {
+      const charts = candidates.filter(({ sop }) => /@r1\.t .*family=chart mode=new/.test(sop));
+      for (const [x, y] of [[left, right], [right, left]]) {
+        assert.ok(charts.some(({ check, sop }) => check.ok &&
+          sop.includes(`attribute=chart.xField value=${x} `) &&
+          sop.includes(`attribute=chart.yField value=${y} `)));
+      }
+    }
+    assert.match(embedded.candidates[0].sop, /attribute=chart\.colourBy value=region/);
+    assert.doesNotMatch(embedded.candidates[0].sop, /chart\.measure value=colour-coded|chart\.dimension value=region/);
+
+    const grouped = (await reader.propose('A bar chart of sales by month, split by region')).candidates[0];
+    assert.ok(grouped.check.ok, grouped.sop);
+    assert.match(grouped.sop, /@r1\.c\d+ .*chart\.dimension value=month/);
+    assert.match(grouped.sop, /@r1\.c\d+ .*chart\.seriesDimension value=region/);
+
+    const ordinary = await reader.propose('Scatter the stones: margin versus turnover');
+    assert.ok(ordinary.candidates.length > 0);
+    for (const { sop, check } of ordinary.candidates) {
+      assert.ok(check.ok, sop);
+      assert.doesNotMatch(sop, /attribute=chart\.[xy]Field/);
     }
   } finally {
     await reader.close();

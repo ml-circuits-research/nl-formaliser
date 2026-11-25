@@ -48,6 +48,13 @@ function isInsideProtectedList(tokens, sepIdx, kb) {
  */
 export function shouldUseHierarchicalSegmenter(lattice, kb, { maxRequests = 4 } = {}) {
   const { tokens, candidates } = lattice;
+  // A written clause break lets each scatter orientation retain the other requests
+  // without enumerating the whole compound again.
+  const hasAlternateAxes = candidates.some(({ chartAxisPair, chartAxisOrder }) =>
+    chartAxisPair != null && chartAxisOrder > 0);
+  if (hasAlternateAxes && lattice.splitPoints.some(({ isStrong, endTok }) => isStrong && endTok < tokens.length - 1)) {
+    return true;
+  }
   if (tokens.length < 16) return false;
 
   const sepCount = candidates.filter((c) => c.kind === HYP_KINDS.SEP && c.canSplitClause).length;
