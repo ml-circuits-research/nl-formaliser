@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI for nl-formaliser:
-//   node bin/formalise.mjs --tab drawing "please switch to the robot preset" [--top 3] [--verify] [--spellcheck] [--confidence] [--json] [--dump-smt]
+//   node bin/formalise.mjs "please switch to the robot preset" [--top 3] [--verify] [--spellcheck] [--confidence] [--json] [--dump-smt]
 
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
@@ -9,23 +9,21 @@ import { createReader, readerError } from '../src/reader.mjs';
 
 const rawArgs = process.argv.slice(2);
 const opts = {
-  tab: undefined,
-  topK: 1,
   verify: false,
   spellcheck: false,
   confidence: false,
   json: false,
   dumpSmt: false,
-  previous: null,
   batch: false,
 };
 const positional = [];
 
 for (let i = 0; i < rawArgs.length; i++) {
   const a = rawArgs[i];
-  if (a === '--tab') opts.tab = rawArgs[++i];
-  else if (a === '--top') opts.topK = Number(rawArgs[++i] ?? 1);
-  else if (a === '--previous') opts.previous = rawArgs[++i];
+  if (['--tab', '--previous', '--context', '--clock'].includes(a)) {
+    console.error(`Unsupported option: ${a}. Supply only the current text.`);
+    process.exit(2);
+  } else if (a === '--top') opts.topK = Number(rawArgs[++i] ?? 1);
   else if (a === '--knowledge') opts.knowledgeDir = rawArgs[++i];
   else if (a === '--timeout') opts.timeout = Number(rawArgs[++i] ?? 4000);
   else if (a === '--verify') opts.verify = true;
@@ -35,8 +33,8 @@ for (let i = 0; i < rawArgs.length; i++) {
   else if (a === '--json') opts.json = true;
   else if (a === '--dump-smt') opts.dumpSmt = true;
   else if (a === '--help' || a === '-h') {
-    console.log('Usage: node bin/formalise.mjs --tab drawing|diagram|document|calendar|auto "<text>" [--top K] [--verify] [--spellcheck] [--confidence] [--json] [--dump-smt]');
-    console.log('       node bin/formalise.mjs --batch [--json] [--tab auto] [--verify] < inputs.jsonl');
+    console.log('Usage: node bin/formalise.mjs "<text>" [--top K] [--verify] [--spellcheck] [--confidence] [--json] [--dump-smt]');
+    console.log('       node bin/formalise.mjs --batch [--json] [--verify] < inputs.jsonl');
     process.exit(0);
   } else {
     positional.push(a);
@@ -44,15 +42,14 @@ for (let i = 0; i < rawArgs.length; i++) {
 }
 
 const text = positional.join(' ').trim();
-if (opts.batch && (positional.length || rawArgs.includes('--previous'))) {
-  console.error('--batch reads {"text":"..."} records from stdin and takes no positional text or --previous.');
+if (opts.batch && positional.length) {
+  console.error('--batch reads {"text":"..."} records from stdin and takes no positional text.');
   process.exit(2);
 }
 if (!opts.batch && !text) {
-  console.error('Provide input text. Example: node bin/formalise.mjs --tab drawing "make the house blue"');
+  console.error('Provide input text. Example: node bin/formalise.mjs "make the house blue"');
   process.exit(2);
 }
-opts.tab ??= opts.batch ? 'auto' : 'drawing';
 
 if (opts.batch) {
   try {
@@ -71,6 +68,7 @@ if (opts.batch) {
     knowledgeDir: opts.knowledgeDir,
     withVerifier: opts.verify || opts.spellcheck || opts.confidence,
     spellcheck: opts.spellcheck,
+    includeLegacy: false,
   });
   try {
     await runSingle(formaliser, text);
@@ -108,7 +106,7 @@ async function runBatch(reader) {
 }
 
 async function runSingle(formaliser, input) {
-  const res = await formaliser.formalise(input, opts);
+  const res = await formaliser.formaliseCurrentText(input, { topK: 1, ...opts });
 
   if (opts.json) {
     console.log(JSON.stringify(res, null, 2));

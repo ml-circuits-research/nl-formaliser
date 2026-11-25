@@ -47,3 +47,5 @@
 - 2026-11-25 — Q-NL-028 binds written part owners, including possessives, coordinated components and keyed results on nested owners. Twelve published Drawing probes pass native validation with one warning, and ten lead in auto mode. Full serial suite 224/224. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-029 validates global native request properties by each circuit's target family. The mixed-family validation case passes and exposes that the current generation still cannot produce both requested families. Full serial suite 226/226. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-030 puts the common Z3 API and CLI on one global catalog and solver search, with a verified two-family circuit. Published probes cover booking operands, part edits and named headings. Full serial suite 226/226. Legacy evaluation and numbered reference columns remain open. See `questions.md`.

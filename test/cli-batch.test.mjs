@@ -11,7 +11,7 @@ const row = (text) => JSON.stringify({ text });
 
 test('the batch CLI preserves text-only alternatives, native diagnostics and input order', () => {
   const result = run(['--batch'], [
-    row('Make the house blue'),
+    row('Make the house blue and book Ops review'),
     row('Move it next to them'),
     '',
     row('Do not delete it'),
@@ -32,16 +32,22 @@ test('the batch CLI preserves text-only alternatives, native diagnostics and inp
     assert.ok(Array.isArray(result.candidates));
     assert.ok(Array.isArray(result.unresolved));
     assert.ok(result.error === null || typeof result.error === 'string');
+    assert.ok(!Object.hasOwn(result, 'tab'));
+    assert.ok(result.candidates.every((candidate) => !Object.hasOwn(candidate, 'tab')));
   }
   assert.deepEqual(results.map((result) => result.text), [
-    'Make the house blue', 'Move it next to them', 'Do not delete it', null, 'Make it red', 'Make it red',
+    'Make the house blue and book Ops review', 'Move it next to them', 'Do not delete it', null, 'Make it red', 'Make it red',
     'Make it red', 'Do not delete it, and make the node blue', 'Make the tree green',
   ]);
   assert.match(results[0].candidates[0].sop, /value=blue/);
+  assert.match(results[0].candidates[0].sop, /request=\$r1 family=drawn mode=existing/);
+  assert.match(results[0].candidates[0].sop, /request=\$r2 family=meeting mode=new/);
+  assert.match(results[0].candidates[0].sop, /request=\$r2 .*attribute=meeting\.title value="Ops review"/);
   assert.equal(results[0].candidates[0].check.ok, true);
   assert.ok(results[1].candidates.length > 1);
-  const spatial = results[1].candidates.filter((proposal) => ['drawing', 'diagram'].includes(proposal.tab));
-  assert.ok(spatial.length >= 2);
+  const spatial = results[1].candidates.filter((proposal) => /attribute=(?:drawn\.relation|node\.position)/.test(proposal.sop));
+  assert.ok(spatial.some(({ sop }) => /attribute=drawn\.relation/.test(sop)));
+  assert.ok(spatial.some(({ sop }) => /attribute=node\.position/.test(sop)));
   for (const proposal of spatial) {
     assert.match(proposal.sop, /target=\$\S+ key=thing from=any words=it/);
     assert.match(proposal.sop, /constraint=\$\S+ key=thing from=any words=them/);
@@ -64,24 +70,31 @@ test('the batch CLI preserves text-only alternatives, native diagnostics and inp
   assert.match(results[8].candidates[0].sop, /value=green/);
 });
 
-test('the explicit auto batch command and standalone text CLI still work', () => {
-  const batch = run(['--batch', '--json', '--tab', 'auto', '--verify'], row('Make it blue'));
-  assert.ifError(batch.error);
-  assert.equal(batch.status, 0, batch.stderr);
-  assert.ok(new Set(JSON.parse(batch.stdout).candidates.map((p) => p.tab)).size > 1);
-
+test('the CLI rejects routing and history options and preserves a written title', () => {
+  const routed = run(['--batch', '--tab', 'auto'], row('Make it blue'));
+  assert.equal(routed.status, 2);
+  assert.equal(routed.stdout, '');
+  assert.match(routed.stderr, /--tab/);
   const history = run(['--batch', '--previous', 'a boat'], row('Make it blue'));
   assert.ifError(history.error);
   assert.equal(history.status, 2);
   assert.equal(history.stdout, '');
   assert.match(history.stderr, /--previous/);
 
-  const single = run(['--json', 'Make the house blue']);
+  const single = run(['--json', 'Create a node named "Browser tab"']);
   assert.ifError(single.error);
   assert.equal(single.status, 0, single.stderr);
   const proposal = JSON.parse(single.stdout);
-  assert.equal(proposal.tab, 'drawing');
-  assert.match(proposal.sop, /value=blue/);
+  assert.ok(!Object.hasOwn(proposal, 'tab'));
+  assert.match(proposal.sop, /value="Browser tab"/);
+
+  const heading = run(['--json', 'Add a heading called Introduction']);
+  assert.ifError(heading.error);
+  assert.equal(heading.status, 0, heading.stderr);
+  const { sop } = JSON.parse(heading.stdout);
+  assert.match(sop, /act=make mood=do predicate=Add/);
+  assert.match(sop, /family=block mode=new .*family_words=heading/);
+  assert.match(sop, /value=Introduction/);
 });
 
 test('one Z3 library reader serves multiple text-only proposals before closing', async () => {
@@ -95,7 +108,8 @@ test('one Z3 library reader serves multiple text-only proposals before closing',
     assert.equal(first.engine, 'z3');
     assert.equal(first.text, text);
     assert.equal(first.error, null);
-    assert.ok(new Set(first.candidates.map((candidate) => candidate.tab)).size > 1);
+    assert.ok(first.candidates.some(({ sop }) => /family=drawn/.test(sop)));
+    assert.ok(first.candidates.some(({ sop }) => /family=node/.test(sop)));
     for (const candidate of first.candidates) {
       assert.equal(candidate.check.ok, true);
       assert.doesNotMatch(candidate.sop, /w\.request\.(?:previous|context|clock)\b|from=previous\b/);

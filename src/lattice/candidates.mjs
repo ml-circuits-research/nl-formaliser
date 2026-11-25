@@ -263,8 +263,7 @@ function getKbHelpers(kb) {
   return helpers;
 }
 
-function normalizeTabInfo(kb, tab) {
-  const tabObj = kb?.tabs?.[tab] ?? {};
+function normalizeCatalog(tabObj = {}) {
   const keys = new Map();
   for (const [k, spec] of mapEntries(tabObj.keys)) {
     const family = spec?.family ?? (k.includes('.') ? k.split('.')[0] : '');
@@ -843,7 +842,7 @@ function isPureGrammarOrVerbSpan(tokens, s, e, kb) {
  * @param {{ tab: string, kb: object, previous?: string|null, clock?: object|null }} opts
  * @returns {{ text: string, tab: string, tokens: Array<object>, candidates: Array<object>, splitPoints: Array<object>, hasQuestionMark: boolean }}
  */
-export function buildLattice(text, { tab = 'drawing', kb = null, previous = null, clock = null } = {}) {
+export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previous = null, clock = null } = {}) {
   const src = String(text ?? '');
   const tokens = tokenize(src, kb);
   const T = tokens.length;
@@ -871,7 +870,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     keyWordIndex,
     closedValueIndex,
     sorts: tabSorts,
-  } = normalizeTabInfo(kb, tab);
+  } = normalizeCatalog(catalog ?? kb?.tabs?.[tab]);
+  const hasDrawingKeys = !catalog ? tab === 'drawing' : tabKeys.has('drawn.colour');
+  const hasDiagramKeys = !catalog ? tab === 'diagram' : tabKeys.has('node.position');
+  const hasDocumentKeys = !catalog ? tab === 'document' : tabKeys.has('section.mark');
+  const hasMeetingKeys = !catalog ? tab === 'calendar' : tabKeys.has('meeting.title');
 
   const rawCandidates = [];
   const splitPoints = [];
@@ -938,6 +941,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       valueEvidence: Boolean(extra.valueEvidence),
       requiresKeyWord: Boolean(extra.requiresKeyWord),
       prefersKeyWord: Boolean(extra.prefersKeyWord),
+      predicateRole: extra.predicateRole ?? null,
       needsAnchor: Boolean(extra.needsAnchor),
       isAnchor: Boolean(extra.isAnchor),
       lookupWords: extra.lookupWords ?? null,
@@ -1114,7 +1118,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: T - 1, isPureFiller: false, cost: 1.5 });
       }
     }
-    if (tab !== 'calendar' && tok.lower === 'before' && i + 3 < T && tokens[i + 1].lower === 'the' && ['meeting', 'call', 'demo', 'presentation', 'session'].includes(tokens[i + 2].lower) && ['starts', 'begins'].includes(tokens[i + 3].lower)) {
+    if (!hasMeetingKeys && tok.lower === 'before' && i + 3 < T && tokens[i + 1].lower === 'the' && ['meeting', 'call', 'demo', 'presentation', 'session'].includes(tokens[i + 2].lower) && ['starts', 'begins'].includes(tokens[i + 3].lower)) {
       emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: i + 3, isPureFiller: false, cost: 2 });
       emit({ kind: HYP_KINDS.FILLER, startTok: i + 2, endTok: i + 3, isPureFiller: false, cost: 2.5 });
     }
@@ -1332,7 +1336,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
 
       // Document verb intrinsic shortcuts when kb.verbs marks bold/italicize/underline or tab has them
-      if (len === 1 && tab === 'document') {
+      if (len === 1 && hasDocumentKeys) {
         if (['bold', 'embolden'].includes(tok.lower)) {
           for (const attr of resolveAttrShortNames(tabKeys, ['mark', 'format'])) {
             intrinsic.push({ attribute: attr, value: 'bold', operator: 'eq', step: 'none', on: 'attribute' });
@@ -1788,7 +1792,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
         }
 
-        if (tab === 'drawing') {
+        if (hasDrawingKeys) {
           const bp = vocabMatch(kb?.domain?.bodyParts, f);
           if (bp) addSort(bp, 'part');
           if (hasPartOwners && kb?.domain?.partNames?.has(f) && (checkDetBefore(i).det === 'possessive' ||
@@ -1803,14 +1807,16 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           if (ani) addSort(ani, 'drawn');
           const shp = vocabMatch(kb?.domain?.shapes, f);
           if (shp) addSort(shp, 'drawn');
-        } else if (tab === 'diagram') {
+        }
+        if (hasDiagramKeys) {
           const shp = vocabMatch(kb?.domain?.shapes, f);
           if (shp) addSort(shp, 'node');
           const diag = vocabMatch(kb?.domain?.diagrams, f);
           if (diag) addSort(diag, 'diagram');
           const ch = vocabMatch(kb?.domain?.charts, f);
           if (ch) addSort(ch, 'chart');
-        } else if (tab === 'document') {
+        }
+        if (hasDocumentKeys) {
           const gen = vocabMatch(kb?.domain?.genres, f);
           if (gen) {
             if (tabFamilies.includes('text')) addSort(gen, 'text');
@@ -1834,10 +1840,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         // When a drawing noun is ALSO a declared body/face part, keep both hypotheses
         // but give `part` a clean prior advantage over standalone `drawn` object (e.g., "shift the nose up").
         // When a bare noun (no determiner) is ALSO a colour ("orange", "gold", "rose", "lime"), prefer colour over fruit/object sort!
-        const isAlsoBodyPart = tab === 'drawing' && family === 'drawn' && sortMatches.some((x) => x.family === 'part');
+        const isAlsoBodyPart = hasDrawingKeys && family === 'drawn' && sortMatches.some((x) => x.family === 'part');
         const isBareColourNoun = det === 'none' && Boolean(vocabMatch(kb?.domain?.colours, sort.toLowerCase()));
         const isBareMidSentProper = len === 1 && tokens[i].isProperCandidate && det === 'none';
-        const isSceneContainerWord = tab === 'drawing' && ['picture', 'drawing', 'scene', 'canvas'].includes(sort.toLowerCase())
+        const isSceneContainerWord = hasDrawingKeys && ['picture', 'drawing', 'scene', 'canvas'].includes(sort.toLowerCase())
           && i > 0 && Boolean(vocabMatch(kb?.domain?.scenes, tokens[i - 1].lower));
         const baseSortCost = isAlsoBodyPart ? 14 : isSceneContainerWord ? 14 : isBareColourNoun ? 10 : isBareMidSentProper ? 8.5 : 2.5;
         emit({
@@ -2061,7 +2067,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
 
     // Definite chart-mark plurals ("the bars", "the slices", "the markers", "the points", "the dots") select the existing chart!
-    if (tab === 'diagram' && i > 0 && tokens[i - 1].lower === 'the' && ['bars', 'slices', 'markers', 'points', 'dots'].includes(tok.lower) && tabFamilies.includes('chart')) {
+    if (hasDiagramKeys && i > 0 && tokens[i - 1].lower === 'the' && ['bars', 'slices', 'markers', 'points', 'dots'].includes(tok.lower) && tabFamilies.includes('chart')) {
       emit({
         kind: HYP_KINDS.TARGET_FAMILY,
         startTok: i,
@@ -2080,7 +2086,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
     // "on the <noun> <chartType>" ("on the order scatter", "on the sales bar") selects an existing chart by description!
     if (
-      tab === 'diagram' &&
+      hasDiagramKeys &&
       i >= 2 &&
       tokens[i - 2].lower === 'on' &&
       tokens[i - 1].lower === 'the' &&
@@ -2107,7 +2113,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       });
     }
     // "turn the scene/room/picture into ..." selects `family=page`, and "surprise me with a scene ..." creates `family=composition, sort=scene`!
-    if (tab === 'drawing' && i > 0 && tokens[i - 1].lower === 'the' && ['scene', 'room', 'picture', 'canvas'].includes(tok.lower) && tokens[i + 1]?.lower === 'into' && tabFamilies.includes('page')) {
+    if (hasDrawingKeys && i > 0 && tokens[i - 1].lower === 'the' && ['scene', 'room', 'picture', 'canvas'].includes(tok.lower) && tokens[i + 1]?.lower === 'into' && tabFamilies.includes('page')) {
       emit({
         kind: HYP_KINDS.TARGET_FAMILY,
         startTok: i - 1,
@@ -2124,7 +2130,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         cost: 1.0,
       });
     }
-    if (tab === 'drawing' && ['scene', 'drawing', 'picture'].includes(tok.lower) && /\bsurprise\s+me\b/i.test(src) && tabFamilies.includes('composition')) {
+    if (hasDrawingKeys && ['scene', 'drawing', 'picture'].includes(tok.lower) && /\bsurprise\s+me\b/i.test(src) && tabFamilies.includes('composition')) {
       const { det, detTok } = checkDetBefore(i);
       emit({
         kind: HYP_KINDS.TARGET_SORT,
@@ -2144,7 +2150,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
     // Lowercase event names right after existing-event calendar verbs ("reschedule review for 10:00 UTC...", "postpone standup...")
     if (
-      tab === 'calendar' &&
+      hasMeetingKeys &&
       i > 0 &&
       ['reschedule', 'postpone', 'delay', 'cancel'].includes(tokens[i - 1].lower) &&
       tok.kind === 'word' &&
@@ -2351,7 +2357,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
       // Coordinated proper-name IDs ("Approve and Ship", "Start and Review") -> node.ids / group.ids
       if (
-        tab === 'diagram' &&
+        hasDiagramKeys &&
         i + 2 < T &&
         tokens[i + 1].lower === 'and' &&
         tokens[i + 2].isProperCandidate
@@ -2413,7 +2419,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
         }
       }
-      if (tab === 'diagram' && len === 1 && (tokens[i].lower === 'x' || tokens[i].lower === 'y')) {
+      if (hasDiagramKeys && len === 1 && (tokens[i].lower === 'x' || tokens[i].lower === 'y')) {
         const axisKey = tokens[i].lower === 'x' ? 'chart.xAxis' : 'chart.axisSide';
         if (tabKeys.has(axisKey)) {
           attrs.add(axisKey);
@@ -2691,7 +2697,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             phase: 'result',
             needsAnchor: true,
             // In diagram tab, "by" almost always marks chart.dimension/colourBy rather than node.position=near!
-            cost: (tab === 'diagram' && ph === 'by') ? 7 : (len > 1 ? 1.5 : 2.5),
+            cost: (hasDiagramKeys && ph === 'by') ? 7 : (len > 1 ? 1.5 : 2.5),
           });
         }
       }
@@ -2766,7 +2772,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       // Dimension pair ("400 by 30", "400 x 30") -> (width, height)
       const wVal = tok.text;
       const hVal = tokens[i + 2].text;
-      for (const fam of kb?.tabs?.[tab]?.families ?? coordFamilies) {
+      for (const fam of tabFamilies.length ? tabFamilies : coordFamilies) {
         if (tabKeys.has(`${fam}.width`) && tabKeys.has(`${fam}.height`)) {
           emitConstraint(`${fam}.width`, wVal, i, i + 2, {
             on: 'attribute',
@@ -2781,7 +2787,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
 
     // 10f. Numbers & Number+Unit (including multi-word compound numbers like "four hundred", "twenty five", "two spaces left", and chart lists)
-    if (tab === 'diagram' && tok.kind === 'number' && tabKeys.has('chart.values') && i + 2 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'number') {
+    if (hasDiagramKeys && tok.kind === 'number' && tabKeys.has('chart.values') && i + 2 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'number') {
       let endIdx = i + 2;
       while (endIdx + 2 < T && tokens[endIdx + 1].text === ',' && tokens[endIdx + 2].kind === 'number') {
         endIdx += 2;
@@ -2790,7 +2796,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       emitConstraint('chart.values', listVal, i, endIdx, { cost: 1.5 });
     }
     // Chart inline label=value pairs ("A is 3, B is 7") and comma-separated category lists ("October,November,December")
-    if (tab === 'diagram' && i + 5 < T && tok.kind === 'word' && ['is', 'are', '='].includes(tokens[i + 1].lower) && tokens[i + 2].kind === 'number' && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && ['is', 'are', '='].includes(tokens[i + 5].lower)) {
+    if (hasDiagramKeys && i + 5 < T && tok.kind === 'word' && ['is', 'are', '='].includes(tokens[i + 1].lower) && tokens[i + 2].kind === 'number' && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && ['is', 'are', '='].includes(tokens[i + 5].lower)) {
       const pairs = [];
       let cur = i;
       while (cur + 2 < T && tokens[cur].kind === 'word' && ['is', 'are', '='].includes(tokens[cur + 1].lower) && tokens[cur + 2].kind === 'number') {
@@ -2807,7 +2813,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         emitConstraint('chart.labels', pairs[0].lbl, i, endPair, { pairedConstraints: paired, cost: 1 });
       }
     }
-    if (tab === 'diagram' && tabKeys.has('chart.labels') && tok.kind === 'word' && tok.isCapitalized && i + 4 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'word' && tokens[i + 2].isCapitalized && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && tokens[i + 4].isCapitalized) {
+    if (hasDiagramKeys && tabKeys.has('chart.labels') && tok.kind === 'word' && tok.isCapitalized && i + 4 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'word' && tokens[i + 2].isCapitalized && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && tokens[i + 4].isCapitalized) {
       let endCat = i + 4;
       while (endCat + 2 < T && tokens[endCat + 1].text === ',' && tokens[endCat + 2].kind === 'word' && tokens[endCat + 2].isCapitalized) {
         endCat += 2;
@@ -2915,11 +2921,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
 
       // Calendar "at 3" -> meeting.time / meeting.start, and "for 1" -> meeting.length
-      if (tab === 'calendar' && i > 0 && tokens[i - 1].lower === 'at' && tok.kind === 'number' && numVal >= 0 && numVal <= 24) {
+      if (hasMeetingKeys && i > 0 && tokens[i - 1].lower === 'at' && tok.kind === 'number' && numVal >= 0 && numVal <= 24) {
         if (tabKeys.has('meeting.time')) emitConstraint('meeting.time', tok.text, i, i, { cost: 2 });
         if (tabKeys.has('meeting.start')) emitConstraint('meeting.start', tok.text, i, i, { cost: 2.5 });
       }
-      if (tab === 'calendar' && i > 0 && tokens[i - 1].lower === 'for' && tok.kind === 'number' && !matchedUnit && numVal > 0 && numVal <= 12) {
+      if (hasMeetingKeys && i > 0 && tokens[i - 1].lower === 'for' && tok.kind === 'number' && !matchedUnit && numVal > 0 && numVal <= 12) {
         if (tabKeys.has('meeting.length')) emitConstraint('meeting.length', tok.text, i, i, { cost: 2 });
       }
 
@@ -3051,7 +3057,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const ph = spanTextLower(tokens, i, e);
       const forms = singularisePhrase(ph, kb);
 
-      if (tab === 'drawing') {
+      if (hasDrawingKeys) {
         if (ph === 'drop shadow' || ph === 'shadow') {
           if (tabKeys.has('drawn.effect')) emitConstraint('drawn.effect', 'shadow', i, e, { cost: 1.5 });
           if (tabKeys.has('part.effect')) emitConstraint('part.effect', 'shadow', i, e, { cost: 1.5 });
@@ -3176,7 +3182,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             emitConstraint('drawn.arrangement', ly, i, e, { cost: (alsoShapeOrObj && !hasArrPrep) ? 14 : 2 });
           }
         }
-      } else if (tab === 'diagram') {
+      }
+      if (hasDiagramKeys) {
         if (len === 1 && tok.lower === 'stack' && tabKeys.has('chart.stacked')) {
           emitConstraint('chart.stacked', 'stacked', i, i, { allowOpen: true, requiresKeyWord: true, cost: 0.8 });
         }
@@ -3252,7 +3259,8 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             }
           }
         }
-      } else if (tab === 'document') {
+      }
+      if (hasDocumentKeys) {
         if (['in the centre', 'in the center', 'in the middle', 'centred', 'centered'].includes(ph)) {
           for (const attr of ['block.align', 'section.align', 'inline.align']) {
             if (tabKeys.has(attr)) emitConstraint(attr, 'center', i, e, { cost: 2 });
@@ -3396,6 +3404,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           isAnchor: Boolean(opts.isAnchor),
           requiresKeyWord: Boolean(opts.requiresKeyWord),
           allowOpen: Boolean(opts.allowOpen),
+          predicateRole: opts.predicateRole,
           cost: baseCost + attrExtra + (len - 1) * 4,
         });
       }
@@ -3477,15 +3486,15 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             }
           }
         }
-        if (tab === 'drawing' && rPh === 'behind' && tabKeys.has('drawn.behind')) {
+        if (hasDrawingKeys && rPh === 'behind' && tabKeys.has('drawn.behind')) {
           emitOpenSpansStartingAt(nextStart, ['drawn.behind'], { phase: 'selector', cost: 2.5 });
         }
-        if (tab === 'drawing' && rPh === 'on' && tabKeys.has('drawn.seat')) {
+        if (hasDrawingKeys && rPh === 'on' && tabKeys.has('drawn.seat')) {
           emitOpenSpansStartingAt(nextStart, ['drawn.seat'], { phase: 'selector', cost: 7 });
         }
       }
       // Dynamically support `diagram.edge.from` ("going from A", "leading from A", "between A and B") from diagram-frames.sop!
-      if (tab === 'diagram' && diagramEdgeFromLex.has(rPh) && nextStart < T) {
+      if (hasDiagramKeys && diagramEdgeFromLex.has(rPh) && nextStart < T) {
         emitOpenSpansStartingAt(nextStart, ['link.from'], { phase: 'result', cost: 3.5, maxLen: 2 });
         if (rPh === 'between' && nextStart + 2 < T && tokens[nextStart + 1].lower === 'and') {
           emitOpenSpansStartingAt(nextStart + 2, ['link.to'], { phase: 'result', cost: 3.5, maxLen: 2 });
@@ -3511,32 +3520,32 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       if (tok.lower === 'from') {
         const isSortRange = ['largest', 'smallest', 'highest', 'lowest', 'biggest', 'most', 'least'].includes(tokens[nextStart]?.lower ?? '')
           && tokens[nextStart + 1]?.lower === 'to';
-        if (tab === 'diagram' && !isSortRange) emitOpenSpansStartingAt(nextStart, ['link.from', 'chart.datasets', 'chart.dateRange'], { phase: 'result', cost: 4 });
+        if (hasDiagramKeys && !isSortRange) emitOpenSpansStartingAt(nextStart, ['link.from', 'chart.datasets', 'chart.dateRange'], { phase: 'result', cost: 4 });
       } else if (tok.lower === 'to' || tok.lower === 'into') {
         const isSortRangeEnd = tok.lower === 'to' && i >= 2 && tokens[i - 2].lower === 'from'
           && ['largest', 'smallest', 'highest', 'lowest', 'biggest', 'most', 'least'].includes(tokens[i - 1].lower);
-        if (tab === 'diagram' && !isSortRangeEnd) emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 2.5 });
-        if (tab === 'document') {
+        if (hasDiagramKeys && !isSortRangeEnd) emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 2.5 });
+        if (hasDocumentKeys) {
           emitOpenSpansStartingAt(nextStart, ['inline.link_target', 'section.text', 'block.text', 'text.title'], { phase: 'result', cost: 6 });
         }
         // After rename/retitle/relabel ... to <newName>
-        if (tab === 'calendar') {
+        if (hasMeetingKeys) {
           const hasRenameBefore = tokens.slice(Math.max(0, i - 4), i).some((t) => ['rename', 'renamed', 'retitle', 'call', 'called', 'named'].includes(t.lower));
           if (hasRenameBefore && tokens[nextStart].kind !== 'time' && tokens[nextStart].kind !== 'date') {
             emitOpenSpansStartingAt(nextStart, ['meeting.title', 'calendar.name', 'room.name'], { phase: 'result', cost: 3 });
           }
         }
-      } else if (tab === 'diagram' && ['connect', 'link', 'join', 'wire'].includes(tok.lower)) {
+      } else if (hasDiagramKeys && ['connect', 'link', 'join', 'wire'].includes(tok.lower)) {
         emitOpenSpansStartingAt(nextStart, ['link.from'], { phase: 'result', cost: 2.0, maxLen: 2 });
-      } else if (tab === 'diagram' && CHART_AGG_WORDS.has(tok.lower)) {
+      } else if (hasDiagramKeys && CHART_AGG_WORDS.has(tok.lower)) {
         emitOpenSpansStartingAt(nextStart, ['chart.measure'], { phase: 'result', cost: 3, maxLen: 3 });
       } else if (tok.lower === 'of') {
-        if (tab === 'diagram') {
+        if (hasDiagramKeys) {
           const isOwnerFamily = ['diagram', 'chart', 'graph', 'page', 'node', 'group'].includes(tokens[nextStart]?.lower ?? '');
           emitOpenSpansStartingAt(nextStart, isOwnerFamily ? ['chart.measure'] : ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
         }
       } else if (tok.lower === 'for') {
-        if (tab === 'diagram') {
+        if (hasDiagramKeys) {
           emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
           // Coordinated chart labels after "for" ("for Shop and Sample", "for Triage, Testing and Billing")
           if (tabKeys.has('chart.labels') && tokens[nextStart]?.isProperCandidate) {
@@ -3549,11 +3558,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             }
           }
         }
-        if (tab === 'drawing') {
+        if (hasDrawingKeys) {
           // "swap the dog for a cat" / "substitute X for Y" -> drawn.kind!
           emitOpenSpansStartingAt(nextStart, ['drawn.kind'], { phase: 'result', cost: 4, maxLen: 2 });
         }
-        if (tab === 'calendar') {
+        if (hasMeetingKeys) {
           // "book Hall for Planning" -> meeting.title; "room for 6" -> room.seats / room.capacity!
           const nt = tokens[nextStart];
           const numFor = parseNumeric(nt);
@@ -3564,20 +3573,20 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             emitOpenSpansStartingAt(nextStart, ['meeting.title'], { phase: 'result', cost: 3, maxLen: 3 });
           }
         }
-      } else if (tab === 'drawing' && tok.lower === 'because' && i + 1 < T && tokens[i + 1].lower === 'of') {
+      } else if (hasDrawingKeys && tok.lower === 'because' && i + 1 < T && tokens[i + 1].lower === 'of') {
         const afterOf = (i + 2 < T && DET_MAP.has(tokens[i + 2].lower)) ? i + 3 : i + 2;
         if (afterOf < T) emitOpenSpansStartingAt(afterOf, ['drawn.cause'], { requiresKeyWord: true, cost: 2, maxLen: 3 });
-      } else if (tab === 'drawing' && (tok.lower === 'holding' || tok.lower === 'holds')) {
+      } else if (hasDrawingKeys && (tok.lower === 'holding' || tok.lower === 'holds')) {
         emitOpenSpansStartingAt(nextStart, ['drawn.holds'], { requiresKeyWord: true, cost: 2, maxLen: 2 });
-      } else if (tab === 'calendar' && ['book', 'schedule', 'reserve'].includes(tok.lower)) {
+      } else if (hasMeetingKeys && ['book', 'schedule', 'reserve'].includes(tok.lower)) {
         // "book Room 4 for Planning" vs "book Planning in Hall": if "for <non-number>" follows, the direct object is room/venue!
         const hasForNonNum = tokens.slice(nextStart + 1, Math.min(T, nextStart + 5)).some((t, idx, arr) =>
           t.lower === 'for' && arr[idx + 1] && arr[idx + 1].kind !== 'number' && !numberWords.has(arr[idx + 1].lower)
         );
-        emitOpenSpansStartingAt(nextStart, ['meeting.room'], { phase: 'result', cost: hasForNonNum ? 1.5 : 3.5, maxLen: 2 });
-        emitOpenSpansStartingAt(nextStart, ['meeting.title'], { phase: 'result', cost: hasForNonNum ? 4.5 : 2.5, maxLen: 3 });
+        emitOpenSpansStartingAt(nextStart, ['meeting.room'], { phase: 'result', cost: hasForNonNum ? 1.5 : 3.5, maxLen: 2, predicateRole: catalog ? i : undefined });
+        emitOpenSpansStartingAt(nextStart, ['meeting.title'], { phase: 'result', cost: hasForNonNum ? 4.5 : 2.5, maxLen: 3, predicateRole: catalog ? i : undefined });
       } else if (tok.lower === 'by' || tok.lower === 'per' || tok.lower === 'across' || tok.lower === 'versus' || tok.lower === 'vs' || tok.lower === 'against') {
-        if (tab === 'diagram') {
+        if (hasDiagramKeys) {
           const isChartTitleModifier = tok.lower === 'by' && i > 0 && tokens[i - 1].isCapitalized && nextStart + 1 < T && ['chart', 'graph', 'plot', 'diagram'].includes(tokens[nextStart + 1].lower);
           if (!isChartTitleModifier) {
             emitOpenSpansStartingAt(nextStart, ['chart.dimension', 'chart.colourBy'], { phase: 'result', cost: 2.5 });
@@ -3589,14 +3598,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
         }
       } else if (tok.lower === 'about' || tok.lower === 'regarding') {
-        if (tab === 'document') emitOpenSpansStartingAt(nextStart, ['text.about', 'document.topic', 'section.content'], { cost: 4 });
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['diagram.about'], { cost: 6 });
-        if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['drawn.about', 'drawn.cause'], { cost: 6 });
-      } else if (tab === 'drawing' && (tok.lower === 'face' || tok.lower === 'facing') && i > 0 && ['to', 'should', 'must', 'can', 'could', 'would', 'will'].includes(tokens[i - 1].lower)) {
+        if (hasDocumentKeys) emitOpenSpansStartingAt(nextStart, ['text.about', 'document.topic', 'section.content'], { cost: 4 });
+        if (hasDiagramKeys) emitOpenSpansStartingAt(nextStart, ['diagram.about'], { cost: 6 });
+        if (hasDrawingKeys) emitOpenSpansStartingAt(nextStart, ['drawn.about', 'drawn.cause'], { cost: 6 });
+      } else if (hasDrawingKeys && (tok.lower === 'face' || tok.lower === 'facing') && i > 0 && ['to', 'should', 'must', 'can', 'could', 'would', 'will'].includes(tokens[i - 1].lower)) {
         emitOpenSpansStartingAt(nextStart, ['drawn.facing'], { requiresKeyWord: true, allowOpen: true, cost: 1.5, maxLen: 2 });
       } else if (tok.lower === 'with') {
-        if (tab === 'calendar') emitOpenSpansStartingAt(nextStart, ['meeting.people', 'meeting.participants'], { cost: 4 });
-        if (tab === 'drawing') {
+        if (hasMeetingKeys) emitOpenSpansStartingAt(nextStart, ['meeting.people', 'meeting.participants'], { cost: 4 });
+        if (hasDrawingKeys) {
           // Never blindly spray arbitrary `with <X>` spans into `drawn.wear` (wearables are already matched from `kb.domain.wearables` at cost 2)!
           // Support `"with the word 'BAKERY'"` / `"with text 'X'"` -> `drawn.text`!
           if (['word', 'words', 'text', 'sign'].includes(tokens[nextStart]?.lower ?? '') && nextStart + 1 < T && tokens[nextStart + 1].kind === 'quote') {
@@ -3605,11 +3614,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             emitOpenSpansStartingAt(nextStart, ['composition.with'], { cost: 8 });
           }
         }
-        if (tab === 'diagram' && !kwTriggerAtEndTok.has(nextStart)) {
+        if (hasDiagramKeys && !kwTriggerAtEndTok.has(nextStart)) {
           emitOpenSpansStartingAt(nextStart, ['composition.with'], { cost: 8 });
         }
       } else if (tok.lower === 'in' || tok.lower === 'at' || tok.lower === 'on') {
-        if (tab === 'calendar') {
+        if (hasMeetingKeys) {
           // Type discipline: meeting.room / meeting.calendar NEVER capture time or date tokens ("at 10:00", "on 2026-11-18")!
           // Prepositional semantics: "on <Work 4>" -> meeting.calendar; "in/at <Hall / Room 4>" -> meeting.room!
           const nt = tokens[nextStart];
@@ -3626,7 +3635,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             }
           }
         }
-        if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['page.scene', 'page.style'], { cost: 10 });
+        if (hasDrawingKeys) emitOpenSpansStartingAt(nextStart, ['page.scene', 'page.style'], { cost: 10 });
       }
     }
   }
@@ -3660,15 +3669,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
   // -------------------------------------------------------------------------
   const rawFrameMatches = matchFrames(tokens, src, {
-    tab, kb, tabSpec: kb.tabs[tab], splitPoints, candidates: rawCandidates,
+    kb, tabSpec: catalog ?? kb.tabs[tab], splitPoints, candidates: rawCandidates,
     predicates: rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE && c.licensed?.length),
   });
   const frameMatches = applyFrameMatchesToLattice(rawFrameMatches, {
     tokens,
     text: src,
-    tab,
     kb,
-    tabSpec: kb.tabs[tab],
+    tabSpec: catalog ?? kb.tabs[tab],
     candidates: rawCandidates,
     emit,
     emitConstraint,
@@ -3728,6 +3736,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       c.partHead?.join(':') ?? '',
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
+      c.predicateRole ?? '',
       c.creationOnly ? 1 : 0,
       c.pairedConstraints ? JSON.stringify(c.pairedConstraints) : '',
       c.attrs ? c.attrs.join(',') : '',
@@ -3751,7 +3760,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
   return {
     text: src,
-    tab,
+    ...(catalog ? { catalog } : { tab }),
     previous,
     clock,
     tokens,

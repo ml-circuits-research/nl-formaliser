@@ -1,24 +1,26 @@
 #!/usr/bin/env node
 // Standalone CLI for Layer 1 Z3 MaxSMT Spellchecker:
-//   node bin/spellcheck.mjs [--tab drawing|diagram|document|calendar] [--top 3] [--json] "<text>"
+//   node bin/spellcheck.mjs [--top 3] [--json] "<text>"
 
 import { loadKnowledge } from '../src/kb/load-worlds.mjs';
 import { extractVocabFromKb } from '../src/spell/vocab.mjs';
 import { createSpellChecker } from '../src/spell/z3-spell.mjs';
 
 const rawArgs = process.argv.slice(2);
-const opts = { tab: undefined, topK: 1, json: false, knowledgeDir: undefined, timeoutMs: 2000 };
+const opts = { topK: 1, json: false, knowledgeDir: undefined, timeoutMs: 2000 };
 const positional = [];
 
 for (let i = 0; i < rawArgs.length; i++) {
   const a = rawArgs[i];
-  if (a === '--tab') opts.tab = rawArgs[++i];
-  else if (a === '--top') opts.topK = Number(rawArgs[++i] ?? 1);
+  if (a === '--tab') {
+    console.error('Unsupported option: --tab. Supply only the current text.');
+    process.exit(2);
+  } else if (a === '--top') opts.topK = Number(rawArgs[++i] ?? 1);
   else if (a === '--knowledge') opts.knowledgeDir = rawArgs[++i];
   else if (a === '--timeout') opts.timeoutMs = Number(rawArgs[++i] ?? 2000);
   else if (a === '--json') opts.json = true;
   else if (a === '--help' || a === '-h') {
-    console.log('Usage: node bin/spellcheck.mjs [--tab drawing|diagram|document|calendar] [--top K] [--json] "<text>"');
+    console.log('Usage: node bin/spellcheck.mjs [--top K] [--json] "<text>"');
     process.exit(0);
   } else {
     positional.push(a);
@@ -27,14 +29,19 @@ for (let i = 0; i < rawArgs.length; i++) {
 
 const text = positional.join(' ').trim();
 if (!text) {
-  console.error('Provide input text. Example: node bin/spellcheck.mjs --tab drawing "copy the atble"');
+  console.error('Provide input text. Example: node bin/spellcheck.mjs "copy the atble"');
   process.exit(2);
 }
 
-const kb = await loadKnowledge({ knowledgeDir: opts.knowledgeDir });
-const vocab = extractVocabFromKb(kb, { tab: opts.tab });
+const kb = await loadKnowledge({ knowledgeDir: opts.knowledgeDir, includeLegacy: false });
+const vocab = extractVocabFromKb(kb);
 const checker = await createSpellChecker({ vocab, timeoutMs: opts.timeoutMs });
-const res = await checker.normalise(text, { topK: opts.topK });
+let res;
+try {
+  res = await checker.normalise(text, { topK: opts.topK });
+} finally {
+  await checker.close();
+}
 
 if (opts.json) {
   console.log(JSON.stringify(res, null, 2));

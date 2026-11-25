@@ -133,9 +133,10 @@ export async function createFormaliser({
   spellcheck = false,
   weights = null,
   confidenceWeights = null,
+  includeLegacy = true,
 } = {}) {
   const [kb, runner, verifier] = await Promise.all([
-    loadKnowledge({ knowledgeDir }),
+    loadKnowledge({ knowledgeDir, includeLegacy }),
     createZ3Runner({ timeoutMs }),
     withVerifier ? createVerifier({ knowledgeDir }) : Promise.resolve(null),
   ]);
@@ -154,8 +155,8 @@ export async function createFormaliser({
     await getSpellChecker();
   }
 
-  async function solveSinglePass(text, { tab, previous, clock, topK, maxRequests, timeout, effWeights, useSemanticBlock = false }) {
-    const lattice = buildLattice(text, { tab, kb, previous, clock });
+  async function solveSinglePass(text, { tab, catalog, previous, clock, topK, maxRequests, timeout, effWeights, useSemanticBlock = false }) {
+    const lattice = buildLattice(text, { tab, catalog, kb, previous, clock });
     const encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests, weights: effWeights });
     const solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
       topK,
@@ -165,15 +166,15 @@ export async function createFormaliser({
     return { lattice, encoded, solved };
   }
 
-  async function solveSharedResult(lattice, { tab, previous, clock, maxRequests, timeout, effWeights }) {
+  async function solveSharedResult(lattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights }) {
     if (!verifier || lattice.prohibitions.length) return null;
-    const keys = kb.tabs[tab].keys;
+    const keys = (catalog ?? kb.tabs[tab]).keys;
     for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests, kb.domain.partNames)) {
       const results = [];
       const targets = new Set();
       let first;
       for (const { owners, start, projectedText } of heads) {
-        const part = await solveSinglePass(projectedText, { tab, previous, clock, maxRequests: 1, topK: 1, timeout, effWeights });
+        const part = await solveSinglePass(projectedText, { tab, catalog, previous, clock, maxRequests: 1, topK: 1, timeout, effWeights });
         if (!part.solved.ok) break;
         const sop = modelToSop(part.solved.solutions[0], part.lattice, part.encoded.meta);
         const check = verifier.check(projectedText, sop);
@@ -247,7 +248,7 @@ export async function createFormaliser({
     return { score, exclusiveHits };
   }
 
-  async function solveHierarchical(text, lattice, { tab, previous, clock, timeout, effWeights }) {
+  async function solveHierarchical(text, lattice, { tab, catalog, previous, clock, timeout, effWeights }) {
     if (lattice.prohibitions.length) return null;
     const segRes = await segmentClausesZ3(lattice, { kb, runner, timeout: Math.min(1500, timeout) });
     if (!segRes.ok || segRes.segments.length <= 1) return null;
@@ -260,7 +261,7 @@ export async function createFormaliser({
     for (const seg of segRes.segments) {
       const subText = seg.text.trim();
       if (!subText) continue;
-      const subLat = buildLattice(subText, { tab, kb, previous, clock });
+      const subLat = buildLattice(subText, { tab, catalog, kb, previous, clock });
       const subEnc = encodeProblem(subLat, { kb, previous, clock, maxRequests: 1, weights: effWeights });
       const subSolved = await runner.solve(subEnc.smtBody, subEnc.queryVars, {
         topK: 1,
@@ -295,6 +296,7 @@ export async function createFormaliser({
 
   async function formalise(text, {
     tab = 'drawing',
+    catalog,
     previous = null,
     clock = null,
     topK = 1,
@@ -316,9 +318,10 @@ export async function createFormaliser({
     const prohibitions = findDirectiveProhibitions(rawTokens, kb);
     let unresolved = unresolvedProhibitions(prohibitions, rawText);
     const unresolvedFields = () => unresolved.length ? { unresolved } : {};
-    const isAutoTab = tab === null || tab === 'auto';
+    const isAutoTab = !catalog && (tab === null || tab === 'auto');
     const unresolvedOnly = () => ({
-      ok: false, status: 'unknown', error: 'Unresolved directive prohibition', tab: isAutoTab ? null : tab,
+      ok: false, status: 'unknown', error: 'Unresolved directive prohibition',
+      ...(!catalog ? { tab: isAutoTab ? null : tab } : {}),
       sop: '', alternatives: [], proposals: [], objectives: [], elapsedMs: performance.now() - t0,
       ...unresolvedFields(),
     });
@@ -514,7 +517,7 @@ export async function createFormaliser({
     // Effective topK: if confidence requested and topK===1, use topK=2 on short/medium inputs to measure real Z3 margin!
     const effTopK = computeConf && topK < 2 && workingText.length <= 160 ? 2 : topK;
 
-    const initialLattice = buildLattice(workingText, { tab, kb, previous, clock });
+    const initialLattice = buildLattice(workingText, { tab, catalog, kb, previous, clock });
     if (workingText !== rawText && initialLattice.prohibitions.length) {
       const alignment = buildCleanToRawAlignment(workingText, spellRes.tokens);
       unresolved = unresolvedProhibitions(initialLattice.prohibitions, rawText, alignment);
@@ -536,7 +539,7 @@ export async function createFormaliser({
     // Two-stage hierarchical Z3 for long/enumerated multi-clause utterances
     if (hierarchical && verifier && shouldUseHierarchicalSegmenter(initialLattice, kb, { maxRequests })) {
       const hier = await solveHierarchical(workingText, initialLattice, {
-        tab,
+        tab, catalog,
         previous,
         clock,
         timeout,
@@ -552,7 +555,7 @@ export async function createFormaliser({
 
     if (!usedHierarchical) {
       let { lattice, encoded, solved } = await solveSinglePass(workingText, {
-        tab,
+        tab, catalog,
         previous,
         clock,
         topK: effTopK,
@@ -565,7 +568,7 @@ export async function createFormaliser({
       // Graceful timeout recovery on complex inputs: try Stage-1 Z3 segmenter first, then maxRequests=1
       if (!solved.ok && solved.status === 'unknown') {
         if (hierarchical && verifier) {
-          const hier = await solveHierarchical(workingText, lattice, { tab, previous, clock, timeout, effWeights });
+          const hier = await solveHierarchical(workingText, lattice, { tab, catalog, previous, clock, timeout, effWeights });
           if (hier) {
             sop = hier.sop;
             objectives = hier.objectives;
@@ -575,7 +578,7 @@ export async function createFormaliser({
         }
         if (!usedHierarchical && encoded.meta.R > 1) {
           ({ lattice, encoded, solved } = await solveSinglePass(workingText, {
-            tab,
+            tab, catalog,
             previous,
             clock,
             topK: 1,
@@ -612,7 +615,7 @@ export async function createFormaliser({
       }
     }
 
-    const shared = await solveSharedResult(initialLattice, { tab, previous, clock, maxRequests, timeout, effWeights });
+    const shared = await solveSharedResult(initialLattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights });
     if (shared) {
       alternatives.unshift(sop);
       sop = shared.sop;
@@ -646,7 +649,7 @@ export async function createFormaliser({
         if (unresolved.length) return unresolvedOnly();
         // Safety fallback: never violate 100% formal validity against rawText!
         let rawFallback = await solveSinglePass(rawText, {
-          tab,
+          tab, catalog,
           previous,
           clock,
           topK: 1,
@@ -656,7 +659,7 @@ export async function createFormaliser({
         });
         if (!rawFallback.solved.ok) {
           rawFallback = await solveSinglePass(rawText, {
-            tab,
+            tab, catalog,
             previous,
             clock,
             topK: 1,
@@ -695,7 +698,7 @@ export async function createFormaliser({
     const emittedAlts = topK > 1 ? alternatives.slice(0, topK - 1) : alternatives;
     const proposals = [sop, ...emittedAlts].filter(Boolean).map((pSop, idx) => ({
       sop: pSop,
-      tab,
+      ...(!catalog ? { tab } : {}),
       objective: typeof objectives[idx] === 'number' ? objectives[idx] : null,
       ...unresolvedFields(),
     }));
@@ -705,7 +708,7 @@ export async function createFormaliser({
       status: unresolved.length ? 'partial' : 'sat',
       ...unresolvedFields(),
       sop,
-      tab,
+      ...(!catalog ? { tab } : {}),
       alternatives: emittedAlts,
       proposals,
       objectives,
@@ -723,5 +726,9 @@ export async function createFormaliser({
     await Promise.all([runner.close(), spellCheckerPromise?.then((spellChecker) => spellChecker.close())]);
   }
 
-  return { formalise, kb, runner, verifier, close };
+  function formaliseCurrentText(text, { topK = 4, timeout, verify = true, spellcheck, confidence, dumpSmt } = {}) {
+    return formalise(text, { catalog: kb.catalog, topK, timeout, verify, spellcheck, confidence, dumpSmt });
+  }
+
+  return { formalise, formaliseCurrentText, kb, runner, verifier, close };
 }

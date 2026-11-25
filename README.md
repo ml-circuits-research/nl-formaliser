@@ -5,25 +5,20 @@ Symbolic Natural Language → **SOP Lang (`w.request`)** formaliser powered by *
 ## Quickstart
 
 ```bash
-# Run full test suite (57 tests: dynamic SOP KB, lattice, standalone Z3 spellchecker, v9 2-stage Z3 + confidence, verifier, E2E)
+# Run the full test suite
 npm test
 
 # Run standalone Layer 1 Z3 Spellchecker (independent of formaliser)
 npm run test:spell
 node bin/spellcheck.mjs --top 2 "the losing months should stando ut, so make theb ars below 7 teal"
-node bin/spellcheck.mjs --tab diagram --json "bar ch art"
+node bin/spellcheck.mjs --json "bar ch art"
 
 # Formalise a single utterance (Layer 2 Z3 MaxSMT, optional Layer 1 --spellcheck and calibrated --confidence)
-node bin/formalise.mjs --tab drawing "make the house blue" --verify --confidence
-node bin/formalise.mjs --tab drawing "copy the atble" --spellcheck --verify --confidence
-node bin/formalise.mjs --tab diagram "make a bar chart of the stadiums by country" --top 3 --verify --confidence
-node bin/formalise.mjs --tab drawing "please switch to the robot preset" --dump-smt
+node bin/formalise.mjs "make the house blue" --verify --confidence
+node bin/formalise.mjs "copy the atble" --spellcheck --verify --confidence
+node bin/formalise.mjs "make a bar chart of the stadiums by country" --top 3 --verify --confidence
+node bin/formalise.mjs "please switch to the robot preset" --dump-smt
 
-# Calibrate confidence weights on disjoint dev split (seed=1337) & run parallel benchmarks (seed=42)
-node eval/calibrate.mjs
-node eval/benchmark.mjs --source webmeet --sample-pct 1 --seed 42 --workers 10 --spellcheck --confidence
-node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10 --spellcheck --confidence
-node eval/benchmark.mjs --source keys --workers 10
 ```
 
 The result includes `unresolved` when the reader detects a directive prohibition that the current `w.request` contract cannot represent. Each entry carries its exact text and half-open character offsets in the original input. `status: "partial"` accompanies independently formalised clauses. When only the prohibition remains, the result has `status: "unknown"` and no SOP proposal. The text CLI prints this diagnostic to standard error.
@@ -53,7 +48,7 @@ node /home/salboaie/work/sopworlds/pro-formaliser/bin/formalise.mjs --batch < te
 node /home/salboaie/work/sopworlds/nl-formaliser/bin/formalise.mjs --batch < texts.jsonl > z3-results.jsonl
 ```
 
-Each input line contains a JSON object such as `{"text":"Move it to the left"}`. Only a nonempty `text` string is accepted. Blank lines are skipped. Both commands write one compact JSON object per other input line, in input order. Z3 batch defaults to automatic world proposals and rejects records with history, clock, or context fields.
+Each input line contains a JSON object such as `{"text":"Move it to the left"}`. Only a nonempty `text` string is accepted. Blank lines are skipped. Both commands write one compact JSON object per other input line, in input order. Z3 uses one global request-key catalog and explores compatible semantic families for each request. The same circuit can contain requests from several families. The library and CLI use the current text only and reject routing or history fields in batch records.
 
 The common fields are `engine` (`"z3"` or `"prolog"`), the original `text`, `candidates` (each with `sop`), `unresolved` (a diagnostic array), and `error` (a message or `null`). An unknown reading can return an empty candidate array. A partial reading can return candidates alongside unresolved evidence. A malformed row has an error and an empty candidate array. One row's failure does not stop the remaining rows.
 

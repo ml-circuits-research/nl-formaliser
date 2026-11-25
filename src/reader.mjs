@@ -9,19 +9,15 @@ export function readerError(text, error, { status = 'error', line } = {}) {
   };
 }
 
-export async function createReader({ knowledgeDir, tab = 'auto', timeout, topK, spellcheck, confidence: useConfidence } = {}) {
-  const formaliser = await createFormaliser({ knowledgeDir, spellcheck });
-  if (tab !== 'auto' && !Object.hasOwn(formaliser.kb.tabs, tab)) {
-    await formaliser.close();
-    throw new Error(`Unknown tab: ${tab}`);
-  }
+export async function createReader({ knowledgeDir, timeout, topK, spellcheck, confidence: useConfidence } = {}) {
+  const formaliser = await createFormaliser({ knowledgeDir, spellcheck, includeLegacy: false });
 
   async function read(text) {
     if (typeof text !== 'string' || !text.trim()) {
       return readerError(text, 'Expected a nonempty text string.', { status: 'invalid-input' });
     }
     try {
-      const result = await formaliser.formalise(text, { tab, timeout, topK, spellcheck, confidence: useConfidence });
+      const result = await formaliser.formaliseCurrentText(text, { timeout, topK, spellcheck, confidence: useConfidence });
       const unresolved = [...(result.unresolved ?? [])];
       const candidates = (result.proposals ?? []).map((proposal, candidate) => {
         const { ok, errors, warnings, uncoveredWords, wires } = formaliser.verifier.check(text, proposal.sop);

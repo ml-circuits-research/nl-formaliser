@@ -609,7 +609,7 @@ export function extractVocabFromKb(kb, { tab } = {}) {
   }
 
   // 3. Tab keys, keyWords, closed values, and familyWords.
-  const tabList = tab && kb.tabs?.[tab] ? [kb.tabs[tab]] : Object.values(kb.tabs ?? {});
+  const tabList = tab && kb.tabs?.[tab] ? [kb.tabs[tab]] : (kb.catalog ? [kb.catalog] : Object.values(kb.tabs ?? {}));
   for (const t of tabList) {
     if (!t) continue;
     addMapOrSetKeys(t.keyWordIndex, words, { inflectPlural: true, targetPhrases: phrases });

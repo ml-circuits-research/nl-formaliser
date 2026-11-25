@@ -365,7 +365,7 @@ function relativeTimeOperand(keys, tokens, start, end, kb, candidates) {
  * Match declared frames within hard punctuation boundaries. Candidate clause
  * separators also license local windows when they precede a predicate.
  */
-export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], predicates = [], candidates = [] }) {
+export function matchFrames(tokens, text, { kb, tabSpec, splitPoints = [], predicates = [], candidates = [] }) {
   if (!tokens?.length || !kb?.grammar?.frames) return [];
   const compiled = getCompiledFrames(kb);
   if (compiled.length === 0) return [];
@@ -722,7 +722,7 @@ export function pairResultativeFrames(matches) {
  * Enrich lattice candidates with grounded argument-structure hypotheses from matched `w.lang.en.frame` instances
  * and attach explicit candidate-ID bindings so `src/smt/encode.mjs` can encode Z3 frame-attachment laws!
  */
-export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb, tabSpec, candidates, emit, emitConstraint, parseNumeric }) {
+export function applyFrameMatchesToLattice(frameMatches, { tokens, text, kb, tabSpec, candidates, emit, emitConstraint, parseNumeric }) {
   if (!frameMatches?.length) return [];
 
   const tabKeys = tabSpec?.keys ?? new Map();
@@ -742,6 +742,10 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const attrSpan = fm.roles.get('attribute');
     const thingSpan = fm.roles.get('thing');
     const valSpan = fm.roles.get('value');
+    // An open noun phrase cannot end in an article, as in the spurious
+    // owner "add a" in a creation directive with a named object.
+    if (thingSpan && thingSpan.startTok < thingSpan.endTok &&
+        kb.grammar.determiners?.get(tokens[thingSpan.endTok].lower)?.kind === 'article') continue;
     let resultSpan = valSpan;
     let additionalProperties = [];
     let unresolvedDuration = null;
@@ -894,7 +898,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     }
 
     // 3. Diagram kind + topic + criterion (`diagram-frames.sop`: "Make a flowchart of making tea", "Draw the planets on a timeline")
-    if (tab === 'diagram' && topicSpan && thingSpan?.lexicon?.startsWith('diagram.kind')) {
+    if (tabKeys.has('diagram.kind') && topicSpan && thingSpan?.lexicon?.startsWith('diagram.kind')) {
       for (const wa of fm.wordAnchors) {
         if (['on', 'in', 'onto', 'into', 'as'].includes(wa.text)) {
           for (let t = wa.startTok; t <= thingSpan.endTok; t++) blockedSpatialToks.add(t);
@@ -911,7 +915,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     }
 
     // 4. Edge-label frames (`acts.change.label.edge.ends`: "Label the arrow from A to B no", `acts.change.label.edge`: "Call the arrow yes")
-    if (tab === 'diagram' && fm.fixed.get('attribute') === 'label' && valSpan && tabKeys.has('link.label')) {
+    if (fm.fixed.get('attribute') === 'label' && valSpan && tabKeys.has('link.label')) {
       emitConstraint('link.label', valSpan.text, valSpan.startTok, valSpan.endTok, {
         phase: 'result',
         allowOpen: true,

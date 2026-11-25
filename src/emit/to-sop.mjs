@@ -239,7 +239,7 @@ export function modelToSop(model, lattice, meta) {
 
     if (hasLookup) {
       const reference = tRef?.isPronoun && scopeText.includes(tRef.text) ? tRef.text : null;
-      const fromWhere = previous || tfill === 'journal_step' ? 'previous' : (reference ? 'any' : 'page');
+      const fromWhere = lattice.catalog ? 'any' : previous || tfill === 'journal_step' ? 'previous' : (reference ? 'any' : 'page');
       emitThingLookup('target', `${rId}.t`, fromWhere, reference);
     }
 

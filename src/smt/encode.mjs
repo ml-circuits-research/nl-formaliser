@@ -64,7 +64,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const prohibitions = lattice.prohibitions ?? [];
   const prohibited = (span) => overlapsProhibition(span, prohibitions);
   const coordinatedChanges = (lattice.coordinatedChanges ?? []).filter((parts) => !parts.some(prohibited));
-  const tabSpec = kb.tabs[tab];
+  const tabSpec = lattice.catalog ?? kb.tabs[tab];
   if (!tabSpec) throw new Error(`Unknown tab: ${tab}`);
 
   // Skip GRAMMAR and general multi-token UNREAD candidates from Z3 variables:
@@ -82,7 +82,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const F = tabSpec.families.length;
   const K = tabSpec.keyList.length;
   const famToId = new Map(tabSpec.families.map((f, i) => [f, i]));
-  const defaultFamId = famToId.get(DEFAULT_TAB_FAMILY[tab] ?? tabSpec.defaultFamily) ?? 0;
+  const defaultFamId = lattice.catalog ? null : famToId.get(DEFAULT_TAB_FAMILY[tab] ?? tabSpec.defaultFamily) ?? 0;
 
   // Identify clause separators and verb positions to compute tight upper bound R.
   const sepToks = new Set();
@@ -126,7 +126,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const elided = new Map(); // c.id -> { phase?, want?, kw? }
   const emit = (s) => lines.push(s);
 
-  emit(`; Problem: tab=${tab} T=${T} M=${M} R=${R}`);
+  emit(`; Problem: T=${T} M=${M} R=${R}`);
 
   // Collect candidates by kind and build token cover index
   const byKind = Object.fromEntries(Object.values(HYP_KINDS).map((k) => [k, []]));
@@ -735,6 +735,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const placeConstraints = [];
   const attrOnlyConstraints = [];
   const partOwners = new Map();
+  const predicateRoles = new Map();
   const makePredicates = preds.filter((p) => p.declaredMake);
 
   for (const c of constraints) {
@@ -759,6 +760,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
 
     for (let r = 1; r <= R; r++) {
+      if (lattice.catalog && c.predicateRole != null && cFamId !== undefined) {
+        const bindings = predicateRoles.get(c.predicateRole) ?? [];
+        bindings.push(`(and sel_${c.id} (= own_${c.id} ${r}) (= ppos_${r} ${c.predicateRole}) (= fam_${r} ${cFamId}) (= ${phExpr} PH_RESULT))`);
+        predicateRoles.set(c.predicateRole, bindings);
+      }
       if (compatFids.length > 0 && compatFids.length < F) {
         emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) ${smtOr(compatFids.map((id) => `(= fam_${r} ${id})`))}))`);
       }
@@ -807,6 +813,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   for (const readings of partOwners.values()) {
     emit(`(assert-soft ${smtOr(readings)} :weight ${W.partOwner})`);
+  }
+  for (const [startTok, readings] of predicateRoles) {
+    const writtenPredicate = smtOr(Array.from({ length: R }, (_, i) => `(= ppos_${i + 1} ${startTok})`));
+    emit(`(assert (=> ${writtenPredicate} ${smtOr(readings)}))`);
+    emit(`(assert-soft ${smtOr(readings)} :weight ${W.predicateRole})`);
   }
 
   // Act–Constraint Alignment in Z3 (resolves ambiguous verbs like "set"/"put" AND verbless fragments like "stove, please" / "room for 6 called Birch"!)
@@ -1017,7 +1028,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     emit(`(assert-soft (=> active_${r} (= amode_${r} MODE_NONE)) :weight ${W.preferModeNone})`);
     emit(`(assert-soft (=> active_${r} (>= ppos_${r} 0)) :weight ${W.preferPredicate})`);
     emit(`(assert-soft (=> (and active_${r} (>= ppos_${r} 0)) (= ppos_${r} rstart_${r})) :weight ${W.preferClauseStartPred})`);
-    emit(`(assert-soft (=> active_${r} (= fam_${r} ${defaultFamId})) :weight ${W.defaultFamilyTieBreak})`);
+    if (defaultFamId !== null) emit(`(assert-soft (=> active_${r} (= fam_${r} ${defaultFamId})) :weight ${W.defaultFamilyTieBreak})`);
     if (!hasQuestionMark) {
       emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight ${W.moodDoNoQ})`);
     } else {

@@ -186,7 +186,7 @@ function expandKeyWords(shortName, means, meansToWords) {
  * read every `w.*\/shards/words.sop`, and build `tabs` + automatic `means -> (tab, family)`
  * mappings directly from `w.request/shards/keys.sop` (zero hardcoded world/tab lists!).
  */
-function buildTabs(parse, worldsDir, grammar, keyWires) {
+function buildCatalogs(parse, worldsDir, grammar, keyWires, includeLegacy) {
   const meansToWords = new Map();
   const slotValueWords = new Map();
   const discoveredWorlds = [];
@@ -217,15 +217,14 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
   }
 
   const rawByTab = {};
-  for (const w of keyWires) {
+  for (const w of includeLegacy ? keyWires : []) {
     const tab = one(w, 'tab');
     if (!tab) continue;
     if (!rawByTab[tab]) rawByTab[tab] = [];
     rawByTab[tab].push(w);
   }
 
-  const tabs = {};
-  for (const tab of Object.keys(rawByTab)) {
+  function buildCatalog(wires, tab) {
     const keys = new Map();
     const keyList = [];
     const attrToId = new Map();
@@ -248,7 +247,7 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
       votes.set(fam, (votes.get(fam) ?? 0) + 1);
     };
 
-    for (const w of rawByTab[tab]) {
+    for (const w of wires) {
       const name = one(w, 'name');
       const family = one(w, 'family');
       const head = one(w, 'head') ?? '';
@@ -257,7 +256,8 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
       const valuesRaw = many(w, 'value');
       const values = valuesRaw.length ? new Set(valuesRaw.map((v) => v.toLowerCase())) : null;
       const shortName = name.includes('.') ? name.split('.').slice(1).join('.') : name;
-      const id = keyList.length;
+      const existing = keys.get(name);
+      const id = existing?.id ?? keyList.length;
 
       if (means) {
         const segs = means.split('.');
@@ -343,7 +343,6 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
 
       const spec = {
         id,
-        tab,
         family,
         name,
         shortName,
@@ -357,13 +356,22 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
         onDefault: defaultOnFor(name),
       };
 
-      keys.set(name, spec);
-      keyList.push(spec);
-      attrToId.set(name, id);
-      familySet.add(family);
-
-      if (!keysByFamily.has(family)) keysByFamily.set(family, []);
-      keysByFamily.get(family).push(spec);
+      if (existing) {
+        if (existing.family !== family) throw new Error(`Ambiguous semantic owner for request key ${name}`);
+        // Lexical lookup by wire label. The native declarations remain separate.
+        existing.head = existing.head === head ? head : 'span';
+        existing.means = existing.means === means ? means : '';
+        existing.values = existing.values && values ? new Set([...existing.values, ...values]) : null;
+        for (const kw of keyWords) existing.keyWords.add(kw);
+        for (const kw of literalKeyWords) existing.literalKeyWords.add(kw);
+      } else {
+        keys.set(name, spec);
+        keyList.push(spec);
+        attrToId.set(name, id);
+        familySet.add(family);
+        if (!keysByFamily.has(family)) keysByFamily.set(family, []);
+        keysByFamily.get(family).push(spec);
+      }
 
       for (const kw of keyWords) addToSetMap(keyWordIndex, kw, name);
 
@@ -500,7 +508,7 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
         targetFam = 'section';
       } else if (typeSeg === 'paragraph' && familySet.has('block') && worldSeg === 'document') {
         targetFam = 'block';
-      } else if ((worldSeg === 'face' || worldSeg === 'person') && !typeSeg && familySet.has('drawn') && tab === 'drawing') {
+      } else if ((worldSeg === 'face' || worldSeg === 'person') && !typeSeg && familySet.has('drawn')) {
         targetFam = 'drawn';
       }
       if (targetFam) {
@@ -540,7 +548,7 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
       }
     }
 
-    tabs[tab] = {
+    return {
       families,
       familySet,
       defaultFamily,
@@ -555,7 +563,9 @@ function buildTabs(parse, worldsDir, grammar, keyWires) {
     };
   }
 
-  return { tabs, discoveredWorlds, meansToWords };
+  const catalog = buildCatalog(keyWires);
+  const tabs = Object.fromEntries(Object.entries(rawByTab).map(([tab, wires]) => [tab, buildCatalog(wires, tab)]));
+  return { tabs, catalog, discoveredWorlds, meansToWords };
 }
 
 /**
@@ -1240,7 +1250,7 @@ function loadSimpleNameMap(parse, filePaths, wireType, map) {
  * Dynamically load ALL lightweight `k.*` semantic domain worlds (scanning shard directories dynamically
  * instead of hardcoding shard filenames) plus `vocab-kinds.json` for fast access to massive catalogs.
  */
-function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
+function loadDomain(parse, worldsDir, vocabKinds, grammar, catalog) {
   const colours = new Map();
   const shades = new Set();
   const shapes = new Map();
@@ -1486,7 +1496,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       }
     }
   }
-  const chartTypeKey = tabs.diagram?.keys.get('chart.type');
+  const chartTypeKey = catalog.keys.get('chart.type');
   if (chartTypeKey?.valuesRaw) {
     for (const v of chartTypeKey.valuesRaw) {
       charts.set(v.toLowerCase(), v);
@@ -1513,7 +1523,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       }
     }
   }
-  const genreKey = tabs.document?.keys.get('text.genre');
+  const genreKey = catalog.keys.get('text.genre');
   if (genreKey?.valuesRaw) {
     for (const v of genreKey.valuesRaw) {
       if (!genres.has(v.toLowerCase())) genres.set(v.toLowerCase(), v);
@@ -1668,7 +1678,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
  * @param {string} [options.knowledgeDir]
  * @returns {Promise<object>}
  */
-export async function loadKnowledge({ knowledgeDir } = {}) {
+export async function loadKnowledge({ knowledgeDir, includeLegacy = true } = {}) {
   const t0 = performance.now();
   const kDir = resolve(
     knowledgeDir ?? process.env.SOP_KNOWLEDGE ?? resolve(HERE, '..', '..', '..', 'sop-knowledge-worlds'),
@@ -1685,9 +1695,9 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
   // Order: grammar first (gives lexicons/frames/prepositions to tabs & actions!), then tabs, actions, domain!
   const grammar = loadGrammar(parse, worldsDir);
   const keyWires = readRequestKeyWires(parse, worldsDir);
-  const { tabs, discoveredWorlds, meansToWords } = buildTabs(parse, worldsDir, grammar, keyWires);
+  const { tabs, catalog, discoveredWorlds, meansToWords } = buildCatalogs(parse, worldsDir, grammar, keyWires, includeLegacy);
   const { acts, actRoles, verbs, markings, markingsByActMarker, actionSpecs } = loadActions(parse, worldsDir, grammar);
-  const domain = loadDomain(parse, worldsDir, vocabKinds, grammar, tabs);
+  const domain = loadDomain(parse, worldsDir, vocabKinds, grammar, catalog);
 
   const normalizeToken = (word) => String(word ?? '').toLowerCase().replace(/\u2019/g, "'");
   const totalKeys = Object.values(tabs).reduce((sum, t) => sum + t.keyList.length, 0);
@@ -1695,7 +1705,8 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
   return {
     knowledgeDir: kDir,
     sopworldPath,
-    tabs,
+    ...(includeLegacy ? { tabs } : {}),
+    catalog,
     requestKeys: indexRequestKeyDeclarations(keyWires),
     acts,
     actRoles,
@@ -1712,8 +1723,8 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
       framesCount: grammar.frames.size,
       lexiconsCount: grammar.lexicons.size,
       markingsCount: [...markings.values()].reduce((s, arr) => s + arr.length, 0),
-      tabsCount: Object.keys(tabs).length,
-      totalKeys,
+      ...(includeLegacy ? { tabsCount: Object.keys(tabs).length } : {}),
+      totalKeys: includeLegacy ? totalKeys : catalog.keys.size,
       loadMs: performance.now() - t0,
     },
     isGrammarWord(word) {

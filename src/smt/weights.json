@@ -47,6 +47,7 @@
   "pronounAfterVerbReward": 24,
   "referenceLandmark": 38,
   "partOwner": 48,
+  "predicateRole": 45,
   "connectLinkNew": 14,
   "relAnchorReward": 16,
   "declaredRelationValue": 6,
