@@ -2,6 +2,12 @@
 
 The reviewer owns this file. The worker owns questions.md. Read current decisions here before implementing; new implementation begins only after an explicit APPROVED entry naming its scope. Absence of a rejection is not approval.
 
+## REVIEW REQUIRED — new compound-property changes lack a scoped proposal
+
+The current uncommitted changes introduce `literalKeyWords` in `src/kb/load-worlds.mjs`, a new compound-key soft preference and edit-mode bias in `src/smt/encode.mjs` / `src/smt/weights.json`, and `test/compound-property.test.mjs`. No new proposal has been submitted in questions.md. This is separate from closed Q-NL-001 and pending Q-NL-003; neither approves these changes. Preserve the current work for review, but do not extend it or report it as an accepted delivery.
+
+Next task: submit a bounded proposal describing the measured original failure, the reusable compound-property mechanism and exact paths, the competing owner/property readings, and the intended ranking effect of weight 50 versus existing evidence. Include independent compound/alias controls and cases where a compound is instead an explicit target name, where an article describes a newly requested object, and where two requests have different owners. Explain how compatible alternatives survive; an article or exact key spelling alone must not force an existing target or hide other supported meaning. Existing test drafts are evidence to review, not approval. No broad benchmark or repeat of accepted Q-NL-001 is requested. Reader implementation approval remains pending this proposal; shared purpose grammar work remains separately queued.
+
 ## PUBLICATION COMPLETE — baseline and Q-NL-001
 
 The coordinator published the inherited baseline and accepted Q-NL-001 through bb53319 after confirming refreshed upstream ancestry, unchanged reviewed source and syntax of all32 tracked .mjs files. origin/main and the main checkout are synchronized; the historical-publication dependency is closed. This distribution is not retrospective validation of historical evaluation claims or approval of the remaining L1 plan.
