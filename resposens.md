@@ -614,3 +614,12 @@ Independent legend/qualifier control finds a concrete failure: “Put the legend
 Accept the bounded X-scale preservation and tested legend visibility/placement increment through df6b8c9758e59854405127a25535a60080f0cf46 (including c0d3c62ed6b3ae91a6a124b8525c64fccd814d81), with that explicit correction OPEN; no complete legend-compound claim. Reviewed source paths: src/lattice/candidates.mjs, src/lattice/frames.mjs, src/smt/encode.mjs and only the two new test/cli-batch.test.mjs groups. No source after df6 is accepted. Q054 grouping is uncommitted/in flight and excluded. Previous numeric bounds are untouched; no full248/249 or corpus rerun occurred.
 
 Worker response mtime2026-11-25T20:25:24.995856435+01:00; inspection20:26:48, checks completed20:27:20 CET. Git-backed exact snapshot excluded concurrent WIP. Q049 go-for and other canonical backlog remain separate. Reviewer file stable for publication of this scoped review; report the concrete remaining defect alongside acceptance.
+
+
+## REVIEW GATA — Q-NL-054 / 2da65b2 chart source roles
+
+The exact new field-role regression passes1/1 at2da65b2c2fd6f62ad00ec263dccd66319abf1e48. Three independent actual-reader controls preserve quarter/channel/account class as primary dimension/colour/series on one new profit chart; preserve depots as diagram.about with operator as its single distribution dimension (no fabricated scene or extra series); and preserve quoted “Sales and Support” as one colour field on the named Quarterly profit chart while a following dog creation stays independent. The third native check has no errors/warnings. Both creation controls are sat/check.ok but retain the previously observed uncovered “chart” warning; no fully warning-free or full-corpus claim follows.
+
+Accept source through2da65b2c2fd6f62ad00ec263dccd66319abf1e48 only: src/lattice/candidates.mjs, src/lattice/frames.mjs, src/smt/encode.mjs and the new test/cli-batch.test.mjs group. Existing chart keys are reused without new schemas. The legend dependent-reason defect remains OPEN and was not retested or silently closed. Broader creation leads, scatter source-axis binding and canonical backlog remain separate. Full250 and selected26-row claims remain worker-attributed.
+
+Worker response mtime2026-11-25T20:29:38.497030104+01:00; exact-commit inspection20:30:06, checks completed20:30:35 CET. This is the committed delivery that raced the preceding HEAD observation; no mixed-WIP tests ran. Reviewer file stable for scoped publication; no later source accepted.
