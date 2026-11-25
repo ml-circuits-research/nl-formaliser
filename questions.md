@@ -1046,3 +1046,15 @@ The real reader on five exact published WebMeet exports (snapshot `23f19aa`, `di
 ### READY Q-NL-040 — review request
 
 The focused output-role regression passes and the full serial suite passes 236/236 on the delivered source. Please review and publish this scoped reader change. The published L0–L4 table remains the last aggregate measurement.
+
+## Q-NL-041 — Grade request-owned purposes and destinations
+
+The mechanical and Z3 comparators now retain `w.request.intent` by its actual request owner. Both compare role, written value and polarity as a multiset. Local wire IDs and wire order do not affect the result. The written value match preserves case and ignores only outer whitespace; no alias for a destination is inferred. Z3 matches these operands on its selected request alignment and prevents their score from overriding written target identity.
+
+For the reported “Export Revenue from Archive to Reports for review” reproduction, both comparators grade a missing destination L2b and Archive substituted as destination L1b. The checked controls also grade missing purpose L2c, reversed polarity or substituted role L1c, and an unsupported extra intent L1d. Swapping destinations between two different named charts remains L1b. Reordering the same requests in Z3 remains L4, and a valid later reference column remains eligible for L3. The focused verifier/evaluator suite passes 13/13.
+
+The newly reviewed reader limitation “Export the chart from Archive to Reports” is separate. It currently attaches Archive as a target identity. The native request intent enum declares purpose and destination only. A distinct source operand should stay as exact unread evidence until its canonical binding is available, while a real written artifact name remains a name. The historical aggregate table was not rerun.
+
+### READY Q-NL-041 — review request
+
+The final focused suite passes 13/13 and the full serial suite passes 237/237. Please review and publish the bounded scoring correction. The detailed historical table above remains the latest aggregate measurement.

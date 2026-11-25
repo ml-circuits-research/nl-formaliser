@@ -416,3 +416,63 @@ test('mechanical and Z3 proposal grades accept a numbered reference and report a
     evaluator.runner.close();
   }
 });
+
+test('comparators grade the value, polarity, role and owner of native request intents', async () => {
+  const evaluator = await createZ3SemanticEvaluator({ kb: await loadKnowledge({ includeLegacy: false }), verifier });
+  const artifact = (request, name, verb = 'Export') => [
+    `@${request} w.request.request act=save mood=do predicate=${verb}`,
+    `@${request}.t w.request.target request=$${request} family=chart mode=existing determiner=definite fill=written name=${name}`,
+  ].join('\n');
+  const intent = (request, role, value, words, polarity = '') =>
+    `@${request}.${role}.${value} w.request.intent request=$${request} role=${role} value=${value} words="${words}"${polarity}`;
+  const text = 'Export Revenue from Archive to Reports for review';
+  const body = artifact('r1', 'Revenue');
+  const destination = intent('r1', 'destination', 'Reports', 'to Reports');
+  const purpose = intent('r1', 'purpose', 'review', 'for review');
+  const goldSop = [body, destination, purpose].join('\n');
+  const variants = [
+    [goldSop, 'L3'],
+    [[body, purpose, destination].join('\n'), 'L4'],
+    [[body, purpose].join('\n'), 'L2b'],
+    [[body, destination].join('\n'), 'L2c'],
+    [[body, intent('r1', 'destination', 'Archive', 'from Archive'), purpose].join('\n'), 'L1b'],
+    [[body, destination + ' want=no', purpose].join('\n'), 'L1c'],
+    [[body, destination, intent('r1', 'destination', 'review', 'for review')].join('\n'), 'L1c'],
+  ];
+  try {
+    for (const compare of [compareProposals, evaluator.evaluateProposalsZ3]) {
+      for (const [sop, expected] of variants) {
+        const result = await compare({ text, goldSop, proposals: [sop], verifier });
+        assert.equal(result.predValid, true, JSON.stringify(result.predCheck.errors));
+        assert.equal(result.legendGrade, expected, sop);
+        if (expected !== 'L3' && expected !== 'L4') assert.ok(result.predErrorReasons.includes('diff:intent'));
+      }
+      const extra = await compare({ text, goldSop: [body, destination].join('\n'), proposals: [goldSop], verifier });
+      assert.equal(extra.legendGrade, 'L1d');
+
+      const pairText = 'Export Revenue to Reports and save Costs to Archive';
+      const second = artifact('r2', 'Costs', 'save');
+      const archive = intent('r2', 'destination', 'Archive', 'to Archive');
+      const pairGold = [body, destination, second, archive].join('\n');
+      const swapped = [body, intent('r1', 'destination', 'Archive', 'to Archive'), second,
+        intent('r2', 'destination', 'Reports', 'to Reports')].join('\n');
+      const wrongOwner = await compare({ text: pairText, goldSop: pairGold, proposals: [swapped], verifier });
+      assert.equal(wrongOwner.legendGrade, 'L1b');
+      if (compare === evaluator.evaluateProposalsZ3) {
+        const reordered = await compare({
+          text: pairText, goldSop: pairGold, proposals: [[second, archive, body, destination].join('\n')],
+        });
+        assert.equal(reordered.legendGrade, 'L4');
+      }
+
+      const alternate = await compare({ text, goldReferences: [
+        { column: 'sop', sop: variants[4][0] },
+        { column: 'sop1', sop: goldSop },
+      ], proposals: [goldSop], verifier });
+      assert.equal(alternate.legendGrade, 'L3');
+      assert.equal(alternate.bestReferenceColumn, 'sop1');
+    }
+  } finally {
+    evaluator.runner.close();
+  }
+});

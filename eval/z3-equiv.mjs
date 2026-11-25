@@ -6,7 +6,7 @@
 import { KEY_ALIASES, unquoteSop } from '../src/contracts.mjs';
 import { createZ3Runner } from '../src/smt/z3-runner.mjs';
 import { lemmatiseWord, singulariseNoun } from '../src/lattice/morph.mjs';
-import { compareCircuits, selectReferenceComparison } from './compare.mjs';
+import { compareCircuits, compareRequestIntents, selectReferenceComparison } from './compare.mjs';
 
 const LEGEND_GRADE_RANK = {
   L3: 9,
@@ -540,6 +540,7 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
     const intentCompat = Array.from({ length: G }, () => new Array(P));
     const targetCompat = Array.from({ length: G }, () => new Array(P));
     const consCompatCounts = Array.from({ length: G }, () => new Array(P));
+    const requestIntents = Array.from({ length: G }, () => new Array(P));
 
     for (let g = 0; g < G; g++) {
       for (let p = 0; p < P; p++) {
@@ -635,6 +636,8 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
           unmatchedRealP++;
         }
 
+        const roleDiff = compareRequestIntents(gReqs[g], pReqs[p]);
+        requestIntents[g][p] = roleDiff;
         consCompatCounts[g][p] = {
           totalG: realGC.length,
           matchedG,
@@ -651,6 +654,12 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
         pairScore += matchedG * 12;
         pairScore -= (realGC.length - matchedG) * 6;
         if (!base.goldAnnotationFlawed) pairScore -= unmatchedRealP * 5;
+        // Request operands can break an alignment tie, but cannot make a
+        // different written artifact a better match than the correct owner.
+        if (tc.idCompat) {
+          const roleScore = roleDiff.tp * 12 - roleDiff.fn * 6 - roleDiff.fp * 5;
+          pairScore += Math.max(-10, Math.min(10, roleScore));
+        }
 
         if (pairScore > 0) {
           emit(`(assert-soft (= map_${g} ${p}) :weight ${pairScore})`);
@@ -698,20 +707,21 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
       const ic = intentCompat[g][p];
       const tc = targetCompat[g][p];
       const cc = consCompatCounts[g][p];
+      const roles = requestIntents[g][p];
 
       if (!ic.defensible) {
         hasL1a = true;
-      } else if (!tc.famCompat) {
+      } else if (!tc.famCompat || roles.wrongDestination) {
         hasL1b = true;
-      } else if (cc.unmatchedG > 0 && cc.unmatchedRealP > 0) {
+      } else if ((cc.unmatchedG > 0 && cc.unmatchedRealP > 0) || (roles.fn > 0 && roles.fp > 0)) {
         // Both missing a Gold constraint AND emitting a different constraint -> wrong detail/role (L1c)
         hasL1c = true;
-      } else if (cc.unmatchedRealP > 0 && !goldHasCoverageDefect) {
+      } else if ((cc.unmatchedRealP > 0 && !goldHasCoverageDefect) || roles.fp > 0) {
         // Extra constraint where clean Gold had none -> L1d
         hasL1d = true;
-      } else if (!tc.idCompat) {
+      } else if (!tc.idCompat || roles.missingDestination) {
         hasL2b = true;
-      } else if (cc.unmatchedG > 0) {
+      } else if (cc.unmatchedG > 0 || roles.fn > 0) {
         hasL2c = true;
       }
     }
