@@ -165,15 +165,20 @@ function modalHaveLeads(grammar, persons = ['1']) {
   return [...modals].flatMap((modal) => allowedSubjects.map((subject) => [modal, subject]));
 }
 
-export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) {
+export function chartFieldAxisForms(kb) {
   const keys = kb.catalog?.keys;
-  const axisForms = ['x', 'y'].flatMap((axis) => {
+  return ['x', 'y'].flatMap((axis) => {
     if (!keys?.has(`chart.${axis}Field`)) return [];
     const words = [...(keys.get(`chart.${axis}Label`)?.keyWords ?? [])].filter((word) =>
       /^(?:[xy][ -]axis|horizontal axis|vertical axis)$/.test(word));
     return words.flatMap((word) => [word.split(' '), [word.replace(' ', '-')]])
       .map((words) => ({ attribute: `chart.${axis}Field`, words }));
   });
+}
+
+export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) {
+  const keys = kb.catalog?.keys;
+  const axisForms = chartFieldAxisForms(kb);
   if (!axisForms.some(({ words }) => tokens.some(({ lower }) => lower === words[0]))) return [];
 
   const modalLeads = modalHaveLeads(kb.grammar);

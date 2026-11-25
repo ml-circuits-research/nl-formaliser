@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { chartFieldEnd, chartFieldRole, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { chartFieldAxisForms, chartFieldEnd, chartFieldRole, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -950,6 +950,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       chartCreationPredicate: extra.chartCreationPredicate ?? null,
       chartCreationScope: extra.chartCreationScope ?? null,
       chartAxisPair: extra.chartAxisPair ?? null,
+      chartAxisOrder: extra.chartAxisOrder ?? 0,
       predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -3750,7 +3751,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
     c.licensed?.some((licence) => licence.act === 'make'));
   const legendKey = tabKeys.get('chart.legend');
-  if (catalog && tokens.some(({ lower }) => ['with', 'without', 'legend', 'by', 'against'].includes(lower))) {
+  if (catalog && tokens.some(({ lower }) => ['with', 'without', 'legend', 'by', 'against', 'versus', 'vs'].includes(lower))) {
     const chartHeads = rawCandidates.filter((head) =>
       [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
       head.family === 'chart' && ['indefinite', 'none'].includes(head.det) &&
@@ -3771,6 +3772,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         phase: 'result', requiresKeyWord: field.cueStart !== undefined, chartCreationPredicate: predicate.startTok,
         chartCreationScope: [predicate.scopeStart ?? predicate.startTok, Math.max(field.endTok, predicate.scopeEnd ?? -1)],
         chartAxisPair: field.chartAxisPair,
+        chartAxisOrder: field.chartAxisOrder,
         words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
       });
     };
@@ -3778,7 +3780,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       ? tokens[startTok].inner : src.slice(tokens[startTok].start, tokens[endTok].end);
     for (let i = 0; i < T; i++) {
       const marker = tokens[i].lower;
-      if (marker === 'against' && tabKeys.has('chart.xField') && tabKeys.has('chart.yField')) {
+      if (tokens[i].kind === 'word' && ['against', 'versus', 'vs'].includes(marker) &&
+          tabKeys.has('chart.xField') && tabKeys.has('chart.yField')) {
         const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
         const limit = boundaries.reduce((next, { startTok }) => startTok > i ? Math.min(next, startTok) : next, T);
         const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < limit &&
@@ -3793,7 +3796,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
           const creation = predicate ? { ...predicate, scopeEnd: owner.endTok } :
             bare ? { startTok: -1, scopeStart: owner.startTok, scopeEnd: owner.endTok } : null;
           const yStart = owner.endTok < i ? owner.endTok + 2 : (predicate?.endTok ?? i) + 1;
-          const plotted = tokens[i - 1]?.kind === 'word' && lemmatiseVerb(tokens[i - 1].lower, kb).includes('plot');
+          const plotted = marker === 'against' && tokens[i - 1]?.kind === 'word' &&
+            lemmatiseVerb(tokens[i - 1].lower, kb).includes('plot');
           const cue = plotted ? i - 1 : i;
           let xEnd = chartFieldEnd(tokens, i + 1, limit, kb);
           for (let j = i + 2; j < xEnd; j++) {
@@ -3807,14 +3811,35 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
             ['as', 'in', 'on'].includes(tokens[ownerMarker]?.lower) && ownerMarker >= xEnd;
           const fields = [tokens.slice(yStart, cue), tokens.slice(i + 1, xEnd)];
           if (creation && ownerLinked && fields.every((span) => span.length > 0 &&
-              (span.length === 1 && span[0].kind === 'quote' || span.every(({ kind }) => kind === 'word')))) {
-            emitField({ attribute: 'chart.yField', value: literalField(yStart, cue - 1),
-              startTok: yStart, endTok: cue - 1, wordsStart: yStart, chartAxisPair: i }, creation);
-            emitField({ attribute: 'chart.xField', value: literalField(i + 1, xEnd - 1),
-              startTok: i + 1, endTok: xEnd - 1, wordsStart: i + 1, cueStart: cue, cueEnd: i,
-              chartAxisPair: i }, creation);
+              (span.length === 1 && span[0].kind === 'quote' || span.every(({ kind, lower }) =>
+                kind === 'word' && !['against', 'versus', 'vs'].includes(lower))))) {
+            let orders = marker === 'against' ? [['chart.yField', 'chart.xField']] :
+              [['chart.yField', 'chart.xField'], ['chart.xField', 'chart.yField']];
             const qualifierStart = xEnd + (tokens[xEnd]?.text === ',' ? 1 : 0);
             const qualifier = tokens[qualifierStart]?.lower;
+            if (orders.length > 1 && qualifier === 'with') {
+              const forms = chartFieldAxisForms(kb);
+              const limitWith = chartFieldEnd(tokens, qualifierStart + 1, limit, kb);
+              for (const [fieldIndex, field] of fields.entries()) {
+                const on = qualifierStart + 1 + field.length;
+                const axisStart = on + (tokens[on + 1]?.lower === 'the' ? 2 : 1);
+                if (tokens[on]?.lower !== 'on' || !field.every((token, offset) => {
+                  const written = tokens[qualifierStart + 1 + offset];
+                  return written?.kind === token.kind && written.lower === token.lower;
+                })) continue;
+                const axis = forms.find(({ words }) => axisStart + words.length === limitWith &&
+                  words.every((word, offset) => tokens[axisStart + offset]?.lower === word));
+                if (!axis) continue;
+                orders = orders.filter((order) => order[fieldIndex] === axis.attribute);
+              }
+            }
+            for (const [chartAxisOrder, [left, right]] of orders.entries()) {
+              emitField({ attribute: left, value: literalField(yStart, cue - 1),
+                startTok: yStart, endTok: cue - 1, wordsStart: yStart, chartAxisPair: i, chartAxisOrder }, creation);
+              emitField({ attribute: right, value: literalField(i + 1, xEnd - 1),
+                startTok: i + 1, endTok: xEnd - 1, wordsStart: i + 1, cueStart: cue, cueEnd: i,
+                chartAxisPair: i, chartAxisOrder }, creation);
+            }
             if (['for', 'just'].includes(qualifier)) {
               const qualifierEnd = chartFieldEnd(tokens, qualifierStart, limit, kb);
               const words = tokens.slice(qualifierStart + 1, qualifierEnd);
@@ -4161,6 +4186,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.chartEditPredicate ?? '',
       c.chartCreationPredicate ?? '',
       c.chartAxisPair ?? '',
+      c.chartAxisOrder ?? 0,
       c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
       c.modalWantHeads ? 1 : 0,

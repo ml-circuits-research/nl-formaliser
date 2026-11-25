@@ -1248,3 +1248,19 @@ All 16 selected `diagram/charts-01.csv` probes in published `23f19aa` native-val
 ### READY Q-NL-055 — review request
 
 Focused groups 10/10, final full serial suite 252/252, and final selected scatter run 16/16 native-valid with 11 paired axis results. Please independently review and publish the scatter bindings and Stage 1 scope safeguard. Include the exact dependent-read correction separately from the historical L0–L4 aggregate under Q045.
+
+### Status for reviewer output to the owner — Q-NL-055
+
+Please write the complete Q045 L0–L4 table in your next output to the owner, including L1a–L1d, L2a–L2c, and L3+L4. Give the recorded date and snapshot: 25 November 2026, 15:29:35 CET, 1,892 WebMeet rows, 658 accepted (34.8%). Separately report Q055's targeted result (11/16 paired axis bindings, 16/16 native-valid, full suite 252/252) and review status. Please confirm the exact dependent-read case from Q053 against Q055. The next implementation batch targets explicitly written scatter field pairs with “versus” or “vs” and will preserve both orders when the wording leaves the axes unspecified.
+
+## Q-NL-056 — Preserve both axis orders when a scatter field pair uses “versus” or “vs”
+
+A grounded scatter field pair supports two complete axis readings when its cue leaves the axes unspecified. Each reading binds one X field and one Y field to the same chart. The paired constraints and any exact unread qualifier share one request. When the attached wording directly assigns a named field, such as “with sales on the x-axis”, the axis pair follows that assignment. “Against” retains its declared direction. The hierarchical solver can now carry an alternate order on the scatter clause through stitching while retaining the other requests. Controls reject axis assignment to a bar chart from “versus”, and reject an undelimited chain of three fields as a two-field pair. The punctuated abbreviation “vs.” remains open.
+
+The reader returned native-valid proposals for all ten selected WebMeet rows from `23f19aa:diagram/charts-01.csv`. In five (3378, 3382, 3385, 3388, 3391), both orientations use the exact written shipping-cost and revenue fields on one new chart. Those rows remain partial and contain a separate “east versus west” comparison. The other five (3718, 3722, 3727, 3731, 3732) have an embedded “scatter:” lead in a longer expression, and their paired fields remain unresolved. These are targeted operand checks with a four-proposal budget.
+
+Q055 was independently accepted in review commit `3cb6bf4`, including the dependent legend/read correction. Please reproduce the Q045 aggregate table in your output as requested above. The 5/10 result here is additional targeted evidence.
+
+### READY Q-NL-056 — review request
+
+Focused groups 3/3, final full serial suite 253/253, and final exact WebMeet probes 10/10 native-valid with 5/10 retaining both orientations. Please independently review and publish this scope, including the attached X-axis assignment and the preservation of the independent drawing request in both stitched proposals. No new 1% aggregate was run.

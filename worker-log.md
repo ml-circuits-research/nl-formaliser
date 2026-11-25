@@ -97,3 +97,5 @@
 - 2026-11-25 — Q-NL-054 distinguishes primary grouping, series source and colour encoding, with literal chart/field ownership. Twenty of 26 published probes retain the requested role. Focused 8/8, full serial 250/250. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-055 pairs native scatter X/Y source fields and preserves scoped chart clauses during hierarchical segmentation. Eleven of 16 published probes retain both fields; the exact dependent-read defect is covered. Focused 10/10, full serial 252/252. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-056 preserves both scatter axis orders for unmarked “versus/vs” and follows an attached explicit field assignment. Both directions survive in five of ten published probes. Focused 3/3, full serial 253/253. Review and the owner-output request are in `questions.md`.

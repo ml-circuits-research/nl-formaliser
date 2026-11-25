@@ -273,12 +273,13 @@ export async function createFormaliser({
     return { score, exclusiveHits };
   }
 
-  async function solveHierarchical(text, lattice, { tab, catalog, previous, clock, timeout, effWeights }) {
+  async function solveHierarchical(text, lattice, { tab, catalog, previous, clock, timeout, effWeights, topK }) {
     if (lattice.nonDirectives.length) return null;
     const segRes = await segmentClausesZ3(lattice, { kb, runner, timeout: Math.min(1500, timeout) });
     if (!segRes.ok || segRes.segments.length <= 1) return null;
 
     const clauseResults = [];
+    const alternateClauses = [];
     let totalObjective = 0;
     let hasObj = false;
     const perClauseTimeout = Math.max(1500, Math.floor(timeout * 0.75));
@@ -299,22 +300,55 @@ export async function createFormaliser({
         totalObjective += subSolved.objectives[0];
         hasObj = true;
       }
-      clauseResults.push({ clauseText: subText, sop: subSop });
+      const clause = { clauseText: subText, sop: subSop };
+      clauseResults.push(clause);
+      if (alternateClauses.length < topK - 1) {
+        const model = subSolved.solutions[0];
+        const choices = subEnc.chartAxisOrderVars.flatMap((orders) =>
+          orders.some((order) => model.get(order) === true)
+            ? orders.filter((order) => model.get(order) === false) : []);
+        if (choices.length) {
+          const subAlternative = await runner.solve(
+            `${subEnc.smtBody}\n(assert (or ${choices.join(' ')}))`, subEnc.queryVars,
+            { timeout: perClauseTimeout },
+          );
+          if (subAlternative.ok) {
+            alternateClauses.push({
+              clause,
+              sop: modelToSop(subAlternative.solutions[0], subLat, subEnc.meta),
+              objective: subAlternative.objectives[0],
+              baseline: subSolved.objectives[0],
+            });
+          }
+        }
+      }
     }
 
     if (clauseResults.length === 0 || !verifier) return null;
-    const stitched = stitchClauseCircuits(clauseResults, {
+    const stitch = (clauses) => stitchClauseCircuits(clauses, {
       fullText: text,
       previous,
       clock,
       parse: verifier.parse,
     });
+    const stitched = stitch(clauseResults);
     const chk = verifier.check(text, stitched);
     if (!chk.ok) return null;
 
+    const alternatives = [];
+    const objectives = hasObj ? [totalObjective] : [];
+    for (const { clause, sop, objective, baseline } of alternateClauses) {
+      const alternative = stitch(clauseResults.map((original) =>
+        original === clause ? { ...original, sop } : original));
+      if (alternative === stitched || !verifier.check(text, alternative).ok) continue;
+      alternatives.push(alternative);
+      objectives.push(hasObj && typeof objective === 'number' && typeof baseline === 'number'
+        ? totalObjective - baseline + objective : null);
+    }
     return {
       sop: stitched,
-      objectives: hasObj ? [totalObjective] : [],
+      alternatives,
+      objectives,
       clauseCount: clauseResults.length,
     };
   }
@@ -570,9 +604,11 @@ export async function createFormaliser({
         clock,
         timeout,
         effWeights,
+        topK: effTopK,
       });
       if (hier) {
         sop = hier.sop;
+        alternatives = hier.alternatives;
         objectives = hier.objectives;
         usedHierarchical = true;
         finalStats.maxR = hier.clauseCount;
@@ -594,9 +630,12 @@ export async function createFormaliser({
       // Graceful timeout recovery on complex inputs: try Stage-1 Z3 segmenter first, then maxRequests=1
       if (!solved.ok && solved.status === 'unknown') {
         if (hierarchical && verifier) {
-          const hier = await solveHierarchical(workingText, lattice, { tab, catalog, previous, clock, timeout, effWeights });
+          const hier = await solveHierarchical(workingText, lattice, {
+            tab, catalog, previous, clock, timeout, effWeights, topK: effTopK,
+          });
           if (hier) {
             sop = hier.sop;
+            alternatives = hier.alternatives;
             objectives = hier.objectives;
             usedHierarchical = true;
             finalStats.maxR = hier.clauseCount;

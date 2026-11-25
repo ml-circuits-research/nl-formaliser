@@ -1001,3 +1001,54 @@ test('hierarchical segmentation retains a dependent read clause on its chart edi
     await reader.close();
   }
 });
+
+test('scatter versus preserves both paired axis readings and independent requests', async () => {
+  const reader = await createReader({ topK: 4 });
+  try {
+    for (const { text, left, right, sibling, qualifier } of [
+      { text: 'Build a scatter plot of shipping cost versus revenue, east versus west, the two regions',
+        left: '"shipping cost"', right: 'revenue' },
+      { text: 'Make a scatter plot of profit vs sales for the north region only',
+        left: 'profit', right: 'sales', qualifier: 'for the north region only' },
+      { text: 'Create a scatter plot of "Profit and Margin" vs "Net sales"; then draw a dog',
+        left: '"Profit and Margin"', right: '"Net sales"', sibling: 'dog' },
+    ]) {
+      const { candidates } = await reader.propose(text);
+      const orientations = new Set();
+      for (const { check, sop } of candidates) {
+        assert.ok(check.ok, sop);
+        const axes = [...sop.matchAll(/@r1\.c\d+ [^\n]+attribute=chart\.([xy])Field value=("[^"]+"|\S+)/g)];
+        if (axes.length === 0) continue;
+        assert.equal(axes.length, 2, sop);
+        const fields = Object.fromEntries(axes.map(([, axis, value]) => [axis, value]));
+        assert.deepEqual([fields.x, fields.y].sort(), [left, right].sort(), sop);
+        orientations.add(fields.x);
+        if (sibling) assert.match(sop, /@r2\.t .*sort=dog/);
+        if (qualifier) assert.ok(sop.includes(`request=$r1 text="${qualifier}" note="scatter qualifier"`), sop);
+      }
+      assert.deepEqual(orientations, new Set([left, right]), text);
+    }
+
+    const explicit = (await reader.propose('Create a scatter plot of sales versus profit, with sales on the x-axis')).candidates;
+    assert.match(explicit[0].sop, /chart\.xField value=sales/);
+    assert.match(explicit[0].sop, /chart\.yField value=profit/);
+    for (const { sop, check } of explicit) {
+      assert.ok(check.ok, sop);
+      assert.doesNotMatch(sop, /chart\.xField value=profit|chart\.yField value=sales/);
+    }
+
+    for (const text of [
+      'Create a bar chart of profit versus sales',
+      'Create a scatter plot of profit versus sales versus costs',
+    ]) {
+      const { candidates } = await reader.propose(text);
+      assert.ok(candidates.length > 0, text);
+      for (const { sop, check } of candidates) {
+        assert.ok(check.ok, sop);
+        assert.doesNotMatch(sop, /attribute=chart\.[xy]Field/);
+      }
+    }
+  } finally {
+    await reader.close();
+  }
+});

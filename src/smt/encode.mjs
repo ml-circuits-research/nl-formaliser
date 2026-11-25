@@ -124,6 +124,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const queryVars = [];
   const blockVars = [];
   const semanticBlockVars = [];
+  const chartAxisOrderVars = [];
   const elided = new Map(); // c.id -> { phase?, want?, kw? }
   const emit = (s) => lines.push(s);
 
@@ -964,15 +965,35 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
   for (const pair of chartAxisPairs.values()) {
     const axes = pair.filter(({ kind }) => kind === HYP_KINDS.CONSTRAINT);
-    if (axes.length !== 2) {
-      for (const candidate of pair) emit(`(assert (not sel_${candidate.id}))`);
-      continue;
+    const orders = new Map();
+    for (const axis of axes) {
+      const order = orders.get(axis.chartAxisOrder) ?? [];
+      order.push(axis);
+      orders.set(axis.chartAxisOrder, order);
     }
-    const [left] = axes;
-    for (const operand of pair) {
-      if (operand === left) continue;
-      emit(`(assert (= sel_${left.id} sel_${operand.id}))`);
-      emit(`(assert (=> sel_${left.id} (= own_${left.id} own_${operand.id})))`);
+    const leaders = [];
+    for (const order of orders.values()) {
+      if (order.length !== 2) {
+        for (const axis of order) emit(`(assert (not sel_${axis.id}))`);
+        continue;
+      }
+      const [left, right] = order;
+      const choice = `sel_${left.id}`;
+      leaders.push(left.id);
+      emit(`(assert (= ${choice} sel_${right.id}))`);
+      emit(`(assert (=> ${choice} (= own_${left.id} own_${right.id})))`);
+    }
+    const selected = leaders.map((id) => `sel_${id}`);
+    if (selected.length > 1) {
+      emit(`(assert (not (and ${selected.join(' ')})))`);
+      semanticBlockVars.push(...selected);
+      chartAxisOrderVars.push(selected);
+    }
+    for (const qualifier of pair.filter(({ kind }) => kind === HYP_KINDS.UNREAD)) {
+      emit(`(assert (= sel_${qualifier.id} ${smtOr(selected)}))`);
+      for (const axisId of leaders) {
+        emit(`(assert (=> sel_${axisId} (= own_${axisId} own_${qualifier.id})))`);
+      }
     }
   }
   for (const [startTok, readings] of predicateRoles) {
@@ -1567,6 +1588,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     queryVars,
     blockVars,
     semanticBlockVars,
+    chartAxisOrderVars,
     meta: { R, T, M, F, K, tab, tabSpec, previous, clock, elided, activeCandidates, outerFillerIds, nonDirectives },
   };
 }
