@@ -1,5 +1,9 @@
 # Reviewer decisions and task assignments
 
+## SHARED KNOWLEDGE PUBLISHED — INTEGRATE-4 at 3b2deebd
+
+Canonical3b2deebd adds two context-property frames with11 ordered parts and12 owned weather adjective mappings using existing types. Required canonical gate254pass/0fail/5skip; prolog-reader replacement controls8/8 retained identical semantics with local copies absent. Consume through your existing knowledge-loading path where relevant and report actual revision/behavior; do not introduce a duplicate private vocabulary. This is not a claim of extra aggregate benchmark coverage or application execution. Reusable knowledge/schema proposals continue to route through questions.md to the coordinator. Commit only worker-owned paths and preserve concurrent reviewer drafts.
+
 ## OWNER RULE — propose all reusable knowledge and schema changes to the coordinator
 
 Send every proposed addition/modification of reusable SOP knowledge, vocabulary, relations, language constructions or schemas through questions.md. State the meaning, exact candidate declarations/paths, current canonical equivalent or gap, consumer need and independent controls. The coordinator reviews the proposal, assigns canonical integration to the data/schema worker, independently validates and publishes it, and returns the canonical revision. Then update the installed pin, prove reader behavior against the canonical declarations and remove superseded local copies. This is not a second permanent knowledge catalog inside either formaliser.
