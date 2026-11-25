@@ -6,7 +6,7 @@
 import { KEY_ALIASES, unquoteSop } from '../src/contracts.mjs';
 import { createZ3Runner } from '../src/smt/z3-runner.mjs';
 import { lemmatiseWord, singulariseNoun } from '../src/lattice/morph.mjs';
-import { compareCircuits } from './compare.mjs';
+import { compareCircuits, selectReferenceComparison } from './compare.mjs';
 
 const LEGEND_GRADE_RANK = {
   L3: 9,
@@ -755,7 +755,18 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
    * Assign L3 if any proposal is L3, else L4 if any proposal is semantically L4 in Z3,
    * else return the closest usable proposal (never assembling fragments!).
    */
-  async function evaluateProposalsZ3({ text, tab, goldSop, proposals }) {
+  async function evaluateProposalsZ3({ goldReferences, ...options }) {
+    if (!goldReferences) return evaluateSingleReferenceZ3(options);
+    const references = goldReferences.length ? goldReferences : [{ column: null, sop: '', missing: true }];
+    const comparisons = [];
+    for (const { column, sop, missing } of references) {
+      const result = await evaluateSingleReferenceZ3({ ...options, goldSop: sop });
+      comparisons.push({ column, missing, result });
+    }
+    return selectReferenceComparison(comparisons);
+  }
+
+  async function evaluateSingleReferenceZ3({ text, tab, goldSop, proposals }) {
     const list = Array.isArray(proposals) && proposals.length > 0 ? proposals : [{ sop: '', tab }];
     let bestRes = null;
     let bestRank = -1;

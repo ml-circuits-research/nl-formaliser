@@ -106,6 +106,32 @@ export function* csvRows(text) {
   }
 }
 
+// One corpus record per input text. Each reference keeps its own wire scope.
+export function* webmeetCsvRows(csv, file) {
+  const rows = csvRows(csv.replace(/^\uFEFF/, ''));
+  const columns = rows.next().value;
+  if (!columns) return;
+  const [textColumn, ...sopColumns] = columns;
+  if (textColumn !== 'text' || sopColumns[0] !== 'sop' ||
+      sopColumns.slice(1).some((column, i) => column !== `sop${i + 1}`)) {
+    throw new Error(`${file}: expected text,sop followed by optional sop1,sop2,... columns`);
+  }
+  let record = 1;
+  for (const cells of rows) {
+    record++;
+    if (cells.length === 1 && !cells[0].trim()) continue;
+    const source = `${file}:${record}`;
+    if (cells.length < 2 || cells.length > columns.length) {
+      throw new Error(`${source}: CSV row does not match its header`);
+    }
+    const [text, goldSop] = cells;
+    const goldReferences = sopColumns
+      .map((column, i) => ({ column, sop: cells[i + 1] ?? '' }))
+      .filter(({ sop }) => sop.trim());
+    yield { source, text, goldSop, goldReferences };
+  }
+}
+
 // Render official-dataset JSONL row into canonical w.request SOP Lang (mirrors official-dataset/sop_dataset.py).
 const ATOM_RE = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
@@ -255,24 +281,18 @@ function loadRows({ source, datasetDir, officialDir, knowledgeDir, tabs, sampleP
       const reservoir = [];
       let seenInTab = 0;
       for (const file of files) {
-        const rows = csvRows(readFileSync(join(dir, file), 'utf8'));
-        const header = rows.next().value;
-        if (!header) continue;
-        const ti = header.indexOf('text');
-        const si = header.indexOf('sop');
-        if (ti < 0 || si < 0) continue;
-        for (const r of rows) {
-          if (r.length <= Math.max(ti, si)) continue;
+        const path = `${tab}/${file}`;
+        for (const row of webmeetCsvRows(readFileSync(join(dir, file), 'utf8'), path)) {
           if (samplePct != null && samplePct < 100) {
             if (rng() * 100 >= samplePct) continue;
           }
           seenInTab++;
           if (reservoir.length < perTabCap) {
-            reservoir.push({ tab, source: `${tab}/${file}`, text: r[ti], goldSop: r[si] });
+            reservoir.push({ ...row, tab });
           } else {
             const j = Math.floor(rng() * seenInTab);
             if (j < perTabCap) {
-              reservoir[j] = { tab, source: `${tab}/${file}`, text: r[ti], goldSop: r[si] };
+              reservoir[j] = { ...row, tab };
             }
           }
         }
@@ -557,6 +577,7 @@ async function main() {
 
   let verifier = null;
   let formaliseFn = null;
+  let z3Evaluator = null;
   if (workers === 1) {
     verifier = await createVerifier({ knowledgeDir });
     let createFormaliser;
@@ -566,8 +587,9 @@ async function main() {
       console.error(`Failed to import ../src/index.mjs: ${err.message}`);
       process.exit(1);
     }
-    const formaliser = await createFormaliser({ knowledgeDir, spellcheck });
-    formaliseFn = typeof formaliser === 'function' ? formaliser : formaliser.formalise.bind(formaliser);
+    const formaliser = await createFormaliser({ knowledgeDir, spellcheck, includeLegacy: source !== 'webmeet' });
+    formaliseFn = source === 'webmeet' ? formaliser.formaliseCurrentText : formaliser.formalise;
+    if (z3Eval) z3Evaluator = await createZ3SemanticEvaluator({ kb: formaliser.kb, verifier });
   }
 
   if (source === 'keys') {
@@ -625,37 +647,45 @@ async function main() {
     }
   } else {
     for (const row of rows) {
-      const ctx = extractContextFromSop(row.goldSop, verifier);
-      const previous = row.previous ?? ctx.previous;
-      const clock = row.clock ?? ctx.clock;
-
       const t0 = performance.now();
-      const res = await formaliseFn(row.text, {
-        tab: tabAgnostic ? null : row.tab,
-        previous,
-        clock,
-        maxProposals,
-        perTabTopK,
-        spellcheck,
-        confidence,
-      });
+      const res = source === 'webmeet'
+        ? await formaliseFn(row.text, { topK: maxProposals, spellcheck, confidence })
+        : await formaliseFn(row.text, {
+            ...extractContextFromSop(row.goldSop, verifier),
+            tab: tabAgnostic ? null : row.tab,
+            ...(row.previous !== undefined && { previous: row.previous }),
+            ...(row.clock !== undefined && { clock: row.clock }),
+            maxProposals,
+            perTabTopK,
+            spellcheck,
+            confidence,
+          });
       const ms = performance.now() - t0;
       const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
-      const proposals = res?.proposals ?? [{ sop: predSop, tab: res?.tab ?? row.tab }];
+      const proposals = res?.proposals ?? [{ sop: predSop }];
       const conf = res?.confidence ?? null;
       const spellChanged = Boolean(res?.spell?.changed);
 
-      const cmp = tabAgnostic || proposals.length > 1
+      const cmp = z3Evaluator
+        ? await z3Evaluator.evaluateProposalsZ3({
+            text: row.text,
+            ...(source !== 'webmeet' && { tab: row.tab }),
+            goldSop: row.goldSop,
+            goldReferences: row.goldReferences,
+            proposals,
+          })
+        : row.goldReferences || tabAgnostic || proposals.length > 1
         ? compareProposals({
             text: row.text,
-            tab: row.tab,
+            ...(source !== 'webmeet' && { tab: row.tab }),
             goldSop: row.goldSop,
+            goldReferences: row.goldReferences,
             proposals,
             verifier,
           })
         : compareCircuits({
             text: row.text,
-            tab: row.tab,
+            ...(source !== 'webmeet' && { tab: row.tab }),
             goldSop: row.goldSop,
             predSop,
             verifier,
@@ -668,13 +698,14 @@ async function main() {
         errorClusters.set(reason, (errorClusters.get(reason) ?? 0) + 1);
       }
 
-      records.push({ row, predSop, cmp, conf, spellChanged, ms });
+      const bestPredSop = proposals[cmp.bestProposalIdx]?.sop ?? predSop;
+      records.push({ row, predSop: bestPredSop, cmp, conf, spellChanged, ms });
 
       if (verbose && (cmp.fairCategory === 'pred_wrong' || cmp.fairCategory === 'pred_better_than_gold')) {
         console.log(`\n[${cmp.fairCategory}] (${row.source}) "${row.text}"`);
         if (cmp.goldIssueReasons.length) console.log(`  goldIssues: ${cmp.goldIssueReasons.join(', ')}`);
         if (cmp.predErrorReasons.length) console.log(`  predReasons: ${cmp.predErrorReasons.join(', ')}`);
-        console.log(`  PRED:\n${predSop.split('\n').map((l) => '    ' + l).join('\n')}`);
+        console.log(`  PRED:\n${bestPredSop.split('\n').map((l) => '    ' + l).join('\n')}`);
       }
     }
   }
@@ -733,7 +764,7 @@ async function main() {
     const mechReasonable = records.filter((r) => ['L3', 'L4'].includes(r.cmp.mechanicalLegendGrade)).length;
     console.log(`| *Mechanical comparator L3 + L4* (baseline) | Strict string/tuple comparator on same proposals | ${mechReasonable} | ${pct(mechReasonable, records.length)} |`);
   }
-  if (tabAgnostic) {
+  if (source !== 'webmeet' && tabAgnostic) {
     const avgProps = records.reduce((s, r) => s + (r.cmp.proposalCount ?? 1), 0) / Math.max(1, records.length);
     const tabHits = records.filter((r) => r.cmp.tabHit).length;
     console.log(`\nTab-agnostic multi-proposal stats: avgProposals=${avgProps.toFixed(2)}, goldTabInProposals=${tabHits}/${records.length} (${pct(tabHits, records.length)})`);
@@ -846,8 +877,11 @@ async function main() {
               text: r.row.text,
               latencyMs: Math.round(r.ms),
               goldIssueReasons: r.cmp.goldIssueReasons,
+              referenceIssues: r.cmp.referenceIssues,
               predErrorReasons: r.cmp.predErrorReasons,
-              goldSop: r.row.goldSop,
+              goldSop: r.row.goldReferences?.find(({ column }) => column === r.cmp.bestReferenceColumn)?.sop ?? r.row.goldSop,
+              bestReferenceColumn: r.cmp.bestReferenceColumn,
+              goldReferences: r.row.goldReferences,
               predSop: r.predSop,
             }))
         );
@@ -862,6 +896,11 @@ async function main() {
           meta: { source, tabs, samplePct, limit, seed, total: records.length },
           summary: Object.fromEntries(groups),
           attributionCounts: Object.fromEntries(attributionCounts),
+          referenceIssues: records.filter(({ cmp }) => cmp.referenceIssues?.length).map(({ row, cmp }) => ({
+            source: row.source,
+            text: row.text,
+            issues: cmp.referenceIssues,
+          })),
           goldIssueCounts: Object.fromEntries([...goldIssueCounts.entries()].sort((a, b) => b[1] - a[1])),
           topErrorClusters: [...errorClusters.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30),
           examples: {

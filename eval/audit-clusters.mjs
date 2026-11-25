@@ -6,7 +6,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { TABS } from '../src/contracts.mjs';
-import { csvRows, webmeetHoldoutTexts } from './benchmark.mjs';
+import { webmeetCsvRows, webmeetHoldoutTexts } from './benchmark.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -44,9 +44,8 @@ const all = [];
 for (const tab of TABS) {
   const dir = join(DATASET_DIR, tab);
   for (const fn of readdirSync(dir).filter((f) => f.endsWith('.csv')).sort()) {
-    const rows = [...csvRows(readFileSync(join(dir, fn), 'utf8'))];
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] && rows[i][1]) all.push({ tab, source: `${tab}/${fn}:${i + 1}`, text: rows[i][0], goldSop: rows[i][1] });
+    for (const row of webmeetCsvRows(readFileSync(join(dir, fn), 'utf8'), `${tab}/${fn}`)) {
+      if (row.text && row.goldReferences.length) all.push({ ...row, tab });
     }
   }
 }
@@ -147,34 +146,35 @@ for (let i = 0; i < sample.length; i++) {
     bump(unreadWords, m[1].replace(/^"|"$/g, '').toLowerCase());
   }
 
+  const goldSop = row.goldReferences.find(({ column }) => column === cmp.bestReferenceColumn)?.sop ?? row.goldSop;
   if (g === 'L1a') {
     const pAct = predSop.match(/act=(\S+)/)?.[1] ?? 'none';
-    const gAct = row.goldSop.match(/act=(\S+)/)?.[1] ?? 'none';
+    const gAct = goldSop.match(/act=(\S+)/)?.[1] ?? 'none';
     const pMood = predSop.match(/mood=(\S+)/)?.[1] ?? 'none';
-    const gMood = row.goldSop.match(/mood=(\S+)/)?.[1] ?? 'none';
+    const gMood = goldSop.match(/mood=(\S+)/)?.[1] ?? 'none';
     const pReq = (predSop.match(/w\.request\.request/g) ?? []).length;
-    const gReq = (row.goldSop.match(/w\.request\.request/g) ?? []).length;
+    const gReq = (goldSop.match(/w\.request\.request/g) ?? []).length;
     bump(l1aPairs, `${pAct}/${pMood}(r=${pReq}) vs ${gAct}/${gMood}(r=${gReq})`);
   } else if (g === 'L1b') {
     const pFam = predSop.match(/family=(\S+)/)?.[1] ?? 'none';
-    const gFam = row.goldSop.match(/family=(\S+)/)?.[1] ?? 'none';
+    const gFam = goldSop.match(/family=(\S+)/)?.[1] ?? 'none';
     const pMod = predSop.match(/mode=(new|existing)/)?.[1] ?? 'none';
-    const gMod = row.goldSop.match(/mode=(new|existing)/)?.[1] ?? 'none';
+    const gMod = goldSop.match(/mode=(new|existing)/)?.[1] ?? 'none';
     bump(l1bPairs, `[${row.tab}] ${pFam}/${pMod} vs ${gFam}/${gMod}`);
   } else if (g === 'L1c') {
     if (cmp.inputHasTypo) l1cTypoCount++;
     else l1cOtherCount++;
     const pAs = [...predSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
-    const gAs = [...row.goldSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
+    const gAs = [...goldSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
     for (const a of pAs) if (!gAs.includes(a)) bump(l1cFp, a);
     for (const a of gAs) if (!pAs.includes(a)) bump(l1cFn, a);
   } else if (g === 'L1d') {
     const pReq = (predSop.match(/w\.request\.request/g) ?? []).length;
-    const gReq = (row.goldSop.match(/w\.request\.request/g) ?? []).length;
+    const gReq = (goldSop.match(/w\.request\.request/g) ?? []).length;
     if (pReq > gReq) bump(l1dWhy, `extra_req(${pReq}>${gReq})`);
     else {
       const pAs = [...predSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
-      const gAs = [...row.goldSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
+      const gAs = [...goldSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
       const extra = pAs.filter((a) => !gAs.includes(a));
       bump(l1dWhy, extra.length ? `extra_attr:${extra[0]}` : 'extra_val_or_phase');
     }
@@ -182,7 +182,7 @@ for (let i = 0; i < sample.length; i++) {
 
   if (sampleByGrade[g] && sampleByGrade[g].length < maxSamples && (includeFlawed || (!cmp.goldAnnotationFlawed && !cmp.inputHasTypo))) {
     const pFlat = predSop.replace(/\r?\n/g, ' | ');
-    const gFlat = row.goldSop.replace(/\r?\n/g, ' | ');
+    const gFlat = goldSop.replace(/\r?\n/g, ' | ');
     sampleByGrade[g].push({
       tab: row.tab,
       text: row.text,

@@ -45,7 +45,7 @@ const {
 
 const [verifier, formaliser] = await Promise.all([
   createVerifier({ knowledgeDir }),
-  createFormaliser({ knowledgeDir, spellcheck }),
+  createFormaliser({ knowledgeDir, spellcheck, includeLegacy: source !== 'webmeet' }),
 ]);
 
 const z3Evaluator = z3Eval
@@ -103,23 +103,22 @@ parentPort.on('message', async (msg) => {
       return;
     }
 
-    const ctx = extractContextFromSop(row.goldSop, verifier);
-    const previous = row.previous ?? ctx.previous;
-    const clock = row.clock ?? ctx.clock;
-
     const t0 = performance.now();
-    const res = await formaliser.formalise(row.text, {
-      tab: tabAgnostic ? null : row.tab,
-      previous,
-      clock,
-      maxProposals,
-      perTabTopK,
-      spellcheck,
-      confidence,
-    });
+    const res = source === 'webmeet'
+      ? await formaliser.formaliseCurrentText(row.text, { topK: maxProposals, spellcheck, confidence })
+      : await formaliser.formalise(row.text, {
+          ...extractContextFromSop(row.goldSop, verifier),
+          tab: tabAgnostic ? null : row.tab,
+          ...(row.previous !== undefined && { previous: row.previous }),
+          ...(row.clock !== undefined && { clock: row.clock }),
+          maxProposals,
+          perTabTopK,
+          spellcheck,
+          confidence,
+        });
     const ms = performance.now() - t0;
     const predSop = typeof res === 'string' ? res : (res?.sop ?? res?.circuit ?? '');
-    const proposals = res?.proposals ?? [{ sop: predSop, tab: res?.tab ?? row.tab }];
+    const proposals = res?.proposals ?? [{ sop: predSop }];
     const conf = res?.confidence
       ? {
           score: res.confidence.score,
@@ -133,22 +132,24 @@ parentPort.on('message', async (msg) => {
     const cmp = z3Evaluator
       ? await z3Evaluator.evaluateProposalsZ3({
           text: row.text,
-          tab: row.tab,
+          ...(source !== 'webmeet' && { tab: row.tab }),
           goldSop: row.goldSop,
+          goldReferences: row.goldReferences,
           proposals,
         })
-      : tabAgnostic || proposals.length > 1
+      : row.goldReferences || tabAgnostic || proposals.length > 1
         ? compareProposals({
             text: row.text,
-            tab: row.tab,
+            ...(source !== 'webmeet' && { tab: row.tab }),
             goldSop: row.goldSop,
+            goldReferences: row.goldReferences,
             proposals,
             verifier,
             knownVocab,
           })
         : compareCircuits({
             text: row.text,
-            tab: row.tab,
+            ...(source !== 'webmeet' && { tab: row.tab }),
             goldSop: row.goldSop,
             predSop,
             verifier,
@@ -166,6 +167,8 @@ parentPort.on('message', async (msg) => {
       inputHasTypo: cmp.inputHasTypo,
       goldAnnotationFlawed: cmp.goldAnnotationFlawed,
       goldIssueReasons: cmp.goldIssueReasons,
+      bestReferenceColumn: cmp.bestReferenceColumn,
+      referenceIssues: cmp.referenceIssues,
       predErrorReasons: cmp.predErrorReasons,
       predValid: cmp.predValid,
       goldValid: cmp.goldValid,
@@ -185,11 +188,11 @@ parentPort.on('message', async (msg) => {
       semanticExact: cmp.semanticExact,
       proposalCount: cmp.proposalCount ?? 1,
       bestProposalIdx: cmp.bestProposalIdx ?? 0,
-      tabHit: cmp.tabHit ?? true,
+      ...(source !== 'webmeet' && { tabHit: cmp.tabHit ?? true }),
     };
 
     const bestPredSop =
-      (tabAgnostic || proposals.length > 1) && typeof cmp.bestProposalIdx === 'number' && proposals[cmp.bestProposalIdx]?.sop
+      (row.goldReferences || tabAgnostic || proposals.length > 1) && typeof cmp.bestProposalIdx === 'number' && proposals[cmp.bestProposalIdx]?.sop
         ? proposals[cmp.bestProposalIdx].sop
         : predSop;
 

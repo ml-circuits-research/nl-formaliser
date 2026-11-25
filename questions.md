@@ -903,3 +903,39 @@ An eight-row smoke from published WebMeet `23f19aa` produced native-valid candid
 The direct heading check on `document/text-04.csv` records 2 and 3 now keeps the creation, heading and title. Record 17 exposes a separate group of errors in coordinated creations with one shared verb. The reader merges the heading and paragraph into one target, even though `Introduction` and `Welcome` belong to separate objects. Count these by their shared mechanism in the next audit, rather than treating a correct single heading as proof of coordinated creation.
 
 The full serial suite passes 226/226. The CLI cases cover the common library, the mixed circuit, alternatives and diagnostics without history, rejected routing arguments, and literal text containing the word `tab`.
+
+## STATUS PENTRU REVIEWER — L0–L4 și următoarea familie de erori
+
+Te rog să afișezi acest tabel integral, împreună cu ora și stadiul curent, în outputul tău către owner. Este ultima măsurare completă din WebMeet 1%, cu 1.892 de texte și seed 42. Rezultatul a fost consemnat în `1ec3400` pe 25 noiembrie 2026 la 15:29:35 CET. Reader `a6ed12b`, date `3d13d9b`, cunoștințe `3b2deebd`, evaluare Z3. Sursa tabelului este `L1-Issues-plan.md`.
+
+| Nivel | Cazuri | % din total | Semnificație |
+| --- | ---: | ---: | --- |
+| L0 | 46 | 2,4% | Formalizare inutilizabilă |
+| **L1** | **990** | **52,3%** | Formalizare cu eroare de sens |
+| L1a | 143 | 7,6% | Intenție greșită |
+| L1b | 96 | 5,1% | Țintă sau mod greșit |
+| L1c | 603 | 31,9% | Detaliu, valoare sau rol greșit. 23 cazuri de ortografie și 580 din alte cauze |
+| L1d | 148 | 7,8% | Instrucțiune sau detaliu inventat |
+| **L2** | **198** | **10,5%** | Sens parțial, cu o componentă esențială lipsă |
+| L2a | 30 | 1,6% | Lipsește o cerere |
+| L2b | 75 | 4,0% | Ținta ori selecția ei este incompletă |
+| L2c | 93 | 4,9% | Altă componentă esențială lipsește |
+| L3 | 39 | 2,1% | SOP identic cu referința |
+| L4 | 619 | 32,7% | Formalizare alternativă acceptabilă |
+| **L3 + L4** | **658** | **34,8%** | **Corecte sau acceptabile** |
+
+Nu am rerulat benchmarkul. Stadiul schimbărilor ulterioare se bazează pe probe țintite și teste. Commitul local `4237b80` a trecut 226/226 și permite un circuit cu mai multe familii semantice în API-ul curent. Acum validez consumul coloanelor SOP numerotate, conform priorității pentru corectarea în masă. Apoi grupez defectele semnalate din rularea pe date după cauză și încep cu mecanismul reutilizabil cu impactul verificabil cel mai mare. Avem deja un caz documentat în care un singur verb de creare introduce două obiecte, dar readerul le unește. Voi căuta aceeași cauză în mai multe texte înainte de a estima impactul.
+
+Te rog să notezi în `resposens.md` care sunt cele mai frecvente familii observate în corectarea WebMeet, cu exemple și număr de cazuri când există, și să faci review pe schimbarea de evaluare după raportul READY. Între timp continui lucrul independent pe mecanismele Z3.
+
+### Propunere de corecție — un singur verb de creare pentru mai multe obiecte
+
+Am verificat opt texte candidate din snapshotul WebMeet publicat `23f19aa` cu CLI-ul real, exclusiv prin text. Patru probe clare pierd o cerere sau un obiect, deși circuitul ales trece validarea. Sunt titlul și paragraful (`document/text-04.csv:17`), rândul de copaci și pasărea (`drawing/placement-01.csv:72`), pagina și titlul (`diagram/charts-03.csv:59`), respectiv pagina și treemapul (`diagram/charts-03.csv:419`). Numerele sunt poziții de înregistrări CSV, antetul fiind 1. Grupul a fost ales țintit, deci aceste 4 cazuri nu estimează frecvența în corpus. Celelalte patru au compoziții, enumerări sau erori de analiză suplimentare.
+
+Propun să folosim construcția declarată `ellipsis.verb` pentru grupuri coordonate cu obiecte noi, fiecare cu propriile dovezi din text. Alegerea trebuie să păstreze rolurile și efectele la obiectul lor. Testele de control vor acoperi texte cu `with`, titluri care conțin `and` și verbe repetate. Scopurile, locurile și referințele pronominale rămân legate de cuvintele efective. Te rog să semnalezi eventuale contraexemple sau defecte mai frecvente din rularea de date.
+
+## READY Q-NL-031 — Rate numbered WebMeet SOP references independently
+
+Please review and publish this bounded change. The CSV consumers use one text per row and retain each populated SOP column with its column name and source record. Both comparators select a complete candidate/reference pair. When a sibling reference is invalid, its errors still reach the report with the original text, file, record and column. Rows with no valid reference carry a reference defect. Diagnostic examples use the matched SOP column. WebMeet generation now uses the same global current-text entry point as the common reader and never supplies expected SOP, history or a clock as input. The historical evaluator still offers filesystem-based sample stratification and report groups, and non-WebMeet legacy sources keep their separate entry point.
+
+`node --test test/verify.test.mjs` passes 12/12. The full serial suite passes 228/228. In a one-row smoke using the real reader and benchmark worker, both comparators selected `sop2` at L3, skipped empty `sop1` and returned the native error for `sop`. These checks establish tool behavior. The 1% distribution above is the last measured aggregate.

@@ -699,7 +699,69 @@ const LEGEND_GRADE_RANK = {
   L0: 0,
 };
 
-export function compareProposals({ text, tab, goldSop, proposals, verifier, knownVocab = null }) {
+// Resolve complete proposal/reference pairs, while retaining every reference's diagnostics.
+export function selectReferenceComparison(comparisons) {
+  let best = comparisons[0];
+  let bestMechanicalRank = -1;
+  let mechanicalLegendGrade = 'L0';
+  const referenceIssues = [];
+  for (const entry of comparisons) {
+    const { column, result } = entry;
+    if (entry.missing || result.goldIssueReasons.length) {
+      referenceIssues.push({
+        column,
+        reasons: entry.missing ? ['gold_missing_reference'] : result.goldIssueReasons,
+        errors: result.goldCheck.errors,
+        warnings: result.goldCheck.warnings,
+      });
+    }
+    if (!result.goldValid || entry.missing) continue;
+    const rank = LEGEND_GRADE_RANK[result.legendGrade];
+    const bestRank = LEGEND_GRADE_RANK[best.result.legendGrade];
+    if (!best.result.goldValid || rank > bestRank ||
+        (rank === bestRank && result.constraintAliasF1.f1 > best.result.constraintAliasF1.f1)) {
+      best = entry;
+    }
+    const mechanical = result.mechanicalLegendGrade ?? result.legendGrade;
+    if (LEGEND_GRADE_RANK[mechanical] > bestMechanicalRank) {
+      bestMechanicalRank = LEGEND_GRADE_RANK[mechanical];
+      mechanicalLegendGrade = mechanical;
+    }
+  }
+  const goldIssueReasons = [...new Set(referenceIssues.flatMap(({ reasons }) => reasons))];
+  const goldValid = best.result.goldValid && !best.missing;
+  return {
+    ...best.result,
+    goldValid,
+    ...(!goldValid && {
+      verdict: 'gold_noisy_both_partial',
+      fairCategory: 'gold_noisy_both_partial',
+      attribution: 'fail_gold_annotation_flawed',
+      legendGrade: 'L0',
+      z3SemanticGrade: best.result.z3SemanticGrade && 'L0',
+      semanticExact: false,
+      equivRedundantId: false,
+      predErrorReasons: best.result.predErrorReasons.filter((reason) => !reason.startsWith('diff:')),
+    }),
+    mechanicalLegendGrade,
+    bestReferenceColumn: goldValid ? best.column : null,
+    goldAnnotationFlawed: goldIssueReasons.length > 0,
+    goldIssueReasons,
+    referenceIssues,
+  };
+}
+
+export function compareProposals({ goldReferences, ...options }) {
+  if (!goldReferences) return compareSingleReference(options);
+  const references = goldReferences.length ? goldReferences : [{ column: null, sop: '', missing: true }];
+  return selectReferenceComparison(references.map(({ column, sop, missing }) => ({
+    column,
+    missing,
+    result: compareSingleReference({ ...options, goldSop: sop }),
+  })));
+}
+
+function compareSingleReference({ text, tab, goldSop, proposals, verifier, knownVocab = null }) {
   const list = Array.isArray(proposals) && proposals.length > 0 ? proposals : [{ sop: '', tab }];
   let bestCmp = null;
   let bestRank = -1;

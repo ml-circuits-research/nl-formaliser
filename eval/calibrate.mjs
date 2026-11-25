@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 import { TABS } from '../src/contracts.mjs';
-import { csvRows, webmeetHoldoutTexts } from './benchmark.mjs';
+import { webmeetCsvRows, webmeetHoldoutTexts } from './benchmark.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -47,20 +47,14 @@ export async function sampleDisjointRows({ datasetDir, limit = 320, seed = 1337 
     const reservoir = [];
     let seen = 0;
     for (const file of files) {
-      const iter = csvRows(readFileSync(join(dir, file), 'utf8'));
-      const header = iter.next().value;
-      if (!header) continue;
-      const ti = header.indexOf('text');
-      const si = header.indexOf('sop');
-      if (ti < 0 || si < 0) continue;
-      for (const r of iter) {
-        if (r.length <= Math.max(ti, si) || holdoutTexts.has(r[ti])) continue;
+      for (const row of webmeetCsvRows(readFileSync(join(dir, file), 'utf8'), `${tab}/${file}`)) {
+        if (holdoutTexts.has(row.text)) continue;
         seen++;
         if (reservoir.length < perTab) {
-          reservoir.push({ tab, source: `${tab}/${file}`, text: r[ti], goldSop: r[si] });
+          reservoir.push({ ...row, tab });
         } else {
           const j = Math.floor(rng() * seen);
-          if (j < perTab) reservoir[j] = { tab, source: `${tab}/${file}`, text: r[ti], goldSop: r[si] };
+          if (j < perTab) reservoir[j] = { ...row, tab };
         }
       }
     }

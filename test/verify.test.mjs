@@ -5,8 +5,11 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createVerifier } from '../src/verify/check.mjs';
-import { compareCircuits } from '../eval/compare.mjs';
-import { csvRows } from '../eval/benchmark.mjs';
+import { compareCircuits, compareProposals } from '../eval/compare.mjs';
+import { csvRows, webmeetCsvRows } from '../eval/benchmark.mjs';
+
+import { createZ3SemanticEvaluator } from '../eval/z3-equiv.mjs';
+import { loadKnowledge } from '../src/kb/load-worlds.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEBMEET_DIR = resolve(HERE, '..', '..', 'webmeet-dataset');
@@ -357,4 +360,59 @@ test('compareCircuits root-cause attribution separates redundant Gold id, input 
   const typoCmp = compareCircuits({ text: typoText, tab: 'diagram', goldSop: typoGold, predSop: typoPred, verifier, knownVocab: new Set(['copy', 'table']) });
   assert.equal(typoCmp.inputHasTypo, true);
   assert.equal(typoCmp.attribution, 'fail_input_typo');
+});
+
+test('WebMeet CSV retains one text with independently scoped numbered references', () => {
+  const csv = 'text,sop,sop1,sop2\r\n"write, then read","@1 foo\n@2 bar",,"@1 baz"\r\nlegacy,@1 foo';
+  const [first, second, ...extra] = webmeetCsvRows(csv, 'records.csv');
+  assert.deepEqual(extra, []);
+  assert.equal(first.source, 'records.csv:2');
+  assert.equal(first.text, 'write, then read');
+  assert.deepEqual(first.goldReferences, [
+    { column: 'sop', sop: '@1 foo\n@2 bar' },
+    { column: 'sop2', sop: '@1 baz' },
+  ]);
+  assert.deepEqual(second.goldReferences, [{ column: 'sop', sop: '@1 foo' }]);
+  assert.throws(() => [...webmeetCsvRows('text,sop,context\ncommand,circuit,area', 'bad.csv')], /bad.csv/);
+  assert.throws(() => [...webmeetCsvRows('text,sop\ncommand,circuit,extra', 'bad.csv')], /bad.csv:2/);
+});
+
+test('mechanical and Z3 proposal grades accept a numbered reference and report an invalid sibling', async () => {
+  const text = 'make the house blue';
+  const sop = [
+    '@r1 w.request.request act=change mood=do predicate=make',
+    '@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite sort=house',
+    '@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.colour value=blue operator=eq phase=result',
+  ].join('\n');
+  const invalid = sop.replace('drawn.colour', 'meeting.title');
+  const incomplete = sop.split('\n').slice(0, 2).join('\n');
+  const references = [
+    { column: 'sop', sop: incomplete },
+    { column: 'sop1', sop },
+    { column: 'sop3', sop: invalid },
+  ];
+  const evaluator = await createZ3SemanticEvaluator({ kb: await loadKnowledge({ includeLegacy: false }), verifier });
+  try {
+    for (const compare of [compareProposals, evaluator.evaluateProposalsZ3]) {
+      const options = { text, proposals: [sop], verifier };
+      for (const goldReferences of [references, [...references].reverse()]) {
+        const result = await compare({ ...options, goldReferences });
+        assert.equal(result.legendGrade, 'L3');
+        assert.equal(result.bestReferenceColumn, 'sop1');
+        assert.equal(result.goldValid, true);
+        assert.equal(result.goldAnnotationFlawed, true);
+        assert.ok(result.referenceIssues.find(({ column }) => column === 'sop3')?.errors.length);
+      }
+      const bad = await compare({ ...options, goldReferences: [references[2]] });
+      assert.equal(bad.legendGrade, 'L0');
+      assert.equal(bad.bestReferenceColumn, null);
+      assert.equal(bad.attribution, 'fail_gold_annotation_flawed');
+      assert.equal(bad.semanticExact, false);
+      const empty = await compare({ ...options, goldReferences: [] });
+      assert.equal(empty.legendGrade, 'L0');
+      assert.deepEqual(empty.goldIssueReasons, ['gold_missing_reference']);
+    }
+  } finally {
+    evaluator.runner.close();
+  }
 });

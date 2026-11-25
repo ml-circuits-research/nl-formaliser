@@ -49,3 +49,5 @@
 - 2026-11-25 — Q-NL-029 validates global native request properties by each circuit's target family. The mixed-family validation case passes and exposes that the current generation still cannot produce both requested families. Full serial suite 226/226. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-030 puts the common Z3 API and CLI on one global catalog and solver search, with a verified two-family circuit. Published probes cover booking operands, part edits and named headings. Full serial suite 226/226. Legacy evaluation and numbered reference columns remain open. See `questions.md`.
+
+- 2026-11-25 — Q-NL-031 evaluates every nonempty numbered SOP reference for one WebMeet text and reports invalid siblings by column. Both real worker comparator probes selected `sop2` and reported the error in `sop`. Full serial suite 228/228. Sent the last complete L0–L4 table and requested review in `questions.md`.
