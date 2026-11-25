@@ -263,3 +263,61 @@ test('v9.6: L1c root-cause fixes — k.faces ontologies, compound numbers, post-
   assert.equal(gradRes.check.ok, true);
   assert.ok(gradRes.sop.includes('attribute=drawn.gradient value=navy'), gradRes.sop);
 });
+
+test('v9.8 dynamic w.lang.en.frame Z3 argument-structure compiler', async () => {
+  // property-frames.sop: "Set the width on the node to 15" (no spatial/endpoint hijacking!)
+  const propSet = await formaliser.formalise('Set the width on the node to 15', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(propSet.ok, true);
+  assert.equal(propSet.check.ok, true);
+  assert.ok(propSet.sop.includes('act=change'), propSet.sop);
+  assert.ok(propSet.sop.includes('attribute=node.width') && propSet.sop.includes('value="15"'), propSet.sop);
+  assert.ok(!propSet.sop.includes('attribute=node.position'), propSet.sop);
+  assert.ok(!propSet.sop.includes('attribute=link.to'), propSet.sop);
+
+  // property-frames.sop: "What width does the node have?"
+  const propAsk = await formaliser.formalise('What width does the node have?', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(propAsk.ok, true);
+  assert.equal(propAsk.check.ok, true);
+  assert.ok(propAsk.sop.includes('act=ask'), propAsk.sop);
+  assert.ok(propAsk.sop.includes('asked=node.width') || propAsk.sop.includes('attribute=node.width'), propAsk.sop);
+
+  // role-frames.sop: old->new transition ("Change the car from red to blue")
+  const oldNew = await formaliser.formalise('Change the car from red to blue', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(oldNew.ok, true);
+  assert.equal(oldNew.check.ok, true);
+  assert.match(oldNew.sop, /attribute=drawn\.colou?r value=red[^\n]*phase=selector/);
+  assert.match(oldNew.sop, /attribute=drawn\.colou?r value=blue[^\n]*phase=result/);
+
+  // role-frames.sop: material ("Make a boat out of paper")
+  const mat = await formaliser.formalise('Make a boat out of paper', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(mat.ok, true);
+  assert.equal(mat.check.ok, true);
+  assert.ok(mat.sop.includes('attribute=drawn.material value=paper'), mat.sop);
+
+  // diagram-frames.sop: kind + topic ("Make a flowchart of making tea")
+  const flow = await formaliser.formalise('Make a flowchart of making tea', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(flow.ok, true);
+  assert.equal(flow.check.ok, true);
+  assert.ok(flow.sop.includes('sort=flowchart') || flow.sop.includes('attribute=diagram.kind value=flowchart'), flow.sop);
+  assert.ok(flow.sop.includes('attribute=diagram.about'), flow.sop);
+
+  // diagram-frames.sop: edge label ("Label the arrow from A to B no")
+  const edgeLbl = await formaliser.formalise('Label the arrow from A to B no', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(edgeLbl.ok, true);
+  assert.equal(edgeLbl.check.ok, true);
+  assert.ok(edgeLbl.sop.includes('attribute=link.from value=A'), edgeLbl.sop);
+  assert.ok(edgeLbl.sop.includes('attribute=link.to value=B'), edgeLbl.sop);
+  assert.ok(edgeLbl.sop.includes('attribute=link.label value=no'), edgeLbl.sop);
+
+  // diagram-frames.sop: layout direction ("Make the arrows go left to right")
+  const dir = await formaliser.formalise('Make the arrows go left to right', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(dir.ok, true);
+  assert.equal(dir.check.ok, true);
+  assert.ok(dir.sop.includes('attribute=diagram.direction') || dir.sop.includes('attribute=node.axis'), dir.sop);
+
+  // shape-frames.sop: arrangement ("Arrange the boxes in the shape of a star")
+  const arr = await formaliser.formalise('Arrange the boxes in the shape of a star', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(arr.ok, true);
+  assert.equal(arr.check.ok, true);
+  assert.ok(arr.sop.includes('attribute=drawn.arrangement value=star'), arr.sop);
+});

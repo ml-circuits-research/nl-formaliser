@@ -311,20 +311,42 @@ function detectInputTypo({ text, goldReqs, predSummary, verifier, knownVocab }) 
       }
     }
   }
-  // 2. Unread lowercase tokens in pred that are OOV and 1-edit or split/merge from knownVocab
+  // 2. Unread lowercase tokens AND raw lowercase tokens in text that are OOV and 1-edit or split/merge from knownVocab
   if (knownVocab && knownVocab.size > 0) {
-    const unreadToks = predSummary.unreads.flatMap((u) => (String(u.text || '').match(/[a-z]{3,}/g) ?? []));
-    // Check adjacent pairs inside unread spans for shifted space ("stando ut", "theb ars")
-    for (const u of predSummary.unreads) {
-      const ws = String(u.text || '').toLowerCase().match(/[a-z]+/g) ?? [];
-      for (let i = 0; i + 1 < ws.length; i++) {
-        if ((!knownVocab.has(ws[i]) || !knownVocab.has(ws[i + 1])) && isSplitOrMergeTypo(ws[i] + ws[i + 1], knownVocab)) {
-          return true;
-        }
+    const isKnownOrVariant = (w) => {
+      if (!w || w.length < 2) return true;
+      if (knownVocab.has(w) || verifier?.isGrammar(w) || verifier?.LEX?.filler?.has(w)) return true;
+      const norm = normSpelling(w);
+      if (norm !== w && knownVocab.has(norm)) return true;
+      // Common regular inflections of known words
+      if (w.endsWith('s') && knownVocab.has(w.slice(0, -1))) return true;
+      if (w.endsWith('es') && knownVocab.has(w.slice(0, -2))) return true;
+      if (w.endsWith('ed') && (knownVocab.has(w.slice(0, -2)) || knownVocab.has(w.slice(0, -1)))) return true;
+      if (w.endsWith('ing') && (knownVocab.has(w.slice(0, -3)) || knownVocab.has(w.slice(0, -3) + 'e'))) return true;
+      if (w.endsWith('ly') && knownVocab.has(w.slice(0, -2))) return true;
+      if (w.endsWith('er') && (knownVocab.has(w.slice(0, -2)) || knownVocab.has(w.slice(0, -1)))) return true;
+      if (w.endsWith('est') && (knownVocab.has(w.slice(0, -3)) || knownVocab.has(w.slice(0, -2)))) return true;
+      return false;
+    };
+
+    // Check raw lowercase adjacent pairs for split/shifted-space typos ("stando ut", "theb ars", "ch art")
+    // Skip capitalized tokens (proper names) and numeric/code tokens.
+    const rawWords = String(text || '').match(/[A-Za-z]+/g) ?? [];
+    for (let i = 0; i + 1 < rawWords.length; i++) {
+      const a = rawWords[i], b = rawWords[i + 1];
+      if (a[0] !== a[0].toLowerCase() || b[0] !== b[0].toLowerCase()) continue;
+      if ((!isKnownOrVariant(a) || !isKnownOrVariant(b)) && (knownVocab.has(a + b) || isSplitOrMergeTypo(a + b, knownVocab))) {
+        return true;
       }
     }
-    for (const tok of unreadToks) {
-      if (knownVocab.has(tok) || verifier?.isGrammar(tok)) continue;
+
+    const candidateToks = new Set([
+      ...predSummary.unreads.flatMap((u) => (String(u.text || '').match(/[a-z]{3,}/g) ?? [])),
+      ...rawWords.filter((w) => w.length >= 3 && w[0] === w[0].toLowerCase()),
+    ]);
+
+    for (const tok of candidateToks) {
+      if (isKnownOrVariant(tok)) continue;
       if (isSplitOrMergeTypo(tok, knownVocab)) return true;
       if (tok.length >= 4) {
         for (const v of knownVocab) {

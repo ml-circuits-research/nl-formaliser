@@ -119,12 +119,6 @@
           <td class="num"><strong>272</strong></td>
           <td class="num"><strong>14.4%</strong></td>
         </tr>
-        <tr>
-          <td><em>Dataset error flag</em> (separat)</td>
-          <td>Adnotarea de referință are defecte verificabile la <code>check.mjs</code> (nu se scade din gradele primare)</td>
-          <td class="num">600</td>
-          <td class="num">31.7%</td>
-        </tr>
       </tbody>
     </table>
 
@@ -136,18 +130,31 @@
       și <code>clauses.sop</code> (<code>frame_lead</code>), numerele compuse, identificatorii post-nominali, sub-cheile comparative de grafic
       (<code>chart.errorCap</code>, <code>chart.lineWidth</code>, <code>chart.sort</code>), segmentarea Stage-1 peste PP-uri frontale,
       filtrarea preambulelor conversaționale și regulile compoziționale <code>LEGEND.md</code> v1.2 din <code>eval/z3-equiv.mjs</code>
-      urcă citirile rezonabile de la <code>26.2%</code> (v9.5) la <strong><code>35.3%</code></strong>:
+      urcă citirile rezonabile de la <code>26.2%</code> (v9.5) la <strong><code>35.3%</code></strong>.
+    </p>
+    <h3>5.1.d Compilatorul dinamic <code>w.lang.en.frame</code> → Z3 MaxSMT + separarea <code>L1c</code> (<code>spellcheck = false</code> — v9.8)</h3>
+    <p>
+      <code>src/lattice/frames.mjs</code> compilează dinamic cele 501 frame-uri din <code>w.lang.en.frame</code> în constrângeri declarative
+      de structură argumentală în <code>src/smt/encode.mjs</code> (§7b: blocarea deturnărilor spațiale pe <code>on/of &lt;owner&gt;</code>,
+      blocarea deturnărilor <code>link.to</code> pe <code>to &lt;value&gt;</code>, aliniere <code>act</code>/<code>mode</code> și faze <code>selector</code>/<code>result</code>).
+      Fiecare rând este evaluat direct în <code>L0..L4</code> (fără flag separat pentru erorile din dataset), iar <code>L1c</code> este împărțit în
+      <code>L1c (typo / spelling)</code> vs. <code>L1c (alte cauze)</code>, cu <code>--spellcheck</code> dezactivat:
     </p>
     <ul>
-      <li><strong>L0 – Fail:</strong> <code>2.9%</code> (54)</li>
-      <li><strong>L1a – Wrong intent:</strong> <strong><code>7.5%</code></strong> (142 — scăzut de la <code>8.1%</code> în v9.5 și <code>35.6%</code> în v9.0)</li>
-      <li><strong>L1b – Wrong target:</strong> <strong><code>4.7%</code></strong> (88 — redus cu <strong>42%</strong> față de <code>8.0%</code> în v9.5!)</li>
-      <li><strong>L1c – Wrong detail or role:</strong> <strong><code>31.9%</code></strong> (603 — scăzut cu <strong>-7.4 pp</strong> / -140 erori față de <code>39.3%</code> în v9.5!)</li>
-      <li><strong>L1d – Invented instruction:</strong> <code>7.8%</code> (147)</li>
-      <li><strong>L2a / L2b / L2c – Incomplete:</strong> <code>1.6%</code> (31) / <code>3.6%</code> (69) / <code>4.8%</code> (90) — total <code>L2 = 10.0%</code> (190)</li>
+      <li><strong>L0 – Fail:</strong> <code>2.5%</code> (47 — scăzut de la <code>2.9%</code>)</li>
+      <li><strong>L1a – Wrong intent:</strong> <code>7.5%</code> (141)</li>
+      <li><strong>L1b – Wrong target:</strong> <code>4.8%</code> (91)</li>
+      <li><strong>L1c – Wrong detail or role:</strong> <code>32.5%</code> (614), din care:
+        <ul>
+          <li><code>L1c (typo / spelling)</code>: <strong><code>1.2%</code> (22)</strong></li>
+          <li><code>L1c (other causes / alte cauze)</code>: <strong><code>31.3%</code> (592)</strong></li>
+        </ul>
+      </li>
+      <li><strong>L1d – Invented instruction:</strong> <code>7.7%</code> (145)</li>
+      <li><strong>L2 – Incomplete (L2a+L2b+L2c):</strong> <code>10.2%</code> (193 — <code>1.6%</code> / <code>3.8%</code> / <code>4.8%</code>)</li>
       <li><strong>L3 – Identical to dataset:</strong> <code>2.2%</code> (42)</li>
-      <li><strong>L4 – Reasonable alternative:</strong> <strong><code>33.1%</code></strong> (626 — față de <code>23.9%</code> în v9.5)</li>
-      <li><strong>Total rezonabile (<code>L3 + L4</code>):</strong> <strong><code>35.3%</code> (668 / 1.892)</strong> pe întreg holdout-ul nevăzut (cu <code>31.5%</code> <em>Dataset error flag</em>); pe split-ul de dev disjunct (<code>seed = 1337</code>), <code>L3 + L4 = 45.0%</code> (<strong><code>60.7%</code></strong> pe rândurile cu Gold și text curat). Chiar și pe comparatorul mecanic strict, <code>Exact</code> a urcat de la <code>12.2%</code> la <strong><code>16.8%</code></strong> și <code>AliasF1</code> la <strong><code>0.446</code></strong> (<code>drawing = 0.502</code>, <code>document = 0.554</code>, <code>calendar = 0.769</code>).</li>
+      <li><strong>L4 – Reasonable alternative:</strong> <code>32.7%</code> (619)</li>
+      <li><strong>Total rezonabile (<code>L3 + L4</code>):</strong> <strong><code>34.9%</code> (661 / 1.892)</strong> (<code>Valid = 98.4%</code>, <code>p50 = 807.9 ms</code>; pe dev split <code>seed=1337</code>, <code>N=250</code>: <code>L3+L4 = 50.0%</code>, <code>66.7%</code> pe Gold+text curat).</li>
     </ul>
 
     <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>

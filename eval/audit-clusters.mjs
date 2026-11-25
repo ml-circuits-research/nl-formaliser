@@ -113,6 +113,8 @@ const topN = (m, n = 12) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0
 
 let cleanGoldTotal = 0;
 let cleanGoldOk = 0;
+let l1cTypoCount = 0;
+let l1cOtherCount = 0;
 
 const maxSamples = Number(getArg('samples', 5));
 const fullOut = Boolean(getArg('full', false));
@@ -158,6 +160,8 @@ for (let i = 0; i < sample.length; i++) {
     const gMod = row.goldSop.match(/mode=(new|existing)/)?.[1] ?? 'none';
     bump(l1bPairs, `[${row.tab}] ${pFam}/${pMod} vs ${gFam}/${gMod}`);
   } else if (g === 'L1c') {
+    if (cmp.inputHasTypo) l1cTypoCount++;
+    else l1cOtherCount++;
     const pAs = [...predSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
     const gAs = [...row.goldSop.matchAll(/attribute=(\S+)/g)].map((m) => m[1]);
     for (const a of pAs) if (!gAs.includes(a)) bump(l1cFp, a);
@@ -193,6 +197,7 @@ const okTot = gradeCounts.L3 + gradeCounts.L4;
 console.log(`\n=== DEV AUDIT (seed=${seed}, N=${sample.length}, spellcheck=${spellcheck}, maxProposals=${maxProposals}) ===`);
 console.log(`Reasonable (L3+L4): ${okTot}/${sample.length} (${pct(okTot, sample.length)}) | CleanGold+CleanText: ${cleanGoldOk}/${cleanGoldTotal} (${pct(cleanGoldOk, cleanGoldTotal)})`);
 console.log('Grades:', Object.entries(gradeCounts).map(([k, v]) => `${k}=${pct(v, sample.length)}(${v})`).join('  '));
+console.log(`L1c split: typo=${pct(l1cTypoCount, sample.length)}(${l1cTypoCount})  other=${pct(l1cOtherCount, sample.length)}(${l1cOtherCount})`);
 console.log('By tab:');
 for (const [t, tb] of Object.entries(byTab)) {
   console.log(`  ${t.padEnd(9)} N=${String(tb.n).padStart(3)}  L3+L4=${pct(tb.ok, tb.n).padStart(5)}  L0=${tb.l0} L1a=${tb.l1a} L1b=${tb.l1b} L1c=${tb.l1c} L1d=${tb.l1d} L2=${tb.l2}`);

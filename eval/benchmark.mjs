@@ -694,11 +694,15 @@ async function main() {
 
   // WebMeet formalisation grades · v1.2 (webmeet-dataset/LEGEND.md)
   const legendCounts = { L0: 0, L1a: 0, L1b: 0, L1c: 0, L1d: 0, L2a: 0, L2b: 0, L2c: 0, L3: 0, L4: 0 };
-  let datasetErrorCount = 0;
+  let l1cTypoCount = 0;
+  let l1cOtherCount = 0;
   for (const r of records) {
     const g = r.cmp.legendGrade;
     if (g && Object.hasOwn(legendCounts, g)) legendCounts[g]++;
-    if (r.cmp.goldAnnotationFlawed) datasetErrorCount++;
+    if (g === 'L1c') {
+      if (r.cmp.inputHasTypo) l1cTypoCount++;
+      else l1cOtherCount++;
+    }
   }
   const l2Total = legendCounts.L2a + legendCounts.L2b + legendCounts.L2c;
   const reasonableTotal = legendCounts.L3 + legendCounts.L4;
@@ -709,6 +713,8 @@ async function main() {
   console.log(`| **L1a – Wrong intent** | Main action, question, or polarity changes | ${legendCounts.L1a} | ${pct(legendCounts.L1a, records.length)} |`);
   console.log(`| **L1b – Wrong target** | Action plausible, wrong object/family/mode | ${legendCounts.L1b} | ${pct(legendCounts.L1b, records.length)} |`);
   console.log(`| **L1c – Wrong detail or role** | Target & action plausible, wrong value/relation/role | ${legendCounts.L1c} | ${pct(legendCounts.L1c, records.length)} |`);
+  console.log(`| &nbsp;&nbsp;L1c (typo / spelling) | Caused by misspelled / split / merged input words | ${l1cTypoCount} | ${pct(l1cTypoCount, records.length)} |`);
+  console.log(`| &nbsp;&nbsp;L1c (other causes) | Wrong detail, value, relation, or role on clean spelling | ${l1cOtherCount} | ${pct(l1cOtherCount, records.length)} |`);
   console.log(`| **L1d – Invented instruction** | Adds unsupported action/condition/detail | ${legendCounts.L1d} | ${pct(legendCounts.L1d, records.length)} |`);
   console.log(`| **L2 – Incomplete** | Useful meaning, essential part missing (L2a+L2b+L2c) | ${l2Total} | ${pct(l2Total, records.length)} |`);
   console.log(`| &nbsp;&nbsp;L2a | Missing requested action, question, or step | ${legendCounts.L2a} | ${pct(legendCounts.L2a, records.length)} |`);
@@ -717,7 +723,6 @@ async function main() {
   console.log(`| **L3 – Identical to dataset** | Normalized SOP text matches reference | ${legendCounts.L3} | ${pct(legendCounts.L3, records.length)} |`);
   console.log(`| **L4 – Reasonable alternative** | Intent & essential details preserved (alias / Z3>Gold) | ${legendCounts.L4} | ${pct(legendCounts.L4, records.length)} |`);
   console.log(`| **Reasonable total (L3 + L4)** | Combined reasonable readings | **${reasonableTotal}** | **${pct(reasonableTotal, records.length)}** |`);
-  console.log(`| *Dataset error flag* (separate) | Reference annotation has check.mjs defects | ${datasetErrorCount} | ${pct(datasetErrorCount, records.length)} |`);
   if (z3Eval) {
     const mechReasonable = records.filter((r) => ['L3', 'L4'].includes(r.cmp.mechanicalLegendGrade)).length;
     console.log(`| *Mechanical comparator L3 + L4* (baseline) | Strict string/tuple comparator on same proposals | ${mechReasonable} | ${pct(mechReasonable, records.length)} |`);

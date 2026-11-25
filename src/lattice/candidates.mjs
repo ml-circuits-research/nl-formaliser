@@ -12,6 +12,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
+import { matchFrames, applyFrameMatchesToLattice } from './frames.mjs';
 
 // ---------------------------------------------------------------------------
 // Polymorphic KB accessors (compatible with Map, Set, Array, or plain Object)
@@ -3549,6 +3550,21 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   }
 
   // -------------------------------------------------------------------------
+  // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
+  // -------------------------------------------------------------------------
+  const rawFrameMatches = matchFrames(tokens, src, { tab, kb, tabSpec: kb.tabs[tab] });
+  const frameMatches = applyFrameMatchesToLattice(rawFrameMatches, {
+    tokens,
+    text: src,
+    tab,
+    kb,
+    tabSpec: kb.tabs[tab],
+    candidates: rawCandidates,
+    emit,
+    emitConstraint,
+  });
+
+  // -------------------------------------------------------------------------
   // 11. UNREAD fallback candidates (every content token + 2..3 token phrases)
   // -------------------------------------------------------------------------
   for (let i = 0; i < T; i++) {
@@ -3623,6 +3639,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     clock,
     tokens,
     candidates,
+    frameMatches,
     splitPoints,
     hasQuestionMark: src.includes('?'),
   };

@@ -110,6 +110,10 @@
           <td><strong>Non-duplicare</strong></td>
           <td>Două constrângeri identice (același atribut, valoare, operator, fază, polarity) nu pot fi selectate simultan în aceeași cerere.</td>
         </tr>
+        <tr>
+          <td><strong>Structură argumentală <code>w.lang.en.frame</code> (§7b)</strong></td>
+          <td><code>src/lattice/frames.mjs</code> compilează dinamic frame-urile din <code>sop-knowledge-worlds</code> în variabile Z3 (<code>sel_fr_f</code>, <code>own_fr_f</code>): cel mult un frame structural per cerere, aliniere <code>act</code>/<code>mode</code>, blocare hard a deturnărilor spațiale/endpoint pe prepoziții de proprietar/tranziție și legare <code>PH_SELECTOR</code>/<code>PH_RESULT</code>.</td>
+        </tr>
       </tbody>
     </table>
 

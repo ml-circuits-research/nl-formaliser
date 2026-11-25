@@ -847,11 +847,22 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
 
   // If asked_r >= 0 (from usedKwAttrIds only!), some selected KEY_WORD in r must justify asked_r!
+  // And prefer asked_r whose attribute family matches fam_r (e.g., node.width on family=node over link.width).
   for (let r = 1; r <= R; r++) {
     for (const aid of usedKwAttrIds) {
       const attrName = tabSpec.keyList[aid].name;
       const kws = (kwByAttr.get(attrName) ?? []).map((k) => `(and sel_${k.id} (= own_${k.id} ${r}))`);
       emit(`(assert (=> (and active_${r} (= asked_${r} ${aid})) ${smtOr(kws)}))`);
+      const attrFam = tabSpec.keyList[aid].family;
+      const attrFamId = attrFam ? tabSpec.families.indexOf(attrFam) : -1;
+      if (attrFamId >= 0) {
+        emit(`(assert-soft (=> (and active_${r} (= asked_${r} ${aid})) (= fam_${r} ${attrFamId})) :weight 18)`);
+      }
+      const subKey = attrName.includes('.') ? attrName.split('.').slice(1).join('.').toLowerCase() : attrName.toLowerCase();
+      const exactSubKw = (kwByAttr.get(attrName) ?? []).some((k) => k.text?.toLowerCase() === subKey);
+      if (!exactSubKw) {
+        emit(`(assert-soft (=> (and active_${r} (>= asked_${r} 0)) (not (= asked_${r} ${aid}))) :weight 4)`);
+      }
     }
   }
 
@@ -969,6 +980,119 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       for (const c of tokCover[t] ?? []) allCovVars.add(`sel_${c.id}`);
     }
     emit(`(assert-soft ${smtOr([...allCovVars])} :weight 18)`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 7b. Declarative w.lang.en.frame Argument-Structure Constraints in Z3
+  // -------------------------------------------------------------------------
+  const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
+  const FINER_ACT_MODES = new Set(['arrange', 'merge', 'ungroup', 'split', 'disconnect', 'reverse', 'repeat']);
+  for (const fm of frameMatches) {
+    emit(`(declare-const sel_fr_${fm.id} Bool)`);
+    emit(`(declare-const own_fr_${fm.id} Int)`);
+    emit(`(assert (and (<= 0 own_fr_${fm.id}) (<= own_fr_${fm.id} ${R})))`);
+    emit(`(assert (=> (not sel_fr_${fm.id}) (= own_fr_${fm.id} 0)))`);
+    emit(`(assert (=> sel_fr_${fm.id} (>= own_fr_${fm.id} 1)))`);
+
+    const blockedSpatialSet = new Set(fm.blockedSpatialToks ?? []);
+    const blockedEndpointSet = new Set(fm.blockedEndpointToks ?? []);
+
+    const spatialBlockedCands = blockedSpatialSet.size > 0
+      ? constraints.filter((c) => {
+          const sk = c.attribute?.includes('.') ? c.attribute.split('.').slice(1).join('.') : '';
+          if (!(c.isAnchor || c.needsAnchor || ['relation', 'position', 'anchor', 'relation_anchor'].includes(sk))) return false;
+          for (let t = c.startTok; t <= c.endTok; t++) if (blockedSpatialSet.has(t)) return true;
+          return false;
+        })
+      : [];
+
+    const endpointBlockedCands = blockedEndpointSet.size > 0
+      ? constraints.filter((c) => {
+          if (c.attribute !== 'link.from' && c.attribute !== 'link.to') return false;
+          for (let t = c.startTok; t <= c.endTok; t++) if (blockedEndpointSet.has(t)) return true;
+          return false;
+        })
+      : [];
+
+    const ownerCands = fm.thingSpan
+      ? activeCandidates.filter(
+          (c) =>
+            (c.kind === HYP_KINDS.TARGET_REF || c.kind === HYP_KINDS.TARGET_SORT || c.kind === HYP_KINDS.TARGET_FAMILY) &&
+            c.startTok >= fm.thingSpan.startTok &&
+            c.endTok <= fm.thingSpan.endTok,
+        )
+      : [];
+
+    const expAttrSet = fm.expectedAttrs?.length ? new Set(fm.expectedAttrs) : null;
+    const valCands = fm.valSpan
+      ? constraints.filter(
+          (c) =>
+            !c.isAnchor &&
+            c.attribute !== 'link.from' &&
+            c.attribute !== 'link.to' &&
+            (!expAttrSet || expAttrSet.has(c.attribute)) &&
+            c.startTok >= fm.valSpan.startTok &&
+            c.endTok <= fm.valSpan.endTok,
+        )
+      : [];
+
+    const oldCands = fm.oldSpan
+      ? constraints.filter(
+          (c) =>
+            !c.isAnchor &&
+            c.attribute !== 'link.from' &&
+            c.attribute !== 'link.to' &&
+            c.startTok >= fm.oldSpan.startTok &&
+            c.endTok <= fm.oldSpan.endTok,
+        )
+      : [];
+
+    const fromEndCands = fm.endsSpan
+      ? constraints.filter((c) => c.attribute === 'link.from' && c.startTok >= fm.endsSpan.startTok && c.endTok <= fm.endsSpan.endTok)
+      : [];
+    const toEndCands = fm.endsSpan
+      ? constraints.filter((c) => c.attribute === 'link.to' && c.startTok >= fm.endsSpan.startTok && c.endTok <= fm.endsSpan.endTok)
+      : [];
+
+    for (let r = 1; r <= R; r++) {
+      const frInR = `(and sel_fr_${fm.id} (= own_fr_${fm.id} ${r}))`;
+      emit(`(assert (=> ${frInR} (and active_${r} (span-in-req rstart_${r} rend_${r} ${fm.startTok} ${fm.endTok}) (= act_${r} ${actToSmt(fm.act)}))))`);
+      if (fm.mode && FINER_ACT_MODES.has(fm.mode)) {
+        emit(`(assert (=> ${frInR} (= amode_${r} ${modeToSmt(fm.mode)})))`);
+      }
+      for (const c of spatialBlockedCands) {
+        emit(`(assert (=> ${frInR} (not (and sel_${c.id} (= own_${c.id} ${r})))))`);
+      }
+      for (const c of endpointBlockedCands) {
+        emit(`(assert (=> ${frInR} (not (and sel_${c.id} (= own_${c.id} ${r})))))`);
+      }
+      if (ownerCands.length > 0) {
+        emit(`(assert (=> ${frInR} ${smtOr(ownerCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
+      }
+      if (valCands.length > 0) {
+        emit(`(assert (=> ${frInR} ${smtOr(valCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`))}))`);
+      }
+      if (oldCands.length > 0) {
+        emit(`(assert (=> ${frInR} ${smtOr(oldCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_SELECTOR))`))}))`);
+      }
+      if (fromEndCands.length > 0) {
+        emit(`(assert (=> ${frInR} ${smtOr(fromEndCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
+      }
+      if (toEndCands.length > 0) {
+        emit(`(assert (=> ${frInR} ${smtOr(toEndCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
+      }
+    }
+
+    const frWeight = 24 + Math.min(16, Math.max(0, Math.round(fm.priority ?? 10)));
+    emit(`(assert-soft sel_fr_${fm.id} :weight ${frWeight})`);
+  }
+
+  // At most one structural w.lang.en.frame governs each request slot r
+  if (frameMatches.length > 1) {
+    for (let r = 1; r <= R; r++) {
+      const inR = frameMatches.map((fm) => `(and sel_fr_${fm.id} (= own_fr_${fm.id} ${r}))`);
+      emit(`(assert ((_ at-most 1) ${inR.join(' ')}))`);
+    }
   }
 
   return {

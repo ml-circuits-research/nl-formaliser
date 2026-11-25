@@ -979,6 +979,7 @@ function loadGrammar(parse, worldsDir) {
           takes: one(w, 'takes') ?? '',
           lexicon: one(w, 'lexicon') ?? '',
           optional: one(w, 'optional') === 'yes',
+          maxWords: w.attrs.max_words?.[0] ? Number(one(w, 'max_words')) : null,
         });
       } else if (w.type === 'w.lang.en.fixed' && w.attrs.frame?.[0]) {
         rawFixed.push({
