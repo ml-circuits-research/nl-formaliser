@@ -21,7 +21,7 @@ import {
   phaseToSmt,
   wantToSmt,
 } from '../contracts.mjs';
-import { findOwnerSelectors } from '../lattice/frames.mjs';
+import { findOwnerSelectors, findSpatialOwners } from '../lattice/frames.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_WEIGHTS = JSON.parse(readFileSync(join(HERE, 'weights.json'), 'utf8'));
@@ -1043,6 +1043,45 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   const anchoredRelations = constraints.filter((c) => c.needsAnchor);
   const landmarkCandidates = constraints.filter((c) => c.isAnchor);
+  const selectingActs = new Set(['ask', 'pick', 'remove']);
+  // An interior homonym such as 'Focus' in 'book Focus Room' cannot license a selector.
+  const clauseStarts = [0, ...(lattice.splitPoints ?? []).map(({ endTok }) => endTok + 1)];
+  const selectingPredicates = preds.filter((p) => p.licensed?.length && p.licensed.every((license) => selectingActs.has(license.act)) &&
+    clauseStarts.some((start) => start <= p.startTok && tokens.slice(start, p.startTok)
+      .every((token) => token.isGrammar || token.isFiller || token.isPunct)));
+  if (W.spatialTargetSelector > 0 && selectingPredicates.length > 0) {
+    const spatialDescriptions = findSpatialOwners(tokens, [...tSorts, ...tFams, ...tRefs], anchoredRelations, landmarkCandidates);
+    for (let r = 1; r <= R; r++) {
+      const selected = (c) => `(and sel_${c.id} (= own_${c.id} ${r}))`;
+      const readings = new Map();
+      for (const { heads, relation, anchor } of spatialDescriptions) {
+        const family = famToId.get(relation.family);
+        if (family === undefined) continue;
+        for (const head of heads) {
+          if (!(head.families ?? [head.family]).includes(relation.family) ||
+              tokens.slice(head.endTok + 1, relation.startTok).some((token) => token.isPunct || kb.grammar?.coordinators?.has(token.lower))) continue;
+          const predicateActs = selectingPredicates.filter((p) => p.endTok < head.startTok).flatMap((p) =>
+            [...new Set(p.licensed.map((license) => license.act))].map((act) =>
+              `(and ${selected(p)} (= act_${r} ${actToSmt(act)}))`));
+          if (predicateActs.length === 0) continue;
+          // One preference per cue, using the longest grounded reading with this start.
+          // Otherwise a prefix and its extension penalize each other in a phrase like 'in front of'.
+          const key = relation.startTok;
+          const previous = readings.get(key);
+          if (previous && previous.endTok > relation.endTok) continue;
+          if (!previous || previous.endTok < relation.endTok) {
+            readings.set(key, { endTok: relation.endTok, applicable: new Set(), bindings: new Set() });
+          }
+          const { applicable, bindings } = readings.get(key);
+          applicable.add(`(and ${smtOr(predicateActs)} (span-in-req rstart_${r} rend_${r} ${head.startTok} ${anchor.startTok}))`);
+          bindings.add(`(and ${selected(head)} (= tpos_${r} ${head.startTok}) ${selected(relation)} ${selected(anchor)} (= fam_${r} ${family}) (= ${phaseExprOf.get(relation.id)} PH_SELECTOR) (= ${phaseExprOf.get(anchor.id)} PH_SELECTOR))`);
+        }
+      }
+      for (const { applicable, bindings } of readings.values()) {
+        emit(`(assert-soft (=> ${smtOr([...applicable])} ${smtOr([...bindings])}) :weight ${W.spatialTargetSelector})`);
+      }
+    }
+  }
   const relationValueAlternatives = new Map();
   for (const rel of anchoredRelations) {
     const anchors = constraints.filter(

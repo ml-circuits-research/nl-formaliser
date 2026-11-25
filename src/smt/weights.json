@@ -48,6 +48,7 @@
   "connectLinkNew": 14,
   "relAnchorReward": 16,
   "declaredRelationValue": 6,
+  "spatialTargetSelector": 56,
   "describedOwnerFrame": 32,
   "coordinatedChange": 85,
   "markingActAlign": 14

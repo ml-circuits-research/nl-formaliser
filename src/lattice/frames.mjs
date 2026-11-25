@@ -236,22 +236,26 @@ function frameWindows(tokens, splitPoints, predicates) {
   return windows;
 }
 
-export function findOwnerSelectors(thing, tokens, heads, relations, anchors) {
+export function findSpatialOwners(tokens, heads, relations, anchors) {
   const selectors = [];
   const grammarGap = (left, right) => tokens.slice(left.endTok + 1, right.startTok).every((token) => token.isGrammar);
   for (const relation of relations) {
-    if (relation.startTok <= thing.startTok || relation.endTok >= thing.endTok) continue;
-    const ownerHeads = heads.filter((head) => head.startTok >= thing.startTok &&
-      head.endTok < relation.startTok && grammarGap(head, relation));
+    const ownerHeads = heads.filter((head) => head.endTok < relation.startTok && grammarGap(head, relation));
     if (ownerHeads.length === 0) continue;
     for (const anchor of anchors) {
-      if (anchor.family === relation.family && anchor.endTok === thing.endTok &&
+      if (anchor.family === relation.family &&
           anchor.startTok > relation.endTok && anchor.startTok - relation.endTok <= 3 && grammarGap(relation, anchor)) {
         selectors.push({ heads: ownerHeads, relation, anchor });
       }
     }
   }
   return selectors;
+}
+
+export function findOwnerSelectors(thing, tokens, heads, relations, anchors) {
+  return findSpatialOwners(tokens, heads.filter((head) => head.startTok >= thing.startTok),
+    relations.filter((relation) => relation.startTok > thing.startTok && relation.endTok < thing.endTok),
+    anchors.filter((anchor) => anchor.endTok === thing.endTok));
 }
 
 function propertyAttributes(span, kb, tabSpec) {

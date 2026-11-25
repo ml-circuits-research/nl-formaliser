@@ -186,7 +186,13 @@ export function lemmatiseVerb(word, kb = null) {
     if (stem.endsWith('y') && stem.length >= 2) add(stem.slice(0, -1) + 'ie');
   }
 
-  // Productive English iterative prefix "re-" / "re" (rescale -> scale, resize -> size, recolor -> color, re-check -> check)
+  // An explicit lexical entry settles the stem. Prefix stripping can introduce a different act
+  // for a lexicalized word, for example 'remove' read as 'move'.
+  const verbs = kb?.verbs;
+  if (lower.startsWith('re') && verbs && out.some((lemma) =>
+    (verbs instanceof Map ? verbs.has(lemma) : Object.hasOwn(verbs, lemma)))) return out;
+
+  // Productive English iterative prefix "re-" / "re" for remaining forms.
   if (lower.startsWith('re-') && lower.length >= 6) {
     for (const sub of lemmatiseVerb(lower.slice(3), kb)) add(sub);
   } else if (lower.startsWith('re') && lower.length >= 6 && !lower.startsWith('read') && !lower.startsWith('real') && !lower.startsWith('rest')) {

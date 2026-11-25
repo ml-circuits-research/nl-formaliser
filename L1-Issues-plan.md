@@ -42,6 +42,7 @@ Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează
      - Preferință soft uniformă în Z3 pentru: (a) potrivire exactă de familie (`attr.family == fam_r`), (b) potrivire exactă de sub-cheie (`attr.shortName == kw.text`), (c) coerență cu verbul/frame-ul activ (`rename`/`label` → `*.label`/`*.name`, `resize`/`widen` → `*.width`/`*.size`).
 
 3. **Atașare locală & `phase` (`selector` vs `result`) în scene multi-obiect**
+   - **Livrat în Q-NL-020**. Un predicat explicit de selecție, descriere sau ștergere poate lega ținta de relația spațială și reperul ei. Într-o cerere separată de mutare, relația continuă să descrie rezultatul.
    - **Problema**: În propoziții lungi cu 3–6 obiecte (`drawing`, `diagram`), atributele (`colour`, `size`, `relation`) pot fi atașate greșit cererii vecine sau cu `phase=result` în loc de `phase=selector`.
    - **Acțiune**:
      - Penalizare progresivă de distanță în Z3 între constrângere și ținta/verbul propriu (`|c.startTok - tpos_r|`), cu barieră pe separatori de clauză (`,`, `and`, `then`, `:`).
