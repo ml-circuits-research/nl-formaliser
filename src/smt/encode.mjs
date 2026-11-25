@@ -496,6 +496,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // -------------------------------------------------------------------------
   // 4. Predicates, Mood, Questions & Keeping-Verb Law
   // -------------------------------------------------------------------------
+  for (const predicate of preds.filter((candidate) => candidate.targetless)) {
+    emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+    for (let r = 1; r <= R; r++) {
+      const otherOperands = [...tSorts, ...tFams, ...tRefs, ...constraints].map((candidate) =>
+        `(= own_${candidate.id} ${r})`);
+      emit(`(assert (=> (and sel_${predicate.id} (= own_${predicate.id} ${r})) (not ${smtOr(otherOperands)})))`);
+    }
+  }
   for (let r = 1; r <= R; r++) {
     const pInR = preds.map((p) => `(and sel_${p.id} (= own_${p.id} ${r}))`);
     const amo = atMostOne(pInR);
@@ -1116,7 +1124,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const bindings of referenceLandmarks.values()) {
     emit(`(assert-soft ${smtOr(bindings)} :weight ${W.referenceLandmark})`);
   }
-  const selectingActs = new Set(['ask', 'pick', 'remove']);
+  const selectingActs = new Set(['ask', 'pick', 'deselect', 'remove']);
   // An interior homonym such as 'Focus' in 'book Focus Room' cannot license a selector.
   const clauseStarts = [0, ...(lattice.splitPoints ?? []).map(({ endTok }) => endTok + 1)];
   const selectingPredicates = preds.filter((p) => p.licensed?.length && p.licensed.every((license) => selectingActs.has(license.act)) &&

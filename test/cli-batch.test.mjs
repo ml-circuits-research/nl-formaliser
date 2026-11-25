@@ -230,3 +230,39 @@ test('dictation follows the declared text carrier and keeps an explicit parent s
     await reader.close();
   }
 });
+
+test('declared selection commands preserve deselection scope and distinguish actual removals', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const text of ['Deselect everything', 'Clear the current selection', "let's remove the selection"]) {
+      const best = (await reader.propose(text)).candidates[0];
+      assert.equal(best.check.ok, true, text);
+      assert.match(best.sop, /act=deselect\b/);
+      assert.doesNotMatch(best.sop, /w\.request\.(?:target|lookup)\b/);
+      assert.deepEqual(best.check.warnings, []);
+    }
+    const filtered = (await reader.propose('Deselect the red nodes')).candidates[0];
+    assert.equal(filtered.check.ok, true);
+    assert.match(filtered.sop, /act=deselect\b/);
+    assert.match(filtered.sop, /family=node .*family_words=nodes/);
+    assert.match(filtered.sop, /attribute=node\.colou?r value=red operator=eq phase=selector/);
+    assert.doesNotMatch(filtered.sop, /name="Deselect the red"/);
+
+    const pronoun = (await reader.propose('Unselect it')).candidates[0];
+    assert.match(pronoun.sop, /from=any words=it\b/);
+
+    const removal = (await reader.propose('Delete the selected nodes')).candidates[0];
+    assert.match(removal.sop, /act=remove\b/);
+    assert.doesNotMatch(removal.sop, /name="Delete the selected"/);
+
+    const combined = (await reader.propose('Clear the selection and make the chart blue')).candidates[0];
+    assert.match(combined.sop, /@r1 .*act=deselect\b/);
+    assert.match(combined.sop, /@r2 .*act=change\b/);
+
+    const literal = (await reader.propose('Add a text box that says "Clear the selection"')).candidates[0];
+    assert.doesNotMatch(literal.sop, /act=deselect\b/);
+    assert.match(literal.sop, /attribute=node\.label value="Clear the selection"/);
+  } finally {
+    await reader.close();
+  }
+});

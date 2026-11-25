@@ -224,7 +224,7 @@ export function modelToSop(model, lattice, meta) {
       }
     }
 
-    lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
+    if (!pred?.targetless) lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
 
     let lookupIndex = 0;
     const emitThingLookup = (owner, wireId, from, words) => {
@@ -237,7 +237,7 @@ export function modelToSop(model, lattice, meta) {
       ]));
     };
 
-    if (hasLookup) {
+    if (hasLookup && !pred?.targetless) {
       const reference = tRef?.isPronoun && scopeText.includes(tRef.text) ? tRef.text : null;
       const fromWhere = lattice.catalog ? 'any' : previous || tfill === 'journal_step' ? 'previous' : (reference ? 'any' : 'page');
       emitThingLookup('target', `${rId}.t`, fromWhere, reference);

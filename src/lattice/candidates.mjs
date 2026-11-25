@@ -14,6 +14,7 @@ import {
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
 import { matchFrames, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { wholeSelectionPredicates } from './selection.mjs';
 import { findDirectiveProhibitions } from './prohibitions.mjs';
 
 // ---------------------------------------------------------------------------
@@ -3641,6 +3642,14 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     }
   }
 
+  for (const span of wholeSelectionPredicates(tokens, kb.grammar, splitPoints,
+    rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE))) {
+    emit({
+      ...span, kind: HYP_KINDS.PREDICATE, targetless: true,
+      licensed: [{ act: 'deselect', mode: 'none', mood: 'do' }], cost: 0,
+    });
+  }
+
   // A creation modifier belongs to the same evidence as a catalog type name.
   // Preserve a type-bearing candidate alongside the extended target description.
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
@@ -3833,6 +3842,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.requiresKeyWord ? 1 : 0,
       c.predicateRole ?? '',
       c.dictatedContent ? 1 : 0,
+      c.targetless ? 1 : 0,
       c.creationOnly ? 1 : 0,
       c.pairedConstraints ? JSON.stringify(c.pairedConstraints) : '',
       c.attrs ? c.attrs.join(',') : '',

@@ -57,3 +57,5 @@
 - 2026-11-25 — Q-NL-033 binds declared dictation cues to literal content and preserves name/later-command readings. Two of six targeted published texts bind the intended literal and the other variants are recorded for review. Full serial suite 230/230. See `questions.md`.
 
 - 2026-11-25 — Q-NL-034 keeps dictated text on declared block/node properties and preserves a named parent separately. Three exact WebMeet probes recover the intended literal; remaining details are recorded in `questions.md`. Full serial suite 231/231. Q-NL-035 proposes shared UI bindings with actual native schema checks.
+
+- 2026-11-25 — Q-NL-036 reads canonical selection-wide commands without fabricated objects, keeps scoped deselection and ordinary removal distinct, and reports the remaining declarative-past error. Full serial suite 232/232. Q-NL-035 adds exact diagram-topic verifier probes. See `questions.md`.

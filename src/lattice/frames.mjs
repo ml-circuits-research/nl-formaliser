@@ -872,7 +872,10 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, kb, tab
           c.startTok >= thingSpan.startTok &&
           c.endTok <= thingSpan.endTok,
       );
-      if (!hasOwnerCand && thingSpan.text && !DET_WORDS.has(thingSpan.text.toLowerCase())) {
+      const startsWithDirective = candidates.some((candidate) =>
+        candidate.kind === HYP_KINDS.PREDICATE && candidate.startTok === thingSpan.startTok &&
+        candidate.endTok < thingSpan.endTok && DET_WORDS.has(tokens[candidate.endTok + 1]?.lower));
+      if (!hasOwnerCand && !startsWithDirective && thingSpan.text && !DET_WORDS.has(thingSpan.text.toLowerCase())) {
         emit({
           kind: HYP_KINDS.TARGET_REF,
           startTok: thingSpan.startTok,
