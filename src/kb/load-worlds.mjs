@@ -790,6 +790,7 @@ function loadGrammar(parse, worldsDir) {
   const arrangements = new Map();
   const lexicons = new Map(); // name -> Set<string>
   const phraseGroups = new Map(); // group -> Set<string>
+  const phraseItems = new Map(); // phrase name -> Set<string>
   const frames = new Map(); // name -> { name, act, mode, priority, roles, parts, fixed, sourceShard }
   const constructions = new Set();
   const roleMaps = new Map(); // `${act}.${role}` -> { act, role, actRole, marker, takes }
@@ -853,9 +854,11 @@ function loadGrammar(parse, worldsDir) {
 
       if (w.type === 'w.lang.en.phrase') {
         const grp = (one(w, 'group') ?? '').toLowerCase();
+        const name = one(w, 'name');
         for (const item of many(w, 'item')) {
           const phrase = item.toLowerCase();
           if (grp) addToSetMap(phraseGroups, grp, phrase);
+          if (name) addToSetMap(phraseItems, name, phrase);
           if (grp === 'politeness and fillers' && phrase.includes(' ')) {
             fillerPhrases.add(phrase);
           }
@@ -1220,6 +1223,7 @@ function loadGrammar(parse, worldsDir) {
     arrangements,
     lexicons,
     phraseGroups,
+    phraseItems,
     frames,
     constructions,
     roleMaps,

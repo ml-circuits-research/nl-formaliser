@@ -537,6 +537,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       emit(`(assert (=> ${owns(predicate)} (and ${smtOr(artifact.map(owns))}
         ${roles.map(owns).join(' ')} (not ${smtOr(foreign.map(owns))}))))`);
       for (const role of roles) emit(`(assert (=> ${owns(role)} ${owns(predicate)}))`);
+      if (predicate.modalOutput) {
+        emit(`(assert (=> ${owns(predicate)} (and (= q_${r} Q_NONE) (= asked_${r} (- 1)))))`);
+        emit(`(assert-soft (=> ${owns(predicate)} (= act_${r} ACT_SAVE)) :weight ${W.predicateRole})`);
+      }
     }
   }
   for (let r = 1; r <= R; r++) {

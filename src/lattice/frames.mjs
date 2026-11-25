@@ -166,15 +166,56 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
     return predicate.licensed?.some(({ act }) => act === 'save') &&
       (word === 'save' || exportVerbs.has(word));
   });
-  if (!actions.length) return [];
   const isHead = ({ kind }) =>
     [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind);
+  const phrases = kb.grammar.phraseItems;
+  const modalWords = phrases?.get('shape.can');
+  const modalLeads = [...(phrases?.get('shape.wishto') ?? [])].map((lead) => lead.split(/\s+/))
+    .filter(([modal, subject, ...rest]) => !rest.length && modalWords?.has(modal) &&
+      kb.grammar.pronouns?.get(subject)?.person === '1');
+  const outputModal = phrases?.get('shape.want')?.has('have') &&
+    kb.markings.get('download')?.some(({ act, marker, role }) => act === 'save' && marker === 'as' && role === 'format');
+  if (!actions.length && !(outputModal && modalLeads.some(([modal]) => tokens.some(({ lower }) => lower === modal)))) return [];
   const windows = frameWindows(tokens, splitPoints, predicates).filter((window) => !window.internalJoiners);
+  if (outputModal) {
+    const fileHeads = candidates.filter((candidate) => candidate.kind === HYP_KINDS.TARGET_FAMILY &&
+      ['document', 'text'].includes(candidate.family) && candidate.text.toLowerCase() === 'file');
+    const modalStarts = new Set();
+    for (const { startTok, endTok } of windows) {
+      let start = startTok;
+      while (tokens[start]?.isFiller && start <= endTok) start++;
+      if (modalStarts.has(start)) continue;
+      for (const lead of modalLeads) {
+        const have = matchWordSeqAt(tokens, start, lead);
+        if (have < 0 || tokens[have]?.lower !== 'have') continue;
+        const mentionsFileForm = fileHeads.some((head) => {
+          if (head.startTok <= have + 2 || head.endTok > endTok) return false;
+          const det = head.detTok >= 0 ? head.detTok : head.startTok;
+          return tokens[det - 1]?.lower === 'as' &&
+            (head.endTok === endTok || ['from', 'to', 'into'].includes(tokens[head.endTok + 1]?.lower) ||
+              tokens.slice(head.endTok + 1, endTok + 1).every((token) => token.isPunct || token.isFiller));
+        });
+        if (!mentionsFileForm) continue;
+        modalStarts.add(start);
+        actions.push({
+          kind: HYP_KINDS.PREDICATE,
+          startTok: start,
+          endTok: have,
+          text: tokens.slice(start, have + 1).map((token) => token.text).join(' '),
+          licensed: [{ act: 'save', mood: 'do' }, { act: 'ask', mood: 'check' }],
+          modalOutput: true,
+          cost: 0,
+        });
+        break;
+      }
+    }
+  }
   const readings = [];
   for (const predicate of actions) {
     const start = predicate.endTok + 1;
     const word = predicate.text.toLowerCase();
-    const formats = new Set((kb.markings.get(word) ?? []).filter(({ role }) => role === 'format').map(({ marker }) => marker));
+    const formats = new Set((kb.markings.get(predicate.modalOutput ? 'download' : word) ?? [])
+      .filter(({ role }) => role === 'format').map(({ marker }) => marker));
     const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok > start &&
       tokens.slice(startTok, predicate.startTok).every((token) => token.isFiller || token.isGrammar))
       .sort((left, right) => left.endTok - right.endTok)[0];

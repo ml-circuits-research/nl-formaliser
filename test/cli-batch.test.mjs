@@ -472,3 +472,45 @@ test('explicit output origins stay separate from named artifacts and destination
     await reader.close();
   }
 });
+
+test('modal artifact requests keep polite delivery and permission readings without guessing the file form', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const [text, artifact, fileForm] of [
+      ['can i have the drawing as a file', /(?:sort|family_words)=drawing\b/, 'as a file'],
+      ['Could I have the chart as a file to Reports?', /family_words=chart\b/, 'as a file'],
+      ['May I have the diagram as an image file?', /family_words=diagram\b/, 'as an image file'],
+    ]) {
+      const result = await reader.propose(text);
+      assert.equal(result.status, 'partial');
+      assert.deepEqual(result.candidates.map(({ sop }) => sop.match(/w\.request\.request act=(\S+)/)?.[1]),
+        ['save', 'ask']);
+      assert.match(result.candidates[1].sop, /act=ask mood=check/);
+      for (const { sop, check } of result.candidates) {
+        assert.equal(check.ok, true);
+        assert.match(sop, artifact);
+        assert.doesNotMatch(sop, /question=|\bname=|sort=file\b/);
+        assert.ok(sop.includes(`text="${fileForm}" note=save.format`), sop);
+        if (text.includes('Reports')) assert.match(sop, /role=destination value=Reports/);
+        else assert.doesNotMatch(sop, /role=destination/);
+      }
+    }
+
+    const pronoun = (await reader.propose('Can we have it as a file?')).candidates[0];
+    assert.equal(pronoun.check.ok, true);
+    assert.match(pronoun.sop, /from=any words=it\b/);
+
+    const ordinary = (await reader.propose('Can you draw a cat?')).candidates[0];
+    assert.match(ordinary.sop, /act=make\b/);
+    assert.match(ordinary.sop, /sort=cat\b/);
+
+    const otherUse = await reader.propose('Can I have a blue circle?');
+    assert.ok(otherUse.candidates.every(({ sop }) => !sop.includes('note=save.format')));
+
+    const quoted = (await reader.propose('Add a heading called "Can I have the drawing as a file?"')).candidates[0];
+    assert.match(quoted.sop, /value="Can I have the drawing as a file\?"/);
+    assert.doesNotMatch(quoted.sop, /act=save\b/);
+  } finally {
+    await reader.close();
+  }
+});

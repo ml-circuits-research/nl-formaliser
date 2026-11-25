@@ -71,3 +71,5 @@
 - 2026-11-25 — Q-NL-041 grades request-owned destinations and purposes in both comparators. Dedicated tests cover omission, substitution, polarity, ownership, reordering and later reference columns. Full serial suite 237/237. See `questions.md`.
 
 - 2026-11-25 — Q-NL-042 prevents an explicit output source from becoming the target name, preserves quoted source/name readings, and keeps differing unread roles separate. Full serial suite 238/238. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-043 links explicit first-person file-form requests to the named/pronominal artifact, retaining delivery and permission readings and exact unread form. Full serial suite 239/239. Related modal property requests were inventoried in `questions.md`.

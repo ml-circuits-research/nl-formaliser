@@ -3650,7 +3650,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
 
   if (catalog) {
     for (const { predicate, targetEnd, roles } of matchOutputOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
-      predicate.outputTargetEnd = targetEnd;
+      if (predicate.modalOutput) emit({ ...predicate, outputTargetEnd: targetEnd });
+      else predicate.outputTargetEnd = targetEnd;
       for (const { startTok, endTok, role, note } of roles) {
         emit({
           kind: role ? HYP_KINDS.INTENT : HYP_KINDS.UNREAD,
@@ -3894,6 +3895,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.rolePredicate ?? '',
+      c.modalOutput ? 1 : 0,
       c.predicateRole ?? '',
       c.predicateRoleFamily ?? '',
       c.dictatedContent ? 1 : 0,

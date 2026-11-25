@@ -1070,3 +1070,15 @@ The data worker's CLEAN-BULK-5 hand-adjudication records the modal file request 
 ### READY Q-NL-042 — review request
 
 The focused source-role regression passes and the full serial suite passes 238/238. Please review and publish this scoped change. The detailed historical L0–L4 table remains the last aggregate measurement.
+
+## Q-NL-043 — Preserve first-person modal file requests without inferring a format
+
+The current-text reader composes the existing modal and first-person wish leads (`shape.can`, `shape.wishto`), the declared possession lead, the native document/file noun and the existing download format marker. A first-person “have” request enters this handling only when the text explicitly requests the identified artifact in file form. There is no output application inventory or guessed file kind. The leading reading is `save`, consistent with CLEAN-BULK-5's semantic adjudication. The supported `ask mood=check` alternative preserves the other interpretation without inventing a capability question enum or an unrelated question type.
+
+Actual text-only Z3 checks on the current unpublished WebMeet row `drawing/scenes-22.csv:979` preserve the exact predicate `can i have`, the existing drawing target, and `as a file` as unread in both native-valid partial circuits. Other checked inputs vary can/could/may, subject, diagram/chart, image-file wording and an explicit destination. “Can we have it as a file?” keeps lookup from=any with literal it. The indirect cat-creation and quoted title controls still work. A modal possession request without an explicit file form is outside this binding; the separate “Can I have a blue circle?” target-name defect remains visible. These checks do not establish any specific export format or actual delivery.
+
+A lexical scan of published `23f19aa` found 25 texts starting with a first-person modal possession lead. Three have an immediate indefinite article and 22 have other operand shapes. This counts surface forms, not formalization failures. Many of the latter ask for real property changes, such as flipped axes (`diagram/charts-06.csv:788`) or grey bars (`:1088`). They justify a separate role-binding check and are controls against treating every modal “have” as file delivery.
+
+### READY Q-NL-043 — review request
+
+The focused modal-file regression passes and the full serial suite passes 239/239. Please review and publish this scoped reader change. The last aggregate L0–L4 measurement remains the historical table above.
