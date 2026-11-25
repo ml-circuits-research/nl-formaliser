@@ -3680,13 +3680,29 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     if (qualifier) {
       emit({ kind: HYP_KINDS.UNREAD, ...qualifier, chartEditPredicate: startTok, cost: 0 });
     }
-    for (const field of fields) {
+    for (const [index, field] of fields.entries()) {
+      const implicitAnchor = fragment && index === 0 ? { chartEditEnd: scopeEnd, chartEditStart: startTok } : {};
+      if (field.unresolvedScale) {
+        const separateOwner = owner && owner.startTok > field.cueEnd && owner.endTok < field.startTok;
+        emit({
+          kind: HYP_KINDS.UNREAD, startTok: field.cueStart,
+          endTok: separateOwner ? field.cueEnd : field.endTok,
+          note: 'x-axis scale', unresolvedResult: true, chartEditPredicate: startTok, cost: 0, ...implicitAnchor,
+        });
+        if (separateOwner) {
+          emit({
+            kind: HYP_KINDS.UNREAD, startTok: field.startTok, endTok: field.endTok,
+            note: 'x-axis scale', unresolvedResult: true, chartEditPredicate: startTok, cost: 0,
+          });
+        }
+        continue;
+      }
       const hasCue = field.cueStart !== undefined;
       if (hasCue) {
         emit({
           kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd,
           attrs: [field.attribute], families: ['chart'], cost: 0, chartEditPredicate: startTok,
-          ...(fragment ? { chartEditEnd: scopeEnd, chartEditStart: startTok } : {}),
+          ...implicitAnchor,
         });
       }
       const valueToken = tokens[field.literalStart ?? field.startTok];

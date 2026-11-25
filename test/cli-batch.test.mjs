@@ -800,3 +800,44 @@ test('chart value-axis limits preserve numeric roles, evidence and creation owne
     await reader.close();
   }
 });
+
+test('distinct X-axis scale wording remains unresolved alongside supported Y-scale results', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    const simple = await reader.propose('Set the x axis to logarithmic');
+    assert.equal(simple.status, 'partial');
+    assert.ok(simple.candidates[0].check.ok);
+    assert.match(simple.candidates[0].sop, /text="x axis to logarithmic" note="x-axis scale"/);
+    assert.doesNotMatch(simple.candidates[0].sop, /attribute=chart\.(?:xAxis|axisScale|xLabel)/);
+
+    const named = await reader.propose('Set the x-axis scale on Regional sales to logarithmic. Then draw a cat.');
+    assert.equal(named.status, 'partial');
+    assert.ok(named.candidates[0].check.ok);
+    assert.match(named.candidates[0].sop, /@r1\.t .*name="Regional sales"/);
+    assert.match(named.candidates[0].sop, /@r1\.u\d+ .*text="x-axis scale" note="x-axis scale"/);
+    assert.match(named.candidates[0].sop, /@r1\.u\d+ .*text=logarithmic note="x-axis scale"/);
+    assert.match(named.candidates[0].sop, /@r2\.t .*sort=cat/);
+
+    const pair = await reader.propose('Set the x axis to linear and the y axis to logarithmic on Regional sales');
+    assert.equal(pair.status, 'partial');
+    assert.ok(pair.candidates[0].check.ok);
+    assert.match(pair.candidates[0].sop, /name="Regional sales"/);
+    assert.match(pair.candidates[0].sop, /text="x axis to linear" note="x-axis scale"/);
+    assert.match(pair.candidates[0].sop, /chart\.axisScale value=log words=logarithmic/);
+    assert.doesNotMatch(pair.candidates[0].sop, /attribute=chart\.(?:xAxis|xLabel|yLabel)/);
+
+    const separate = await reader.propose('Keep the x axis linear with keep the y axis logarithmic, and make the markers a bit bigger');
+    assert.equal(separate.status, 'partial');
+    assert.ok(separate.candidates[0].check.ok);
+    assert.match(separate.candidates[0].sop, /@r1\.u\d+ .*text="x axis linear" note="x-axis scale"/);
+    assert.match(separate.candidates[0].sop, /@r1\.c\d+ .*chart\.axisScale value=log/);
+    assert.match(separate.candidates[0].sop, /@r2\.c\d+ .*chart\.markerSize/);
+
+    const quoted = (await reader.propose('Leave the chart called "X axis linear"')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /name="X axis linear"/);
+    assert.doesNotMatch(quoted.sop, /note="x-axis scale"/);
+  } finally {
+    await reader.close();
+  }
+});

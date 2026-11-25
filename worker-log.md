@@ -89,3 +89,5 @@
 - 2026-11-25 — Q-NL-050 binds native axis sides and value scale separately, including a written chart owner between property and value. Nineteen of 24 probes preserve the intended axis operand and owner. Focused 4/4, full serial 246/246. See `questions.md` for review and the X-scale gap.
 
 - 2026-11-25 — Q-NL-051 binds numeric Y-axis limits and zero-based creation modifiers, and retains exact normalized scale evidence. Eleven of 22 published probes preserve the intended numeric operand and chart owner. Focused 5/5, full serial 247/247. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-052 preserves the written X-scale operand pending a native key and separates the Y-scale result. Twelve of 23 published probes preserve X; five also emit the intended Y scale. Focused 6/6, full serial 248/248. Review requested in `questions.md`.

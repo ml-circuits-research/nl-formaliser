@@ -562,7 +562,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const anchor of chartEdits) {
     const start = anchor.chartEditStart ?? anchor.startTok;
     const operands = activeCandidates.filter((candidate) => candidate.chartEditPredicate === start);
-    if (!operands.some(({ kind }) => kind === HYP_KINDS.CONSTRAINT)) continue;
+    if (!operands.some(({ kind, unresolvedResult }) => kind === HYP_KINDS.CONSTRAINT || unresolvedResult)) continue;
     if (chartEdits.length + outputPredicates.length <= R) {
       emit(`(assert sel_${anchor.id})`);
     } else {

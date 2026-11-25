@@ -287,11 +287,18 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
     ({ key, phrase, compact: compactCue(phrase) }));
   const valueAxes = [...valueSide.keyWords].filter((word) => /^(?:y|value) axis side$/.test(word))
     .map((word) => word.replace(/ side$/, ''));
+  const categoryAxes = [...categorySide.keyWords].filter((word) => /^(?:x|category) axis side$/.test(word))
+    .map((word) => word.replace(/ side$/, ''));
+  const axisScaleCues = (axes) => axes.flatMap((axis) => [axis, axis + ' scale']);
+  const categoryScaleCues = new Set(axisScaleCues(categoryAxes).map(compactCue));
+  const valueScaleCues = new Set(axisScaleCues(valueAxes).map(compactCue));
+  const scaleValue = (word) => word === 'logarithmic' && scale.keyWords.has(word) ? 'log' : word;
   const sideKeys = new Set([categorySide, valueSide]);
   const cues = [
     ...[grid, gridStyle, lineStyle, labels, categorySide].flatMap((key) => stockCues(key)),
     ...stockCues(valueSide, [...valueAxes, ...[...valueSide.keyWords].filter((word) => word.endsWith('side'))]),
-    ...stockCues(scale, [...valueAxes, ...valueAxes.map((word) => word + ' scale'), 'axis scale']),
+    ...stockCues(scale, [...axisScaleCues(valueAxes), 'axis scale']),
+    ...stockCues(categorySide, axisScaleCues(categoryAxes).filter((word) => !categorySide.keyWords.has(word))),
     ...numericBounds.flatMap((key) => stockCues(key, [...key.keyWords].filter((word) =>
       !['floor', 'cap', 'scale'].includes(word)))),
     ...numericBounds.flatMap((key) => stockCues(key, ['axis', ...valueAxes])),
@@ -324,7 +331,7 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
     while (['and', 'then'].includes(tokens[clauseStart]?.lower)) clauseStart++;
     for (const start of [clauseStart, ...matchLeadAt(tokens, clauseStart, kb)]) {
       const direct = predicates.find((p) => p.startTok === start && p.licensed?.some(({ act }) => act === 'change') &&
-        ['show', 'hide', 'make', 'set', 'switch'].includes(p.text.toLowerCase()));
+        ['show', 'hide', 'make', 'set', 'switch', 'keep', 'have'].includes(p.text.toLowerCase()));
       const move = predicates.find((p) => p.startTok === start && ['put', 'move'].includes(p.text.toLowerCase()) &&
         p.licensed?.some(({ act }) => act === 'place'));
       const lead = leads.find((words) => tokens[matchWordSeqAt(tokens, start, words)]?.lower === 'have');
@@ -366,6 +373,7 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
         (!boundLead || key === boundLead));
       const cue = matches[0];
       if (!cue) continue;
+      const categoryScale = cue.key === categorySide && categoryScaleCues.has(cue.compact);
 
       const cueEnd = cueStart + spellings.indexOf(cue.compact);
       let cursor = cueEnd + 1;
@@ -407,9 +415,13 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
         }
         if (tokens[first].kind !== 'word') return null;
         const word = tokens[first].lower;
-        const value = word === 'logarithmic' && scale.keyWords.has(word) ? 'log' : word;
+        const value = scaleValue(word);
+        if (!move && categoryScale && !['on', 'at'].includes(marker) && scale.values.has(value)) {
+          return { startTok: first, endTok: first, value, wordsStart: first, unresolvedScale: true };
+        }
         const property = propertyCues.find(({ key }) => (sideKeys.has(key) || key === scale) && key.values.has(value) &&
-          (!['on', 'at'].includes(marker) || sideKeys.has(key)));
+          (!['on', 'at'].includes(marker) || sideKeys.has(key)) &&
+          !(categoryScale && cue.phrase.endsWith(' scale')));
         if (!property) return null;
         return { startTok: first, endTok: first, value, key: property.key, wordsStart: first };
       };
@@ -437,6 +449,29 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
         if (!style) continue;
         cursor = style.endTok + 1;
       }
+      let coordinatedScale;
+      if (!owner && style && (style.unresolvedScale || style.key === scale) &&
+          ['and', 'with', 'plus'].includes(tokens[cursor]?.lower)) {
+        let first = cursor + 1;
+        const repeatedVerb = verb && tokens[first]?.lower === verb ? first++ : null;
+        if (DET_WORDS.has(tokens[first]?.lower)) first++;
+        const opposite = style.unresolvedScale ? valueScaleCues : categoryScaleCues;
+        for (let endTok = Math.min(first + 2, limit - 1); endTok >= first; endTok--) {
+          const axis = tokens.slice(first, endTok + 1);
+          if (axis.some(({ kind }) => kind !== 'word') || !opposite.has(compactCue(axis.map(({ lower }) => lower).join(' ')))) continue;
+          const valueAt = endTok + (tokens[endTok + 1]?.lower === 'to' ? 2 : 1);
+          const value = scaleValue(tokens[valueAt]?.lower);
+          if (valueAt >= limit || !scale.values.has(value)) continue;
+          const ownerStart = valueAt + 2;
+          const sharedOwner = ['on', 'of'].includes(tokens[valueAt + 1]?.lower) && ownerStart < limit;
+          if (valueAt !== limit - 1 && !sharedOwner) continue;
+          if (sharedOwner) owner = { startTok: ownerStart, endTok: limit - 1 };
+          coordinatedScale = { attribute: scale.name, startTok: valueAt, endTok: valueAt, cueStart: repeatedVerb ?? first,
+            cueEnd: endTok, wordsStart: valueAt, value, unresolvedScale: !style.unresolvedScale };
+          cursor = limit;
+          break;
+        }
+      }
       if (cursor !== limit) continue;
 
       const ownerWords = owner ? tokens.slice(owner.startTok, owner.endTok + 1) : [];
@@ -455,18 +490,25 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
         ? { attribute: cue.key.name, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
         : { attribute: styleKey.name, startTok: styleStart ?? style.startTok, endTok: style.endTok,
           literalStart: style.startTok, wordsStart: styleStart ?? style.wordsStart, cueStart, cueEnd,
+          unresolvedScale: style.unresolvedScale,
           ...(!styleKey.values || styleKey.values.has(style.value) ? { value: style.value } : { allowOpen: true }) };
       const earlier = byStart.get(start);
       if (!earlier || earlier.limit > limit ||
           (earlier.limit === limit && (earlier.qualifier?.endTok ?? limit) > (qualifier?.endTok ?? limit))) {
         byStart.set(start, { startTok: start, endTok: end, owner, limit, qualifier,
-          fields: rangeEnd ? [field, rangeEnd] : [field], fragment });
+          fields: (rangeEnd || coordinatedScale) ? [field, rangeEnd ?? coordinatedScale] : [field], fragment });
       }
     }
   }
-  const edits = [...byStart.values()];
-  const explicitValues = new Set(edits.filter((edit) => !edit.fragment).map((edit) => edit.fields[0].endTok));
-  return edits.filter((edit) => !edit.fragment || !explicitValues.has(edit.fields[0].endTok));
+  const byOperands = new Map();
+  for (const edit of byStart.values()) {
+    const key = JSON.stringify(edit.fields.map(({ attribute, startTok, endTok }) => [attribute, startTok, endTok]));
+    const previous = byOperands.get(key);
+    // Lead matching can expose the main verb of a modal as a second start.
+    // Keep the whole written lead when both starts bind the same operands.
+    if (!previous || edit.startTok < previous.startTok) byOperands.set(key, edit);
+  }
+  return [...byOperands.values()];
 }
 
 export function matchModalWants(tokens, splitPoints, predicates, candidates, kb) {

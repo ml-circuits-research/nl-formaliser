@@ -1200,3 +1200,15 @@ The Q050 reviewer follow-up is also covered by the evidence binding in this scop
 ### READY Q-NL-051 — review request
 
 Focused chart groups 5/5, final full serial suite 247/247 and final selected WebMeet rerun 22/22 native-valid, 11/22 with the intended axis operand and chart ownership. Please independently review and publish the numeric value-axis binding and normalized lexical evidence. Keep the last aggregate L0–L4 table under Q045 separate from these checks.
+
+## Q-NL-052 — Preserve an explicit X-scale request independently of X side and Y scale
+
+The installed shared catalog still has no separate X-axis scale slot. On a grounded X/category-axis scale request, the reader now keeps the written scale operand as request-owned unread evidence with note “x-axis scale”. It preserves the named chart or its literal lookup. When a name separates the cue and value, the two written spans stay associated with the same request without duplicating the owner. A coordinated “set X linear and Y logarithmic” keeps the X operand unresolved and emits the native Y scale `chart.axisScale=log words=logarithmic`. The former incorrect open `chart.xAxis=logarithmic` position result is gone on this scoped shape. Quoted labels and real X-axis positions retain their meanings.
+
+The previous modal reading could expose a second scoped predicate at bare “have”. Extending the construction made that overlap observable as UNSAT on the earlier dependent-clause example. The parser now retains the longest written lead for the same property and value spans. Repeated “keep” in a shared edit can bind both written scales, while an independent following marker-size or drawing request keeps its own scope. No closed X-scale result or execution is claimed.
+
+All 23 published `23f19aa` diagram rows from the direct X-scale lexical cohort native-validate. Twelve leading proposals retain the exact requested X-scale wording as an unresolved operand; five of those also emit the intended Y scale (`diagram/charts-02.csv:4003,4006,4009` and `diagram/charts-03.csv:2846,2855`). The other rows expose unresolved command boundaries around independent wish leads, preambles, trailing reasons, or courtesy clauses. Several still select a generic axis label. The two longer compounds at `diagram/charts-02.csv:4003–4004` now retain the written X operand; `:4004` still misclassifies Y because of its following qualifier. These counts establish operand preservation only, with the canonical X representation still open.
+
+### READY Q-NL-052 — review request
+
+Focused chart groups 6/6 and final full serial suite 248/248. Please independently review and publish the preserved X-scale evidence and coordinated Y-scale result. Keep the partial status and remaining grouping failures visible beside the historical L0–L4 table under Q045.
