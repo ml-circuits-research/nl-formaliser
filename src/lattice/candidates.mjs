@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchFrames, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { matchFrames, matchOptionQuestions, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -1152,8 +1152,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     }
 
     // 3. SEP (punctuation & joiners)
-    if (tok.isPunct && (tok.text === ',' || tok.text === ';' || tok.text === '.')) {
-      const isStrong = tok.text === ';' || tok.text === '.';
+    if (tok.isPunct && (tok.text === ',' || tok.text === ';' || tok.text === '.' || (tok.text === '?' && i + 1 < T))) {
+      const isStrong = tok.text !== ',';
       emit({
         kind: HYP_KINDS.SEP,
         startTok: i,
@@ -3634,11 +3634,17 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     }
   }
 
-  for (const span of wholeSelectionPredicates(tokens, kb.grammar, splitPoints,
-    rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE))) {
+  const writtenPredicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+  for (const span of wholeSelectionPredicates(tokens, kb.grammar, splitPoints, writtenPredicates)) {
     emit({
       ...span, kind: HYP_KINDS.PREDICATE, targetless: true,
       licensed: [{ act: 'deselect', mode: 'none', mood: 'do' }], cost: 0,
+    });
+  }
+  for (const span of matchOptionQuestions(tokens, splitPoints, writtenPredicates, kb)) {
+    emit({
+      ...span, kind: HYP_KINDS.PREDICATE, targetless: true,
+      licensed: [{ act: 'ask', mode: 'none', mood: 'ask', question: 'list' }], cost: 0,
     });
   }
 

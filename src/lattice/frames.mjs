@@ -108,6 +108,45 @@ function matchWordSeqAt(tokens, pos, seq) {
   return pos + seq.length;
 }
 
+// Some questions ask for available choices without naming a target.
+// Match the declared literal frames without manufacturing a noun role.
+export function matchOptionQuestions(tokens, splitPoints, predicates, kb) {
+  const frames = ['acts.more.ask.options.what', 'acts.more.ask.options.show']
+    .map((name) => kb.grammar.frames?.get(name))
+    .filter((frame) => frame?.act === 'ask' && frame.needs === 'list');
+  if (!frames.length) return [];
+  const results = [];
+  for (const { startTok, endTok, internalJoiners } of frameWindows(tokens, splitPoints, predicates)) {
+    if (internalJoiners) continue;
+    const starts = [startTok, ...matchLeadAt(tokens, startTok, kb)];
+    let best;
+    for (const frame of frames) {
+      const parts = frame.parts.filter(({ is }) => is !== 'lead');
+      if (parts.some(({ is }) => is !== 'word')) continue;
+      for (const start of starts) {
+        let positions = [start];
+        for (const part of parts) {
+          positions = [...new Set(positions.flatMap((pos) => [
+            ...(part.optional ? [pos] : []),
+            ...part.words.map((word) => matchWordSeqAt(tokens, pos, word.split(/\s+/)))
+              .filter((next) => next >= 0 && next <= endTok + 1),
+          ]))];
+          if (!positions.length) break;
+        }
+        for (const stop of positions) {
+          if (stop <= start || !tokens.slice(stop, endTok + 1)
+            .every((token) => token.isPunct || token.isFiller)) continue;
+          if (!best || stop - start > best.endTok - best.startTok + 1) {
+            best = { startTok: start, endTok: stop - 1 };
+          }
+        }
+      }
+    }
+    if (best) results.push(best);
+  }
+  return results;
+}
+
 function matchLexiconAt(tokens, pos, lexName, kb, tabSpec) {
   const T = tokens.length;
   const maxLen = Math.min(4, T - pos);

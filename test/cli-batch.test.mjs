@@ -343,3 +343,46 @@ test('an explicit chart subject keeps its whole phrase separate from names and c
     await reader.close();
   }
 });
+
+test('declared option questions keep their interrogative role without inventing an object', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const text of [
+      'what can i draw',
+      'what can u draw',
+      'Show me what I can draw.',
+      'What can you add to my picture?',
+      'Which can I choose?',
+    ]) {
+      const answer = await reader.propose(text);
+      assert.equal(answer.candidates.length, 1, text);
+      const best = answer.candidates[0];
+      assert.equal(best.check.ok, true);
+      assert.deepEqual(best.check.warnings, []);
+      assert.match(best.sop, /act=ask mood=ask .*question=list/);
+      assert.doesNotMatch(best.sop, /w\.request\.(?:target|lookup)\b/);
+    }
+
+    for (const text of [
+      'What can I draw, and make the house blue',
+      'What can I draw? Make the house blue',
+      'Make the house blue. What can I draw?',
+    ]) {
+      const best = (await reader.propose(text)).candidates[0];
+      assert.equal(best.check.ok, true);
+      assert.equal((best.sop.match(/w\.request\.request\b/g) ?? []).length, 2);
+      assert.match(best.sop, /act=ask mood=ask .*question=list/);
+      assert.match(best.sop, /act=change mood=do/);
+      assert.match(best.sop, /attribute=drawn\.colou?r value=blue/);
+    }
+
+    const indirect = (await reader.propose('Can you draw a cat?')).candidates[0];
+    assert.match(indirect.sop, /act=make\b/);
+    assert.match(indirect.sop, /sort=cat\b/);
+    const title = (await reader.propose('Add a heading called "What can I draw"')).candidates[0];
+    assert.match(title.sop, /attribute=(?:section|block)\.name value="What can I draw"/);
+    assert.doesNotMatch(title.sop, /act=ask\b/);
+  } finally {
+    await reader.close();
+  }
+});

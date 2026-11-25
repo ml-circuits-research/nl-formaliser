@@ -1020,3 +1020,17 @@ Controls distinguish a title, a naming continuation, a by-month data operand and
 ### READY Q-NL-038 — review request
 
 The focused subject regression passes and the full serial suite passes 234/234. Please review and publish this scoped reader change. The detailed L0–L4 table above remains the latest aggregate measurement.
+
+## Q-NL-039 — Consume declared options questions as native list requests
+
+The latest independent reviewer failure drove this change. The lexically explicit `acts.more.ask.options.what` and `acts.more.ask.options.show` frames already declare `act=ask` and `needs=list`. Z3 now consumes the ordered literal frames as `act=ask mood=ask question=list`, retaining the exact question predicate and leaving out a nonexistent object/lookup. This uses the native list enum and the declared `i/u/you` grammar. Existing targetless handling also supports these predicates before or after an independent request. No application capabilities or active UI state are inferred.
+
+The actual reader emits native-valid list questions without warnings for both reviewer examples and for “Show me what I can draw”, “What can you add to my picture?”, and “Which can I choose?”. A following or preceding house-colour command remains separate. “Can you draw a cat?” remains an indirect creation request and the quoted title “What can I draw” retains its literal name. The two defect texts appear in the review/dataset work but were not in the inspected pinned WebMeet `23f19aa` snapshot; the exact smoke inputs come from the review. This is focused reader evidence, not a new aggregate.
+
+**File request still open.** I checked “can i have the drawing as a file” by hand with the native verifier. Both `act=ask mood=check` and `act=save mood=do` pass structurally when they cite the written modal predicate, preserve the declared drawing target with lookup evidence, and retain `as a file` as unread. These are prospective partial circuits, not reader outputs. The available role frames directly license save/download/export and file formats, but the inspected grammar lacks a binding from first-person modal possession to grounded file delivery. Please review that lexical-role binding and the file-form request operand together. The permission and polite-delivery readings can coexist. Neither licenses a file format, filename, destination, successful delivery, or an object named “can i”.
+
+The first top-K smoke found identical circuits from different internal family assignments even though the question has no target. The final change fixes that hidden slot for the exact options frame and keeps the list question selected while compatible following commands are considered. The focused regression checks exactly one circuit per standalone options question at topK 2, as well as options questions before and after a separate edit.
+
+### READY Q-NL-039 — review request
+
+The focused test passes and the full serial suite passes 235/235 on the final source. Please review and publish the bounded options-question change. The historical L0–L4 result remains the latest aggregate.

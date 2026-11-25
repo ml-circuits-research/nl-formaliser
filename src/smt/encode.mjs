@@ -475,6 +475,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     c.kind === HYP_KINDS.TARGET_SORT || c.kind === HYP_KINDS.TARGET_FAMILY ||
     c.kind === HYP_KINDS.TARGET_REF || c.kind === HYP_KINDS.CONSTRAINT || c.kind === HYP_KINDS.UNREAD
   );
+  const targetlessPredicates = preds.filter((candidate) => candidate.targetless);
   for (let r = 1; r <= R; r++) {
     const ownsAny = reqOwned.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`);
     if (ownsAny.length > 0) {
@@ -485,10 +486,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     if (argOwned.length > 0) {
       const hasArg = smtOr(argOwned.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
       const isZeroArgAct = `(or (= act_${r} ACT_UNDO) (= act_${r} ACT_REDO) (= act_${r} ACT_SAVE) (= act_${r} ACT_DESELECT) (and (= act_${r} ACT_COPY) (= amode_${r} MODE_REPEAT)))`;
+      const explicitTargetless = smtOr(targetlessPredicates.map((p) =>
+        `(and sel_${p.id} (= own_${p.id} ${r}))`));
       if (r > 1) {
-        emit(`(assert (=> active_${r} (or ${hasArg} ${isZeroArgAct})))`);
+        emit(`(assert (=> active_${r} (or ${hasArg} ${isZeroArgAct} ${explicitTargetless})))`);
       } else if (R > 1) {
-        emit(`(assert (=> active_2 (or ${hasArg} ${isZeroArgAct})))`);
+        emit(`(assert (=> active_2 (or ${hasArg} ${isZeroArgAct} ${explicitTargetless})))`);
       }
     }
   }
@@ -496,12 +499,23 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // -------------------------------------------------------------------------
   // 4. Predicates, Mood, Questions & Keeping-Verb Law
   // -------------------------------------------------------------------------
-  for (const predicate of preds.filter((candidate) => candidate.targetless)) {
-    emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+  const closedQuestions = targetlessPredicates.filter(({ licensed }) =>
+    licensed.some(({ act, question }) => act === 'ask' && question === 'list'));
+  for (const predicate of targetlessPredicates) {
+    const closedQuestion = closedQuestions.includes(predicate);
+    if (closedQuestion && closedQuestions.length <= R) {
+      emit(`(assert sel_${predicate.id})`);
+    } else {
+      emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+    }
     for (let r = 1; r <= R; r++) {
       const otherOperands = [...tSorts, ...tFams, ...tRefs, ...constraints].map((candidate) =>
         `(= own_${candidate.id} ${r})`);
-      emit(`(assert (=> (and sel_${predicate.id} (= own_${predicate.id} ${r})) (not ${smtOr(otherOperands)})))`);
+      // A targetless question has no emitted family. Freeze the internal
+      // family slot so top-K cannot manufacture duplicate question circuits.
+      const noOperands = `(not ${smtOr(otherOperands)})`;
+      const targetless = closedQuestion ? `(and ${noOperands} (= fam_${r} 0))` : noOperands;
+      emit(`(assert (=> (and sel_${predicate.id} (= own_${predicate.id} ${r})) ${targetless}))`);
     }
   }
   for (let r = 1; r <= R; r++) {

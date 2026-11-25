@@ -63,3 +63,5 @@
 - 2026-11-25 — Q-NL-037 separates past reports from current commands and keeps exact reported evidence in diagnostics. Three exact WebMeet probes drop the spurious pick/time request. Two still need the shared selection particle variant. Full serial suite 233/233. See `questions.md`.
 
 - 2026-11-25 — Q-NL-038 binds complete explicit chart/diagram subjects through `diagram.about`. Seven of eight exact WebMeet probes keep the intended subject; the verbless placement case remains open. Full serial suite 234/234. See `questions.md`.
+
+- 2026-11-25 — Q-NL-039 emits native targetless list questions from the declared options frames, preserving independent edits and literal titles. Full serial suite 235/235. The modal file request remains open with two partial native wire proposals in `questions.md`.
