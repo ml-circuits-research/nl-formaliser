@@ -289,7 +289,13 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec }) {
               const nxt = matchWordSeqAt(tokens, tIdx, seq);
               if (nxt > 0 && nxt <= clEnd + 1) {
                 const nextPred = part.act ? { startTok: tIdx, endTok: nxt - 1 } : predSpan;
-                const nextAnchors = [...wordAnchors, { text: seq.join(' '), startTok: tIdx, endTok: nxt - 1, afterRole: pIdx > 0 ? parts[pIdx - 1].role : '', beforeRole: pIdx + 1 < P ? parts[pIdx + 1].role : '' }];
+                const nextPart = parts.slice(pIdx + 1).find((p) => p.is !== 'det');
+                const nextAnchors = [...wordAnchors, {
+                  text: seq.join(' '), startTok: tIdx, endTok: nxt - 1,
+                  partAt: part.at,
+                  afterRole: parts[pIdx - 1]?.role,
+                  beforeRole: nextPart?.role,
+                }];
                 dfs(pIdx + 1, nxt, roles, nextAnchors, nextPred);
               }
             }
@@ -412,17 +418,17 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const relSpan = fm.roles.get('rel');
     const matSpan = fm.roles.get('material');
     const replSpan = fm.roles.get('replacement');
+    const propertyOwnerMarker = attrSpan && thingSpan && valSpan
+      ? fm.wordAnchors.find((wa) => wa.afterRole === 'attribute' && wa.beforeRole === 'thing')
+      : null;
 
     // 1. Property-owner-value frame (`acts.change.property.on`: "Set the width on the node to 15",
     //    `acts.ask.property.have`: "What width does the node have?"):
-    //    - Block spatial `on`/`of` hijacking on the owner preposition!
-    //    - Block `link.to` hijacking on the `to <value>` transition!
+    //    The matched part between attribute and thing introduces the owner.
+    //    The part between thing and value introduces the result, not a link endpoint.
     if (attrSpan && thingSpan) {
       for (const wa of fm.wordAnchors) {
-        if (['on', 'of'].includes(wa.text)) {
-          for (let t = wa.startTok; t <= thingSpan.endTok; t++) blockedSpatialToks.add(t);
-        }
-        if (['to', 'into'].includes(wa.text) && valSpan) {
+        if (valSpan && wa.afterRole === 'thing' && wa.beforeRole === 'value') {
           for (let t = wa.startTok; t <= valSpan.endTok; t++) blockedEndpointToks.add(t);
         }
       }
@@ -580,6 +586,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       priority: fm.priority,
       startTok: fm.startTok,
       endTok: fm.endTok,
+      propertyOwnerMarker,
       blockedSpatialToks: [...blockedSpatialToks],
       blockedEndpointToks: [...blockedEndpointToks],
       oldSpan: oldSpan ? { startTok: oldSpan.startTok, endTok: oldSpan.endTok } : null,

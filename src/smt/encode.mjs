@@ -33,6 +33,8 @@ const PLACE_SHORT_KEYS = new Set([
 
 const smtOr = (xs) => (xs.length === 0 ? 'false' : xs.length === 1 ? xs[0] : `(or ${xs.join(' ')})`);
 const smtAnd = (xs) => (xs.length === 0 ? 'true' : xs.length === 1 ? xs[0] : `(and ${xs.join(' ')})`);
+const inSpan = (candidate, span) => candidate.startTok >= span.startTok && candidate.endTok <= span.endTok;
+const sameSpan = (a, b) => a.startTok === b.startTok && a.endTok === b.endTok;
 
 function atMostOne(vars) {
   if (vars.length <= 1) return null;
@@ -152,6 +154,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const tSorts = byKind[HYP_KINDS.TARGET_SORT];
   const tFams = byKind[HYP_KINDS.TARGET_FAMILY];
   const tRefs = byKind[HYP_KINDS.TARGET_REF];
+  const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
+  const propertyFrames = frameMatches.filter((fm) => fm.propertyOwnerMarker);
 
   // Index KEY_WORDs by attrName (only attrs that actually have a KEY_WORD in this sentence can be `asked_r`!)
   const kwByAttr = new Map();
@@ -309,6 +313,15 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
   }
 
+  // Frame variables also license property-to-value keyword bindings across the owner phrase.
+  for (const fm of frameMatches) {
+    emit(`(declare-const sel_fr_${fm.id} Bool)`);
+    emit(`(declare-const own_fr_${fm.id} Int)`);
+    emit(`(assert (and (<= 0 own_fr_${fm.id}) (<= own_fr_${fm.id} ${R})))`);
+    emit(`(assert (=> (not sel_fr_${fm.id}) (= own_fr_${fm.id} 0)))`);
+    emit(`(assert (=> sel_fr_${fm.id} (>= own_fr_${fm.id} 1)))`);
+  }
+
   // Pre-compute compatible KEY_WORDs and NEGs for each CONSTRAINT (elide unused Z3 variables!)
   const compatKwsOfConstraint = new Map();
   const constraintsUsingKw = new Map(keywords.map((k) => [k.id, []]));
@@ -367,15 +380,22 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
 
-    // Compatible non-overlapping KEY_WORD candidates within distance <= 5 tokens, NEVER crossing ';' or '.'!
+    // Local keywords retain the normal distance bound. A matched property frame can
+    // license its exact keyword and value spans across the intervening owner phrase.
     const kwList = [];
+    const longKwFrames = new Map();
+    const valueFrames = propertyFrames.filter((fm) => sameSpan(c, fm.valSpan) && fm.expectedAttrs.includes(c.attribute));
     if (c.attribute && kwByAttr.has(c.attribute)) {
       for (const k of kwByAttr.get(c.attribute)) {
         const overlaps = !(k.endTok < c.startTok || c.endTok < k.startTok);
         if (overlaps) continue;
         const lo = Math.min(k.endTok, c.endTok);
         const hi = Math.max(k.startTok, c.startTok);
-        if (hi - lo > 5) continue;
+        if (hi - lo > 5) {
+          const frames = valueFrames.filter((fm) => sameSpan(k, fm.attrSpan));
+          if (frames.length === 0) continue;
+          longKwFrames.set(k.id, frames);
+        }
         let crossesHardPunct = false;
         for (let t = lo + 1; t < hi; t++) {
           if (tokens[t].isPunct && (tokens[t].text === ';' || tokens[t].text === '.')) {
@@ -406,6 +426,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       const dist2Kws = [];
       for (const k of kwList) {
         emit(`(assert (=> (= kw_${c.id} ${k.id}) (and sel_${c.id} sel_${k.id} (= own_${c.id} own_${k.id}))))`);
+        const frames = longKwFrames.get(k.id);
+        if (frames) {
+          const licences = frames.map((fm) => `(and sel_fr_${fm.id} (= own_fr_${fm.id} own_${c.id}))`);
+          emit(`(assert (=> (= kw_${c.id} ${k.id}) ${smtOr(licences)}))`);
+        }
         const dist = k.endTok < c.startTok ? c.startTok - k.endTok : k.startTok - c.endTok;
         if (dist === 1) dist1Kws.push(`(= kw_${c.id} ${k.id})`);
         if (dist <= 2) dist2Kws.push(`(= kw_${c.id} ${k.id})`);
@@ -985,22 +1010,16 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // -------------------------------------------------------------------------
   // 7b. Declarative w.lang.en.frame Argument-Structure Constraints in Z3
   // -------------------------------------------------------------------------
-  const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
   const FINER_ACT_MODES = new Set(['arrange', 'merge', 'ungroup', 'split', 'disconnect', 'reverse', 'repeat']);
   for (const fm of frameMatches) {
-    emit(`(declare-const sel_fr_${fm.id} Bool)`);
-    emit(`(declare-const own_fr_${fm.id} Int)`);
-    emit(`(assert (and (<= 0 own_fr_${fm.id}) (<= own_fr_${fm.id} ${R})))`);
-    emit(`(assert (=> (not sel_fr_${fm.id}) (= own_fr_${fm.id} 0)))`);
-    emit(`(assert (=> sel_fr_${fm.id} (>= own_fr_${fm.id} 1)))`);
-
     const blockedSpatialSet = new Set(fm.blockedSpatialToks ?? []);
     const blockedEndpointSet = new Set(fm.blockedEndpointToks ?? []);
-
-    const spatialBlockedCands = blockedSpatialSet.size > 0
+    const ownerMarker = fm.propertyOwnerMarker;
+    const spatialBlockedCands = ownerMarker || blockedSpatialSet.size > 0
       ? constraints.filter((c) => {
-          const sk = c.attribute?.includes('.') ? c.attribute.split('.').slice(1).join('.') : '';
+          const sk = c.attribute?.split('.').slice(1).join('.');
           if (!(c.isAnchor || c.needsAnchor || ['relation', 'position', 'anchor', 'relation_anchor'].includes(sk))) return false;
+          if (ownerMarker && c.startTok <= ownerMarker.endTok && c.endTok >= ownerMarker.startTok) return true;
           for (let t = c.startTok; t <= c.endTok; t++) if (blockedSpatialSet.has(t)) return true;
           return false;
         })
@@ -1015,12 +1034,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       : [];
 
     const ownerCands = fm.thingSpan
-      ? activeCandidates.filter(
-          (c) =>
-            (c.kind === HYP_KINDS.TARGET_REF || c.kind === HYP_KINDS.TARGET_SORT || c.kind === HYP_KINDS.TARGET_FAMILY) &&
-            c.startTok >= fm.thingSpan.startTok &&
-            c.endTok <= fm.thingSpan.endTok,
-        )
+      ? [...tRefs, ...tSorts, ...tFams].filter((c) => inSpan(c, fm.thingSpan))
       : [];
 
     const expAttrSet = fm.expectedAttrs?.length ? new Set(fm.expectedAttrs) : null;
@@ -1035,6 +1049,27 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
             c.endTok <= fm.valSpan.endTok,
         )
       : [];
+
+    const propertyResults = ownerMarker
+      ? valCands.flatMap((value) => (compatKwsOfConstraint.get(value.id) ?? [])
+          .filter((keyword) => sameSpan(keyword, fm.attrSpan) && sameSpan(value, fm.valSpan))
+          .map((keyword) => ({ value, keyword })))
+      : [];
+
+    // A relation inside the owner role needs a head before the cue and a landmark
+    // that completes the owner phrase. Keep all compatible tuples for the solver.
+    const ownerSelectors = [];
+    if (ownerMarker) {
+      for (const relation of constraints.filter((c) => c.needsAnchor && inSpan(c, fm.thingSpan))) {
+        const heads = ownerCands.filter((c) => c.endTok < relation.startTok &&
+          tokens.slice(c.endTok + 1, relation.startTok).every((token) => token.isGrammar));
+        if (heads.length === 0) continue;
+        const anchors = constraints.filter((c) => c.isAnchor && c.family === relation.family &&
+          c.startTok > relation.endTok && c.startTok - relation.endTok <= 3 && c.endTok === fm.thingSpan.endTok &&
+          tokens.slice(relation.endTok + 1, c.startTok).every((token) => token.isGrammar));
+        for (const anchor of anchors) ownerSelectors.push({ heads, relation, anchor });
+      }
+    }
 
     const oldCands = fm.oldSpan
       ? constraints.filter(
@@ -1066,10 +1101,32 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       for (const c of endpointBlockedCands) {
         emit(`(assert (=> ${frInR} (not (and sel_${c.id} (= own_${c.id} ${r})))))`);
       }
-      if (ownerCands.length > 0) {
+      if (ownerMarker) {
+        const selected = (c) => `(and sel_${c.id} (= own_${c.id} ${r}))`;
+        const headInR = (c) => `(and ${selected(c)} (= tpos_${r} ${c.startTok}))`;
+        const phaseInR = (c, phase) => `(and ${selected(c)} (= ${phaseExprOf.get(c.id)} ${phase}))`;
+        const binding = ({ value, keyword }) =>
+          `(and ${phaseInR(value, 'PH_RESULT')} (= ${kwExprOf.get(value.id)} ${keyword.id}))`;
+        const selectors = ownerSelectors.map(({ heads, relation, anchor }) =>
+          `(and ${smtOr(heads.map(headInR))} ${phaseInR(relation, 'PH_SELECTOR')} ${phaseInR(anchor, 'PH_SELECTOR')})`);
+        emit(`(assert (=> ${frInR} ${smtOr(selectors.length ? selectors : ownerCands.map(headInR))}))`);
+        emit(`(assert (=> ${frInR} ${smtOr(propertyResults.map(binding))}))`);
+
+        // Resolve keyword aliases and spatial homonyms using the declared slots.
+        const directProperties = propertyResults.filter(({ value, keyword }) =>
+          value.attribute.split('.').at(-1).toLowerCase() === keyword.text.toLowerCase());
+        if (directProperties.length > 0) {
+          emit(`(assert-soft (=> ${frInR} ${smtOr(directProperties.map(binding))}) :weight 10)`);
+        }
+        const declaredRelations = ownerSelectors.filter(({ relation }) =>
+          tabSpec.keys.get(relation.attribute)?.values?.has(relation.value));
+        if (declaredRelations.length > 0) {
+          emit(`(assert-soft (=> ${frInR} ${smtOr(declaredRelations.map(({ relation }) => selected(relation)))}) :weight 6)`);
+        }
+      } else if (ownerCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(ownerCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
       }
-      if (valCands.length > 0) {
+      if (!ownerMarker && valCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(valCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`))}))`);
       }
       if (oldCands.length > 0) {
