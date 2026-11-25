@@ -69,3 +69,5 @@
 - 2026-11-25 — Q-NL-040 separates explicitly saved artifacts, named destinations and unresolved file-form evidence. Five published WebMeet probes return native-valid partial reads. Full serial suite 236/236. Recorded an L4 comparator defect for missing/wrong request intents and requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-041 grades request-owned destinations and purposes in both comparators. Dedicated tests cover omission, substitution, polarity, ownership, reordering and later reference columns. Full serial suite 237/237. See `questions.md`.
+
+- 2026-11-25 — Q-NL-042 prevents an explicit output source from becoming the target name, preserves quoted source/name readings, and keeps differing unread roles separate. Full serial suite 238/238. Review requested in `questions.md`.

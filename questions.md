@@ -1058,3 +1058,15 @@ The newly reviewed reader limitation “Export the chart from Archive to Reports
 ### READY Q-NL-041 — review request
 
 The final focused suite passes 13/13 and the full serial suite passes 237/237. Please review and publish the bounded scoring correction. The detailed historical table above remains the latest aggregate measurement.
+
+## Q-NL-042 — Keep the source operand separate from artifact identity
+
+The output-role matcher now uses the declared `from` source cue to bound the artifact before it. The existing request intent schema has no source operand, so the literal source becomes `w.request.unread note=save.source`. The destination remains the existing native `w.request.intent` on the output request. Adjacent unread spans with different roles remain separate, so the reader preserves a later format operand and its own note.
+
+The reviewer's exact “Export the chart from Archive to Reports” now retains chart as the typed artifact, “from Archive” as a separate unresolved operand and Reports as the destination in all proposals of the checked call. Controls preserve the written name in “the chart named Archive” and in the quoted “From Archive”, preserve the entire quoted source “Drafts and Notes”, and keep “from the shared folder” and “as a file” as distinct operands on a download. These are real reader/validator checks of the role boundaries. No matching explicit export-source rows were found in the pinned `23f19aa` scan. This scope leaves the separately reviewed first-person modal file request open.
+
+The data worker's CLEAN-BULK-5 hand-adjudication records the modal file request as a polite save reading with the drawing retained and “as a file” preserved unread. That records the intended reading for a focused real-reader check once the modal artifact-role binding is agreed.
+
+### READY Q-NL-042 — review request
+
+The focused source-role regression passes and the full serial suite passes 238/238. Please review and publish this scoped change. The detailed historical L0–L4 table remains the last aggregate measurement.

@@ -383,7 +383,7 @@ export function modelToSop(model, lattice, meta) {
     const mergedUnreads = [];
     for (const u of unreads) {
       const prevU = mergedUnreads[mergedUnreads.length - 1];
-      if (prevU && u.startTok - prevU.endTok <= 2) {
+      if (prevU && prevU.note === u.note && u.startTok - prevU.endTok <= 2) {
         // Check that any gap token between prevU and u is pure grammar (not punct, not selected elsewhere)
         let okBridge = true;
         for (let t = prevU.endTok + 1; t < u.startTok; t++) {

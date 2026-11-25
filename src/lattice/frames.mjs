@@ -158,6 +158,7 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
   };
   const destinations = cuesFor('acts.save.place', 'place');
   const names = cuesFor('acts.save.thing', 'name');
+  const origins = cuesFor('acts.load.from', 'source');
   const exportVerbs = new Set(frames?.get('acts.more.save.download')?.parts.find(({ words }) =>
     words.includes('export'))?.words ?? []);
   const actions = predicates.filter((predicate) => {
@@ -184,6 +185,8 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
       const cue = token.lower;
       if (token.kind !== 'word' || tokens[i + 1].isPunct) continue;
       if (formats.has(cue) && cue === 'as') markers.push({ index: i, note: 'save.format' });
+      // The origin is an operand, but the intent schema has no source role.
+      else if (origins.has(cue) && cue === 'from') markers.push({ index: i, note: 'save.source' });
       else if (destinations.has(cue) && ['to', 'into'].includes(cue)) markers.push({ index: i, role: 'destination' });
       else if (word === 'save' && names.has(cue)) markers.push({ index: i, note: 'save.name_or_format' });
     }

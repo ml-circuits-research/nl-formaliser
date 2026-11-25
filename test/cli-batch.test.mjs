@@ -432,3 +432,43 @@ test('declared output operations keep the artifact separate from destination and
     await reader.close();
   }
 });
+
+test('explicit output origins stay separate from named artifacts and destinations', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const exported = await reader.propose('Export the chart from Archive to Reports');
+    assert.equal(exported.status, 'partial');
+    for (const { sop, check } of exported.candidates) {
+      assert.equal(check.ok, true);
+      assert.match(sop, /family=chart .*family_words=chart/);
+      assert.match(sop, /role=destination value=Reports words="to Reports"/);
+      assert.match(sop, /text="from Archive" note=save\.source/);
+      assert.doesNotMatch(sop, /name=Archive/);
+    }
+
+    const named = (await reader.propose('Export the chart named Archive to Reports')).candidates[0];
+    assert.equal(named.check.ok, true);
+    assert.match(named.sop, /name=Archive name_words=named/);
+    assert.match(named.sop, /role=destination value=Reports/);
+    assert.doesNotMatch(named.sop, /note=save\.source/);
+
+    const quotedName = (await reader.propose('Export the chart named "From Archive" to Reports')).candidates[0];
+    assert.equal(quotedName.check.ok, true);
+    assert.match(quotedName.sop, /name="From Archive"/);
+    assert.doesNotMatch(quotedName.sop, /note=save\.source/);
+
+    const quotedOrigin = await reader.propose('Export the chart from "Drafts and Notes" to Reports');
+    assert.equal(quotedOrigin.candidates[0].check.ok, true);
+    assert.ok(quotedOrigin.unresolved.some(({ candidate, text, note }) =>
+      candidate === 0 && text === 'from "Drafts and Notes"' && note === 'save.source'));
+
+    const download = await reader.propose('Download the drawing from the shared folder as a file');
+    assert.equal(download.candidates[0].check.ok, true);
+    assert.deepEqual(download.unresolved.filter(({ candidate }) => candidate === 0).map(({ text, note }) => [text, note]), [
+      ['from the shared folder', 'save.source'],
+      ['as a file', 'save.format'],
+    ]);
+  } finally {
+    await reader.close();
+  }
+});
