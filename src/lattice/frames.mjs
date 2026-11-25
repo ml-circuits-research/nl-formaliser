@@ -12,6 +12,7 @@ import { tokenize } from './tokenize.mjs';
 
 const VALID_ACT_SET = new Set(ACTS);
 const VALID_MODE_SET = new Set(ACT_MODES);
+const MAX_FRAME_WINDOW = 28;
 
 // Frame shards & families whose argument-structure roles directly disambiguate
 // property-owner-value, old->new transition, diagram kind/topic/layout, edge labels,
@@ -200,14 +201,29 @@ function frameWindows(tokens, splitPoints, predicates) {
   const windows = clauses.map(([startTok, endTok]) => ({ startTok, endTok }));
   for (const [start, end] of clauses) {
     const localCuts = [...cuts.values()].filter((cut) => cut.startTok > start && cut.endTok < end &&
-      predicates.some((predicate) => predicate.startTok >= start && predicate.endTok < cut.startTok));
+      predicates.some((predicate) => predicate.startTok >= start && predicate.endTok < cut.startTok))
+      .sort((a, b) => a.startTok - b.startTok);
     let left = start;
-    for (const cut of localCuts.sort((a, b) => a.startTok - b.startTok)) {
+    const segments = [];
+    for (const cut of localCuts) {
       if (cut.startTok <= left) continue;
-      windows.push({ startTok: left, endTok: cut.startTok - 1, joinerBounded: true });
+      segments.push({ startTok: left, endTok: cut.startTok - 1, cut });
       left = cut.endTok + 1;
     }
-    if (left > start) windows.push({ startTok: left, endTok: end, joinerBounded: true });
+    if (segments.length === 0) continue;
+    segments.push({ startTok: left, endTok: end });
+    for (const [i, segment] of segments.entries()) {
+      windows.push({ startTok: segment.startTok, endTok: segment.endTok, joinerBounded: true });
+      // A weak joiner can be part of a literal property value, even when the
+      // word after it has a verb reading. Keep both candidate boundaries.
+      for (let j = i - 1; j >= 0; j--) {
+        const { startTok, cut } = segments[j];
+        if (cut.isStrong || tokens[cut.startTok].isPunct || segment.endTok - startTok + 1 > MAX_FRAME_WINDOW) break;
+        if (startTok === start && segment.endTok === end) continue;
+        windows.push({ startTok, endTok: segment.endTok, joinerBounded: true,
+          internalJoiners: segments.slice(j, i).map((part) => part.cut) });
+      }
+    }
   }
   return windows;
 }
@@ -228,6 +244,11 @@ export function findOwnerSelectors(thing, tokens, heads, relations, anchors) {
     }
   }
   return selectors;
+}
+
+function propertyAttributes(span, kb, tabSpec) {
+  const forms = singularisePhrase(span.text.toLowerCase(), kb);
+  return new Set(forms.flatMap((form) => [...(tabSpec?.keyWordIndex?.get(form) ?? [])]));
 }
 
 /**
@@ -258,6 +279,8 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
   const rawMatches = [];
 
   for (const frame of compiled) {
+    const mayHaveLiteralValue = frame.act === 'change' && frame.parts.some((part) => part.role === 'attribute') &&
+      frame.parts.some((part) => part.role === 'value' && part.takes === 'words');
     // Fast pre-filter: every required literal word part must have at least one alternative whose first word exists in the sentence!
     let preOk = true;
     for (const wp of frame.reqWordParts) {
@@ -271,7 +294,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
     for (const window of windows) {
       const { startTok: clStart, endTok: clEnd } = window;
       const clLen = clEnd - clStart + 1;
-      if (clLen < 3 || clLen > 28) continue;
+      if (clLen < 3 || clLen > MAX_FRAME_WINDOW || (window.internalJoiners && !mayHaveLiteralValue)) continue;
 
       // Try matching starting at clause start (or after a leading filler/conjunction)
       const startPositions = [clStart];
@@ -294,6 +317,13 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             // Require frame to consume cleanly to clause end (or optional trailing politeness/punct)
             let rem = tIdx;
             while (rem <= clEnd && (tokens[rem].isPunct || tokens[rem].isFiller)) rem++;
+            if (window.internalJoiners) {
+              const value = roles.get('value');
+              const attribute = roles.get('attribute');
+              if (rem <= clEnd || !value || !attribute || !roles.has('thing') ||
+                  window.internalJoiners.some((cut) => cut.startTok <= value.startTok || cut.endTok >= value.endTok) ||
+                  ![...propertyAttributes(attribute, kb, tabSpec)].some((key) => tabSpec.keys.get(key)?.head === 'span')) return;
+            }
             if (rem > clEnd || (clEnd - tIdx) <= 2) {
               const candEnd = Math.min(clEnd, Math.max(s0, tIdx - 1));
               if (!bestInClause || candEnd > bestInClause.endTok) {
@@ -509,14 +539,11 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
         }
       }
       // Find attributes matching attrSpan in tabSpec.keyWordIndex
-      const matchedAttrs = new Set();
-      const attrForms = singularisePhrase(attrSpan.text.toLowerCase(), kb);
-      for (const f of attrForms) {
-        for (const a of tabSpec?.keyWordIndex?.get(f) ?? []) {
-          if (tabKeys.has(a)) matchedAttrs.add(a);
-        }
-      }
-      if (valSpan && matchedAttrs.size > 0) {
+      const matchedAttrs = [...propertyAttributes(attrSpan, kb, tabSpec)].filter((attr) => {
+        const key = tabKeys.get(attr);
+        return key && (!fm.clauseWindow?.internalJoiners || key.head === 'span');
+      });
+      if (valSpan && matchedAttrs.length > 0) {
         const surface = attrSpan.text.toLowerCase();
         for (const attr of matchedAttrs) {
           const key = tabKeys.get(attr);
@@ -529,7 +556,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
             c.startTok > valSpan.startTok + 1 && c.endTok === valSpan.endTok && tokens[c.startTok - 1].lower === 'for');
           if (duration) {
             const endTok = duration.startTok - 2;
-            const hasValue = candidates.some((c) => matchedAttrs.has(c.attribute) &&
+            const hasValue = candidates.some((c) => matchedAttrs.includes(c.attribute) &&
               numericPropertyFamilies.has(c.family) && c.startTok === valSpan.startTok && c.endTok === endTok &&
               c.value.trim() !== '' && Number.isFinite(Number(c.value)) && !c.pairedConstraints?.length);
             if (hasValue) {
@@ -553,7 +580,10 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
           const key = tabKeys.get(attr);
           const numeric = key.head === 'number' || numericPropertyFamilies.has(key.family);
           if (numeric && quotedNumber == null) continue;
-          emitConstraint(attr, numeric ? String(quotedNumber) : resultSpan.text, resultSpan.startTok, resultSpan.endTok, {
+          let value = resultSpan.text;
+          if (numeric) value = String(quotedNumber);
+          else if (key.head === 'span' && quoted?.kind === 'quote') value = quoted.inner;
+          emitConstraint(attr, value, resultSpan.startTok, resultSpan.endTok, {
             phase: 'result',
             requiresKeyWord: true,
             allowOpen: true,

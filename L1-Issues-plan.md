@@ -24,6 +24,8 @@ Principiu de lucru: **zero patch-uri pe propoziții individuale** — toate rezo
 
 ### P1. Atacarea `L1c (alte cauze)` — `31.3%` (cea mai mare sursă de pierdere)
 
+Progres validat pe circuite complete în Q-NL-010–014. Frame-urile păstrează proprietatea în cererea ei, reperul spațial participă la selectarea obiectului descris, iar măsurile compuse sunt citite ca o singură valoare. Un titlu literal poate traversa un `and` intern și rămâne separat de comanda următoare. Durata unei modificări temporare rămâne în textul `unread` al cererii. Aceste verificări acoperă cazurile descrise în `questions.md`. Elipsa predicatului comun și calificările cu rol propriu rămân de implementat.
+
 1. **Extinderea compilatorului `w.lang.en.frame` → Z3 MaxSMT (`src/lattice/frames.mjs` + `src/smt/encode.mjs` §7b)**
    - **Problema**: Prepozițiile structurale (`on`, `of`, `at`, `with`, `to`, `from`, `by`, `in`) sunt încă deturnate ca relații spațiale (`node.anchor`, `node.position`, `node.relation`, `drawn.at`, `composition.with`) sau endpoint-uri (`link.to`) atunci când propoziția folosește un frame neacoperit sau cu roluri parțiale.
    - **Acțiune**:

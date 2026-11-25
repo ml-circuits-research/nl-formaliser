@@ -17,3 +17,5 @@
 - 2026-11-25 — Q-NL-012 uses a complete spatial description to select the target of a resultative change. Five Diagram and Drawing probes, named edit and placement controls passed. Final `npm test` 110/110, `git diff --check` clean. Requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-013 binds complete compound measures and preserves a numeric change's unsupported duration as exact unread text. Named page/meeting durations, named chart and following count controls pass. `npm test` 119/119. Requested review in `questions.md`.
+
+- 2026-11-25 — Q-NL-014 keeps literal titles and labels across weak joiners with a distinct following command. Quoted values preserve their inner text, and explicit `then undo` remains separate. `npm test` 124/124. Requested review in `questions.md`.

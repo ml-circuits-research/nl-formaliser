@@ -28,6 +28,22 @@ test('coordinated frame matches keep property edits with their own targets', asy
         ['drawn.relation', 'near', 'selector'], ['drawn.anchor', 'cabin', 'selector'], ['drawn.colour', 'red', 'result'],
       ]],
     ]],
+    ['diagram', ', then ', [
+      ['Set the title on the chart to Plan and Build', 'chart', '', [['chart.title', 'Plan and Build', 'result']]],
+      ['set the width on the node to 17', 'node', '', [['node.width', '17', 'result']]],
+    ]],
+    ['diagram', ', then ', [
+      ['Set the title on the chart to "Plan and Build"', 'chart', '', [['chart.title', 'Plan and Build', 'result']]],
+      ['set the width on the node to 17', 'node', '', [['node.width', '17', 'result']]],
+    ]],
+    ['diagram', ' and ', [
+      ['Set the title on the chart to Build and Plan', 'chart', '', [['chart.title', 'Build and Plan', 'result']]],
+      ['set the height on the rectangle to 17', 'node', 'rectangle', [['node.height', '17', 'result']]],
+    ]],
+    ['diagram', ', then ', [
+      ['Set the label on the node to Save and Publish', 'node', '', [['node.label', 'Save and Publish', 'result']]],
+      ['set the height on the chart to 12', 'chart', '', [['chart.height', '12', 'result']]],
+    ]],
   ];
   for (const [tab, joiner, expected] of cases) {
     const text = expected.map(([words]) => words).join(joiner);
@@ -47,7 +63,8 @@ test('coordinated frame matches keep property edits with their own targets', asy
         assert.deepEqual(['act', 'words'].map((key) => value(request, key)), ['change', words], result.sop);
         const owned = (wire) => value(wire, 'request') === `$${request.id}`;
         const target = targets.find(owned);
-        assert.deepEqual(['family', 'mode', 'sort'].map((key) => value(target, key)), [family, 'existing', sort], result.sop);
+        assert.deepEqual(['family', 'mode', 'sort', 'name'].map((key) => value(target, key)),
+          [family, 'existing', sort, ''], result.sop);
         assert.deepEqual(constraints.filter(owned).map((wire) => ['attribute', 'value', 'phase'].map((key) => value(wire, key))),
           effects, result.sop);
       }
@@ -70,4 +87,17 @@ test('coordinated frame matches keep property edits with their own targets', asy
         [[attribute, values]], result.sop);
     });
   }
+
+  await t.test('an explicit then undo remains a separate command after a title', async () => {
+    const text = 'Set the title on the chart to Plan and then undo';
+    const result = await formaliser.formalise(text, { tab: 'diagram', verify: true });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.check.ok, true, result.sop);
+    const wires = formaliser.verifier.parse(result.sop);
+    const requests = wires.filter((wire) => wire.type === 'w.request.request');
+    const constraints = wires.filter((wire) => wire.type === 'w.request.constraint');
+    assert.deepEqual(requests.map((wire) => value(wire, 'act')), ['change', 'undo'], result.sop);
+    assert.deepEqual(constraints.map((wire) => ['attribute', 'value', 'request'].map((key) => value(wire, key))),
+      [['chart.title', 'Plan', `$${requests[0].id}`]], result.sop);
+  });
 });
