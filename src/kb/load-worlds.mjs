@@ -793,7 +793,9 @@ function loadGrammar(parse, worldsDir) {
     trails: new Set(),
     repeats: new Set(),
     starters: new Set(),
+    verbVariants: new Map(),
   };
+  const coordinators = new Set();
   const calcOps = [];
 
   const CLOSED_GRAMMAR_CLASSES = new Set([
@@ -1055,6 +1057,11 @@ function loadGrammar(parse, worldsDir) {
         for (const t of texts) ellipsis.repeats.add(t);
       } else if (w.type === 'w.lang.en.ellipsis.starter') {
         for (const t of texts) ellipsis.starters.add(t);
+      } else if (w.type === 'w.lang.en.variant' && one(w, 'alternation') === 'verb ellipsis') {
+        const frame = one(w, 'frame');
+        for (const canonical of many(w, 'canonical')) addToSetMap(ellipsis.verbVariants, frame, canonical);
+      } else if (w.type === 'w.lang.en.coord.sep' && many(w, 'in').includes('things')) {
+        for (const text of texts) coordinators.add(text);
       }
 
       if (w.type === 'w.lang.en.calc' && texts[0]) {
@@ -1197,6 +1204,7 @@ function loadGrammar(parse, worldsDir) {
     roleMaps,
     modeMaps,
     ellipsis,
+    coordinators,
     calcOps,
     alternations: alternations.sort((a, b) => a.n - b.n),
     questionAlternations,

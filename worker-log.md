@@ -21,3 +21,5 @@
 - 2026-11-25 — Q-NL-014 keeps literal titles and labels across weak joiners with a distinct following command. Quoted values preserve their inner text, and explicit `then undo` remains separate. `npm test` 124/124. Requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-015 consumes canonical weather and time terms. Verified distinct weather values and separate rain/dusk results for the published nightfall row. `npm test` 135/135. The prior Q-NL-014 holdout measured 656/1892 L3+L4. Requested review and a reference audit in `questions.md`.
+
+- 2026-11-25 — Q-NL-017 keeps independent owner/value pairs under a shared predicate. Full tests 141/141; targeted disjoint cases improve from 0/5 to 3/5 L3+L4. Shared trailing values remain open. Requested review in `questions.md`.

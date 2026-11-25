@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFormaliser } from '../src/index.mjs';
+import { buildLattice } from '../src/lattice/candidates.mjs';
 import { unquoteSop } from '../src/contracts.mjs';
 
 const value = (wire, key) => unquoteSop(wire.attrs[key]?.[0] ?? '');
@@ -99,5 +100,56 @@ test('coordinated frame matches keep property edits with their own targets', asy
     assert.deepEqual(requests.map((wire) => value(wire, 'act')), ['change', 'undo'], result.sop);
     assert.deepEqual(constraints.map((wire) => ['attribute', 'value', 'request'].map((key) => value(wire, key))),
       [['chart.title', 'Plan', `$${requests[0].id}`]], result.sop);
+  });
+});
+
+test('the declared verb-free variant keeps a separate owner and result', async (t) => {
+  const formaliser = await createFormaliser();
+  for (const [tab, first, second, targets, effects, ending] of [
+    ['drawing', 'Make the house red', 'the door blue', [['drawn', 'house'], ['drawn', 'door']],
+      [['drawn.colour', 'red'], ['drawn.colour', 'blue']], ''],
+    ['diagram', 'Paint the node red', 'the arrow blue', [['node', ''], ['link', '']],
+      [['node.colour', 'red'], ['link.colour', 'blue']], ''],
+    ['diagram', 'Paint the node red', 'the chart blue', [['node', ''], ['chart', '']],
+      [['node.colour', 'red'], ['chart.colour', 'blue']], ', then undo'],
+  ]) {
+    const text = `${first} and ${second}${ending}`;
+    await t.test(text, async () => {
+      const result = await formaliser.formalise(text, { tab, verify: true });
+      assert.equal(result.ok, true, result.error);
+      assert.equal(result.check.ok, true, result.sop);
+      const wires = formaliser.verifier.parse(result.sop);
+      const requests = wires.filter((wire) => wire.type === 'w.request.request');
+      const expectedRequests = [['change', first, first.split(' ')[0]], ['change', second, '']];
+      if (ending) expectedRequests.push(['undo', 'undo', 'undo']);
+      assert.deepEqual(requests.map((wire) => ['act', 'words', 'predicate'].map((key) => value(wire, key))),
+        expectedRequests, result.sop);
+
+      const targetWires = wires.filter((wire) => wire.type === 'w.request.target');
+      const constraints = wires.filter((wire) => wire.type === 'w.request.constraint');
+      assert.deepEqual(targetWires.slice(0, 2).map((wire) => ['family', 'sort', 'mode', 'request']
+        .map((key) => value(wire, key))), targets.map(([family, sort], index) =>
+        [family, sort, 'existing', `$${requests[index].id}`]), result.sop);
+      assert.deepEqual(constraints.map((wire) => ['attribute', 'value', 'phase', 'request'].map((key) =>
+        value(wire, key).replace(/\.color$/, '.colour'))), effects.map(([attribute, colour], index) =>
+        [attribute, colour, 'result', `$${requests[index].id}`]), result.sop);
+      assert.equal(wires.some((wire) => wire.type === 'w.request.unread'), false, result.sop);
+    });
+  }
+
+  await t.test('two colour words on one owner stay in one request', async () => {
+    const result = await formaliser.formalise('Paint the house red and blue', { tab: 'drawing', verify: true });
+    assert.equal(result.check.ok, true, result.sop);
+    const wires = formaliser.verifier.parse(result.sop);
+    assert.deepEqual(wires.filter((wire) => wire.type === 'w.request.request').map((wire) => value(wire, 'act')),
+      ['change'], result.sop);
+    assert.deepEqual(wires.filter((wire) => wire.type === 'w.request.constraint').map((wire) => value(wire, 'value')),
+      ['red', 'blue'], result.sop);
+  });
+
+  await t.test('clothing in two owner descriptions does not license two property results', () => {
+    const text = 'flip the man in the blue shirt and the man in the green shirt';
+    const lattice = buildLattice(text, { tab: 'drawing', kb: formaliser.kb });
+    assert.deepEqual(lattice.coordinatedChanges, []);
   });
 });

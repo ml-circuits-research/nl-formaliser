@@ -39,11 +39,17 @@ function getCompiledFrames(kb) {
   if (frameIndexCache.has(kb)) return frameIndexCache.get(kb);
 
   const compiled = [];
+  const verbVariants = kb.grammar.ellipsis?.verbVariants ?? new Map();
+  const coordinationAnchors = new Set([...verbVariants.values()].flatMap((names) => [...names]));
   for (const frame of kb.grammar.frames.values()) {
     if (!frame?.parts?.length) continue;
     if (!frame.act || !VALID_ACT_SET.has(frame.act)) continue;
     // Skip bare/low-priority statement frames or frames with unsupported role mechanics
-    if (frame.priority < 5) continue;
+    const resultative = frame.act === 'change' && frame.roles?.length === 2 && frame.roles.includes('thing') &&
+      frame.parts.some((part) => part.role === 'value' && part.takes === 'lexicon' && part.lexicon === 'value');
+    const ellipsisAnchors = resultative && !frame.parts.some((part) => part.is === 'verb' || part.act)
+      ? verbVariants.get(frame.name) : null;
+    if (frame.priority < 5 && !ellipsisAnchors) continue;
     if (!frame.roles?.some((r) => SUPPORTED_ROLES.has(r))) continue;
 
     // Only compile frames that have at least one structural anchor (word/verb/lexicon)
@@ -78,6 +84,8 @@ function getCompiledFrames(kb) {
       parts,
       reqWordParts,
       reqLexParts,
+      ellipsisAnchors,
+      coordinationAnchor: resultative && coordinationAnchors.has(frame.name),
     });
   }
 
@@ -269,7 +277,24 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
   const valueEnds = new Map();
   // The grammar's value slot can use typed values already recognised in this tab.
   // Use this evidence for changes with a relational description of the owner.
-  if (relations.length > 0 && anchors.length > 0) {
+  const coordinatedWindows = new Map();
+  const changePredicates = predicates.filter((predicate) => predicate.licensed?.some((licence) =>
+    licence.act === 'change' && ['none', 'set'].includes(licence.mode ?? 'none')));
+  for (const cut of splitPoints) {
+    if (!kb.grammar.coordinators?.has(cut.text.toLowerCase()) || cut.isStrong) continue;
+    for (const window of windows) {
+      if (window.internalJoiners || cut.startTok - window.startTok < 3 || window.endTok - cut.endTok < 2 ||
+          window.endTok - window.startTok + 1 > MAX_FRAME_WINDOW) continue;
+      if (!changePredicates.some((predicate) => predicate.startTok >= window.startTok && predicate.endTok < cut.startTok)) continue;
+      const key = `${window.startTok}:${cut.startTok}:${window.endTok}`;
+      coordinatedWindows.set(key, [
+        { startTok: window.startTok, endTok: cut.startTok - 1, pairKey: key, side: 'first' },
+        { startTok: cut.endTok + 1, endTok: window.endTok, pairKey: key, side: 'second' },
+      ]);
+    }
+  }
+  const candidateWindows = [...windows, ...[...coordinatedWindows.values()].flat()];
+  if ((relations.length > 0 && anchors.length > 0) || coordinatedWindows.size > 0) {
     for (const c of candidates.filter(isIndependentValueCandidate)) {
       if (!valueEnds.has(c.startTok)) valueEnds.set(c.startTok, new Set());
       valueEnds.get(c.startTok).add(c.endTok + 1);
@@ -291,10 +316,13 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
     }
     if (!preOk) continue;
 
-    for (const window of windows) {
+    for (const window of candidateWindows) {
+      if (window.side === 'first' && !frame.coordinationAnchor) continue;
+      if (window.side === 'second' && !frame.ellipsisAnchors) continue;
+      if (!window.side && frame.priority < 5) continue;
       const { startTok: clStart, endTok: clEnd } = window;
       const clLen = clEnd - clStart + 1;
-      if (clLen < 3 || clLen > MAX_FRAME_WINDOW || (window.internalJoiners && !mayHaveLiteralValue)) continue;
+      if (clLen < (window.side ? 2 : 3) || clLen > MAX_FRAME_WINDOW || (window.internalJoiners && !mayHaveLiteralValue)) continue;
 
       // Try matching starting at clause start (or after a leading filler/conjunction)
       const startPositions = [clStart];
@@ -317,6 +345,9 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             // Require frame to consume cleanly to clause end (or optional trailing politeness/punct)
             let rem = tIdx;
             while (rem <= clEnd && (tokens[rem].isPunct || tokens[rem].isFiller)) rem++;
+            if (window.side && (rem <= clEnd || !roles.get('value')?.groundedValue)) return;
+            if (window.side === 'first' && !changePredicates.some((predicate) =>
+              predicate.startTok === predSpan?.startTok && predicate.endTok === predSpan?.endTok)) return;
             if (window.internalJoiners) {
               const value = roles.get('value');
               const attribute = roles.get('attribute');
@@ -392,9 +423,13 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             if (part.takes === 'lexicon') {
               let ends = matchLexiconAt(tokens, tIdx, part.lexicon, kb, tabSpec);
               const thing = roles.get('thing');
+              const coordinatedValue = window.side && thing && part.role === 'value' && part.lexicon === 'value' &&
+                tokens.slice(thing.startTok, thing.endTok + 1).every((token) => !kb.grammar.prepositions.has(token.lower)) &&
+                heads.some((head) => head.kind !== HYP_KINDS.TARGET_REF && head.family &&
+                  head.startTok === thing.startTok && head.endTok === thing.endTok);
               const localValues = frame.act === 'change' && part.role === 'value' && part.lexicon === 'value' &&
                 thing && !roles.has('attribute') && valueEnds.has(tIdx) &&
-                findOwnerSelectors(thing, tokens, heads, relations, anchors).length > 0
+                (window.side ? coordinatedValue : findOwnerSelectors(thing, tokens, heads, relations, anchors).length > 0)
                 ? valueEnds.get(tIdx)
                 : null;
               if (localValues) {
@@ -408,7 +443,8 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                     endTok: nxt - 1,
                     text: text.slice(tokens[tIdx].start, tokens[nxt - 1].end),
                     lexicon: part.lexicon,
-                    describedOwner: localValues?.has(nxt) ?? false,
+                    describedOwner: !window.side && (localValues?.has(nxt) ?? false),
+                    groundedValue: localValues?.has(nxt) ?? false,
                   });
                   dfs(pIdx + 1, nxt, nextRoles, wordAnchors, predSpan);
                 }
@@ -465,6 +501,8 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             sourceShard: frame.sourceShard,
             fixed: frame.fixed,
             clauseWindow: window.joinerBounded ? window : null,
+            coordination: window.side ? window : null,
+            ellipsisAnchors: frame.ellipsisAnchors,
             ...bestInClause,
           });
           break; // one match per frame per clause
@@ -478,7 +516,12 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
   const seen = new Set();
   const bestByStart = new Map();
   const alternatives = [];
+  const coordinated = [];
   for (const m of rawMatches) {
+    if (m.coordination) {
+      coordinated.push(m);
+      continue;
+    }
     const scope = m.clauseWindow;
     const key = `${m.frameName}:${m.startTok}:${m.endTok}:${scope?.startTok ?? ''}:${scope?.endTok ?? ''}`;
     if (seen.has(key)) continue;
@@ -486,7 +529,25 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
     if (bestByStart.has(m.startTok)) alternatives.push(m);
     else bestByStart.set(m.startTok, m);
   }
-  return [...bestByStart.values(), ...alternatives].slice(0, 6).map((m, id) => ({ id, ...m }));
+  return [...[...bestByStart.values(), ...alternatives].slice(0, 6), ...coordinated].map((m, id) => ({ id, ...m }));
+}
+
+export function pairResultativeFrames(matches) {
+  const firstMatches = matches.filter((match) => match.coordination?.side === 'first' && match.predSpan);
+  const pairs = new Map();
+  for (const second of matches.filter((match) => match.coordination?.side === 'second')) {
+    for (const first of firstMatches) {
+      if (first.coordination.pairKey !== second.coordination.pairKey ||
+          !second.ellipsisAnchors.has(first.frameName)) continue;
+      const parts = [first, second].map((match) => ({
+        startTok: match.startTok, endTok: match.endTok, predicate: match.predSpan?.startTok ?? -1,
+        thing: match.roles.get('thing'), value: match.roles.get('value'),
+      }));
+      const key = JSON.stringify(parts);
+      if (!pairs.has(key)) pairs.set(key, parts);
+    }
+  }
+  return [...pairs.values()];
 }
 
 /**
@@ -501,6 +562,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
   const enriched = [];
 
   for (const fm of frameMatches) {
+    if (fm.coordination) continue;
     const blockedSpatialToks = new Set();
     const blockedEndpointToks = new Set();
     const expectedAttrs = new Set();

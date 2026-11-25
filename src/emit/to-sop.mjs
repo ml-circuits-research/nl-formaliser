@@ -115,7 +115,10 @@ export function modelToSop(model, lattice, meta) {
     const hasOuterContentFiller = fillers.some((f) => meta.outerFillerIds?.has(f.id));
     let reqWords = null;
     if ((multiReq || hasOuterContentFiller) && mine.length > 0 && tokens.length > 0) {
-      const minS = Math.min(...mine.map((c) => c.startTok));
+      const requestStart = model.get(`rstart_${r}`);
+      const ownerDeterminers = [tSort, tFam, tRef].map((head) => head?.detTok)
+        .filter((tok) => Number.isInteger(tok) && tok >= 0 && tok >= requestStart);
+      const minS = Math.min(...mine.map((c) => c.startTok), ...ownerDeterminers);
       const maxE = Math.max(...mine.map((c) => c.endTok));
       const span = text.slice(tokens[minS].start, tokens[maxE].end);
       if (span && span !== text) reqWords = span;

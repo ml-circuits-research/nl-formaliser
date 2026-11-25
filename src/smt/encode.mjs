@@ -78,6 +78,7 @@ function fillerHasHiddenContent(ft, kb) {
 export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4, weights = null } = {}) {
   const W = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
   const { tab, tokens, candidates: rawCandidates, hasQuestionMark } = lattice;
+  const coordinatedChanges = lattice.coordinatedChanges ?? [];
   const tabSpec = kb.tabs[tab];
   if (!tabSpec) throw new Error(`Unknown tab: ${tab}`);
 
@@ -129,6 +130,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       if (hasSepBetween) plausibleSplits = Math.max(plausibleSplits, i);
     }
   }
+  plausibleSplits += new Set(coordinatedChanges.map(([first]) => first.endTok)).size;
   const R = T === 0 ? 1 : Math.max(1, Math.min(maxRequests, 1 + plausibleSplits));
 
   const lines = [];
@@ -1252,6 +1254,32 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     for (let r = 1; r <= R; r++) {
       const inR = frameMatches.map((fm) => `(and sel_fr_${fm.id} (= own_fr_${fm.id} ${r}))`);
       emit(`(assert ((_ at-most 1) ${inR.join(' ')}))`);
+    }
+  }
+
+  // The verb-free variant borrows the selected act from its adjacent written
+  // predicate frame. Each request owns its own full result and target spans.
+  for (const parts of coordinatedChanges) {
+    const roles = parts.map((part) => {
+      const heads = [...tSorts, ...tFams].filter((head) => sameSpan(head, part.thing));
+      const values = constraints.filter((value) => sameSpan(value, part.value) && isIndependentValueCandidate(value));
+      return heads.flatMap((head) => values.filter((value) => value.family === head.family)
+        .map((value) => ({ head, value })));
+    });
+    if (roles.some((group) => group.length === 0)) continue;
+    const readings = [];
+    for (let r = 1; r < R; r++) {
+      const requests = parts.map((part, i) => {
+        const slot = r + i;
+        const selected = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${slot}))`;
+        const ownsRoles = roles[i].map(({ head, value }) =>
+          `(and ${selected(head)} (= tpos_${slot} ${head.startTok}) ${selected(value)} (= ${phaseExprOf.get(value.id)} PH_RESULT))`);
+        return `(and active_${slot} (= act_${slot} ACT_CHANGE) (= ppos_${slot} ${part.predicate < 0 ? '(- 1)' : part.predicate}) (= rstart_${slot} ${part.startTok}) (= rend_${slot} ${part.endTok}) ${smtOr(ownsRoles)})`;
+      });
+      readings.push(`(and ${requests.join(' ')})`);
+    }
+    if (readings.length > 0 && W.coordinatedChange > 0) {
+      emit(`(assert-soft ${smtOr(readings)} :weight ${W.coordinatedChange})`);
     }
   }
 
