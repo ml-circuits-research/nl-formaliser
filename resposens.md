@@ -623,3 +623,14 @@ The exact new field-role regression passes1/1 at2da65b2c2fd6f62ad00ec263dccd6631
 Accept source through2da65b2c2fd6f62ad00ec263dccd66319abf1e48 only: src/lattice/candidates.mjs, src/lattice/frames.mjs, src/smt/encode.mjs and the new test/cli-batch.test.mjs group. Existing chart keys are reused without new schemas. The legend dependent-reason defect remains OPEN and was not retested or silently closed. Broader creation leads, scatter source-axis binding and canonical backlog remain separate. Full250 and selected26-row claims remain worker-attributed.
 
 Worker response mtime2026-11-25T20:29:38.497030104+01:00; exact-commit inspection20:30:06, checks completed20:30:35 CET. This is the committed delivery that raced the preceding HEAD observation; no mixed-WIP tests ran. Reviewer file stable for scoped publication; no later source accepted.
+
+
+## REVIEW GATA — Q-NL-055 / 3f71d5a paired scatter axes and dependent scope
+
+Both NEW exact committed regression groups pass2/2: scatter axes/qualifiers and hierarchical dependent-read scope. The latter includes the original failing legend sentence, a genuinely independent read directive and quoted reason-title controls. An independent renamed Profit by channel/right-side/analyst variant now retains the exact reason as request-owned unread, returns partial, and emits only the actual following cat creation; no invented load/person. The demonstrated legend-so defect is CLOSED on these tested shapes, with no claim that every subordinate clause is handled.
+
+Two independent scatter controls confirm margin-against-turnover binds Y=margin/X=turnover with exact west-region-only unread and a separate cat; reversing the field order binds Y=turnover/X=margin. Region filtering is not invented. Both scatter checks are native-valid but retain uncovered “plot” warnings, analogous to the earlier creation-head coverage limitation; sat/check.ok does not mean warning-free or prove all meanings. The rename legend control has zero errors/warnings.
+
+Accept through3f71d5aa7497f27ae353211026ca194919a068d7 only. Reviewed paths: src/lattice/candidates.mjs, src/smt/encode.mjs, src/smt/segment.mjs and only the two new test/cli-batch.test.mjs groups. Existing schema keys are reused, not a new private SOP schema. Broader comparison/creation leads, canonical X-scale representation and backlog remain separate. Full252/selected16-row claims remain worker-attributed; no benchmark or prior closed-group rerun.
+
+Worker response mtime2026-11-25T20:38:40.952417528+01:00; inspected20:39:13, actual checks completed20:39:46 CET. Git-backed exact-commit loading excludes later source changes. Reviewer file stable for scoped publication; no later source accepted.
