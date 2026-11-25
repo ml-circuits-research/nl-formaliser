@@ -10,7 +10,7 @@ import {
   DETERMINERS,
   defaultOnFor,
 } from '../contracts.mjs';
-import { lemmatiseWord, lemmatiseVerb, singularisePhrase } from './morph.mjs';
+import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
 
 // ---------------------------------------------------------------------------
@@ -501,17 +501,17 @@ const DEGREE_ADVERBS = new Map([
 ]);
 
 const COMPARATIVE_SPECS = new Map([
-  ['bigger', { dir: 'more', targets: ['size', 'scale', 'markerSize', 'fontSize'] }],
-  ['larger', { dir: 'more', targets: ['size', 'scale', 'markerSize', 'fontSize'] }],
-  ['smaller', { dir: 'less', targets: ['size', 'scale', 'markerSize', 'pieRadius', 'fontSize'] }],
-  ['tinier', { dir: 'less', targets: ['size', 'scale', 'markerSize', 'fontSize'] }],
-  ['wider', { dir: 'more', targets: ['width', 'barWidth', 'lineWidth', 'colourBarWidth', 'gridWidth', 'barEdgeWidth', 'errorCap'] }],
-  ['narrower', { dir: 'less', targets: ['width', 'barWidth', 'lineWidth', 'colourBarWidth', 'gridWidth', 'barEdgeWidth', 'barGap'] }],
+  ['bigger', { dir: 'more', targets: ['size', 'scale', 'markerSize', 'fontSize', 'barWidth', 'barHeight', 'barGap', 'errorCap', 'pieRadius', 'gap'] }],
+  ['larger', { dir: 'more', targets: ['size', 'scale', 'markerSize', 'fontSize', 'barWidth', 'barHeight', 'barGap', 'errorCap', 'pieRadius', 'gap'] }],
+  ['smaller', { dir: 'less', targets: ['size', 'scale', 'markerSize', 'pieRadius', 'fontSize', 'barWidth', 'barHeight', 'barGap', 'errorCap', 'gap'] }],
+  ['tinier', { dir: 'less', targets: ['size', 'scale', 'markerSize', 'fontSize', 'barGap', 'errorCap', 'gap'] }],
+  ['wider', { dir: 'more', targets: ['width', 'barWidth', 'lineWidth', 'colourBarWidth', 'gridWidth', 'barEdgeWidth', 'errorCap', 'barGap', 'gap'] }],
+  ['narrower', { dir: 'less', targets: ['width', 'barWidth', 'lineWidth', 'colourBarWidth', 'gridWidth', 'barEdgeWidth', 'errorCap', 'barGap', 'gap'] }],
   ['taller', { dir: 'more', targets: ['height', 'barHeight', 'length', 'colourBarLength'] }],
   ['shorter', { dir: 'less', targets: ['length', 'height', 'barHeight', 'colourBarLength'] }],
-  ['longer', { dir: 'more', targets: ['length', 'duration', 'colourBarLength'] }],
-  ['thicker', { dir: 'more', targets: ['stroke', 'lineWidth', 'barEdgeWidth', 'colourBarWidth', 'gridWidth', 'width'] }],
-  ['thinner', { dir: 'less', targets: ['stroke', 'lineWidth', 'barEdgeWidth', 'colourBarWidth', 'gridWidth', 'width'] }],
+  ['longer', { dir: 'more', targets: ['length', 'duration', 'colourBarLength', 'barHeight'] }],
+  ['thicker', { dir: 'more', targets: ['stroke', 'lineWidth', 'errorCap', 'barEdgeWidth', 'colourBarWidth', 'gridWidth', 'markerEdge', 'width'] }],
+  ['thinner', { dir: 'less', targets: ['stroke', 'lineWidth', 'errorCap', 'barEdgeWidth', 'colourBarWidth', 'gridWidth', 'markerEdge', 'width'] }],
   ['darker', { dir: 'less', targets: ['colour', 'color'] }],
   ['lighter', { dir: 'more', targets: ['colour', 'color'] }],
   ['brighter', { dir: 'more', targets: ['colour', 'color'] }],
@@ -519,6 +519,11 @@ const COMPARATIVE_SPECS = new Map([
   ['clearer', { dir: 'more', targets: ['opacity'] }],
   ['later', { dir: 'more', targets: ['time', 'shift'] }],
   ['earlier', { dir: 'less', targets: ['time', 'shift'] }],
+]);
+
+const SUBPART_KEY_REQUIRED_SHORTS = new Set([
+  'errorCap', 'barGap', 'barWidth', 'barHeight', 'markerSize', 'markerEdge',
+  'pieRadius', 'fontSize', 'colourBarWidth', 'colourBarLength', 'gridWidth', 'barEdgeWidth', 'lineWidth',
 ]);
 
 const SCALE_DEGREE_MAP = new Map([
@@ -530,6 +535,8 @@ const SCALE_DEGREE_MAP = new Map([
   ['little', 'small'],
   ['mini', 'small'],
   ['medium', 'medium'],
+  ['middle size', 'medium'],
+  ['medium size', 'medium'],
   ['default', 'default'],
   ['normal', 'default'],
   ['big', 'big'],
@@ -1004,14 +1011,15 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       });
     }
 
-    // 1. FILLER (single token — including single-word fillerPhrases like "cheers", "perfect", "great")
-    if (tok.isFiller || fillerPhrases.has(tok.lower)) {
+    // 1. FILLER (single token — including single-word fillerPhrases like "cheers", "perfect", "great", or aspectual "try" before V-ing)
+    const isAspectualTry = tok.lower === 'try' && i + 1 < T && tokens[i + 1].kind === 'word' && tokens[i + 1].lower.endsWith('ing') && isCommandVerbToken(tokens[i + 1], kb);
+    if (tok.isFiller || fillerPhrases.has(tok.lower) || isAspectualTry) {
       emit({
         kind: HYP_KINDS.FILLER,
         startTok: i,
         endTok: i,
         isPureFiller: tok.isFiller || tok.isGrammar,
-        cost: tok.isFiller ? 4 : 6,
+        cost: isAspectualTry ? 1.5 : tok.isFiller ? 4 : 6,
       });
     }
 
@@ -1040,6 +1048,63 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           cost: 2,
         });
       }
+    }
+
+    // Conversational discourse framing fillers:
+    // (a) Colon-delimited conversational lead-in ("Long day, ... quick mercy check:", "quick question:", "sanity check:")
+    if (i === 0) {
+      const colonIdx = tokens.findIndex((t, idx) => idx >= 3 && t.text === ':');
+      if (colonIdx > 0 && colonIdx < T - 2) {
+        const preColon = spanTextLower(tokens, Math.max(0, colonIdx - 4), colonIdx - 1);
+        if (/\b(quick\s+(?:\w+\s+)?(?:check|question)|mercy\s+check|sanity\s+check|long\s+story\s+short|bottom\s+line|so\s+anyway|anyway)$/.test(preColon)) {
+          emit({ kind: HYP_KINDS.FILLER, startTok: 0, endTok: colonIdx, isPureFiller: false, cost: 2 });
+        }
+      }
+      // (b) Subordinate narrative background lead ("when the board dials in ... , so (for their sake)? <command>")
+      if (tok.lower === 'when') {
+        for (let k = 3; k < T - 2; k++) {
+          if (tokens[k].text === ',' && tokens[k + 1]?.lower === 'so') {
+            let endLead = k + 1;
+            if (tokens[k + 2]?.lower === 'for' && tokens[k + 4]?.lower === 'sake') endLead = k + 4;
+            emit({ kind: HYP_KINDS.FILLER, startTok: 0, endTok: endLead, isPureFiller: false, cost: 2 });
+            if (tokens[0].lower === 'when' && tokens[1]?.lower === 'the') {
+              emit({ kind: HYP_KINDS.FILLER, startTok: 2, endTok: endLead, isPureFiller: false, cost: 2.5 });
+            }
+            break;
+          }
+        }
+      }
+    }
+    // (c) Trailing commentary after em-dash ("— and that is the whole scene — the way the drawing looks so far")
+    // or temporal meeting aside in non-calendar tabs ("before the meeting starts") or trailing "on the canvas?"
+    if (tok.text === '—' && i + 2 < T) {
+      const restLow = spanTextLower(tokens, i + 1, T - 1);
+      if (/^(and\s+)?(that\s+is|that's)\s+the\s+(whole|entire|full)\s+(scene|drawing|diagram|picture)|^the\s+way\s+the\s+(drawing|diagram|chart|scene|page)\s+looks/.test(restLow)) {
+        emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: T - 1, isPureFiller: false, cost: 1.5 });
+      }
+    }
+    if (tab !== 'calendar' && tok.lower === 'before' && i + 3 < T && tokens[i + 1].lower === 'the' && ['meeting', 'call', 'demo', 'presentation', 'session'].includes(tokens[i + 2].lower) && ['starts', 'begins'].includes(tokens[i + 3].lower)) {
+      emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: i + 3, isPureFiller: false, cost: 2 });
+      emit({ kind: HYP_KINDS.FILLER, startTok: i + 2, endTok: i + 3, isPureFiller: false, cost: 2.5 });
+    }
+    if (['on', 'in'].includes(tok.lower) && i + 2 < T && tokens[i + 1].lower === 'the' && ['canvas', 'drawing', 'page', 'screen'].includes(tokens[i + 2].lower) && (i + 2 === T - 1 || (i + 3 === T - 1 && tokens[i + 3].text === '?'))) {
+      emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: T - 1, isPureFiller: false, cost: 3 });
+    }
+    // (d) List-ordering discourse lead ("the next thing on my list is", "next on my list is", "first on my list is")
+    if (i === 0 && ['the', 'next', 'first'].includes(tok.lower)) {
+      for (let k = 3; k <= Math.min(T - 2, 7); k++) {
+        const leadLow = spanTextLower(tokens, 0, k);
+        if (/^(the\s+)?(next|first|last)\s+(thing|item|one)?\s*(on\s+(my|the|our)\s+list\s+)?is$/.test(leadLow)) {
+          emit({ kind: HYP_KINDS.FILLER, startTok: 0, endTok: k, isPureFiller: false, cost: 1.5 });
+        }
+      }
+    }
+    // (e) Trailing rationale/workflow subordinate clause ("before we export, since the chart has to match ...")
+    if (tok.lower === 'before' && i + 2 < T && ['we', 'i', 'you', 'they'].includes(tokens[i + 1].lower) && ['export', 'send', 'share', 'present', 'print', 'publish', 'leave', 'finish'].includes(tokens[i + 2].lower)) {
+      emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: T - 1, isPureFiller: false, cost: 1.8 });
+    }
+    if (tok.text === ',' && i + 3 < T && ['since', 'because', 'as'].includes(tokens[i + 1].lower) && ['the', 'it', 'we', 'i', 'they'].includes(tokens[i + 2].lower)) {
+      emit({ kind: HYP_KINDS.FILLER, startTok: i + 1, endTok: T - 1, isPureFiller: false, cost: 2.2 });
     }
 
     // 3. SEP (punctuation & joiners)
@@ -1288,11 +1353,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           && (tok.lower.endsWith('ing') || (tok.lower.endsWith('ed') && i + 1 < T && tokens[i + 1].kind === 'word') || NOMINAL_AMBIG.has(tok.lower) || (NOUN_PRECEDING_WORDS.has(prevWord) && tok.lower.endsWith('s')));
         // Passive/embedded finite clause & participial-after-comma guard: "are distributed across...", "points joined fair", ", keeping everything else..."
         const isParticipleAfterComma = len === 1 && i > 0 && tokens[i - 1].text === ',' && tok.lower.endsWith('ing');
-        const isInflectedNonImperative = len === 1 && (
+        const isGerundAfterTry = len === 1 && prevWord === 'try' && tok.lower.endsWith('ing');
+        const isInflectedNonImperative = len === 1 && !isGerundAfterTry && (
           isParticipleAfterComma ||
           (tok.lower.endsWith('s') && tok.lemmas.some((l) => l !== tok.lower && mapGet(kb?.verbs, l))) ||
           (tok.lower.endsWith('ed') && !['be', 'been', 'get'].includes(prevWord))
         );
+        // Past-tense directional homonym "left" ("from left to right", "should face left", "two spaces left") is never an imperative command verb!
+        const isDirectionalLeft = len === 1 && tok.lower === 'left' && !['be', 'is', 'are', 'was', 'were'].includes(prevWord);
         // A key-like word ("name", "label", "title") sitting right after ';' inside a spec (e.g. "; name Power")
         // is a KEY_WORD field spec, never the main predicate of the preceding clause!
         const isSemiFieldSpec = len === 1 && i > 0 && tokens[i - 1].text === ';' && ['name', 'label', 'title'].includes(tok.lower);
@@ -1301,7 +1369,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         // Mid-sentence capitalized word (not after sentence punct) or title-initial plural before "by/per/of/:" ("Orders by weekday:", "Fix to Plan") is a Proper Name/Title, not an imperative verb!
         const isMidSentCapProper = len === 1 && i > 0 && !tokens[i - 1].isPunct && /^[A-Z][a-z]+$/.test(tok.text) && tok.lower !== 'i';
         const isTitlePluralBeforePrep = len === 1 && /^[A-Z][a-z]+s$/.test(tok.text) && i + 1 < T && ['by', 'per', 'of', 'over', 'for', ':'].includes(tokens[i + 1].lower);
-        if (actionLicensed.length > 0 && !isNominalizedAfterDetOrPrep && !isParticipleAfterComma && !isSemiFieldSpec && !isTitlePluralBeforePrep) {
+        if (actionLicensed.length > 0 && !isDirectionalLeft && !isNominalizedAfterDetOrPrep && !isParticipleAfterComma && !isSemiFieldSpec && !isTitlePluralBeforePrep) {
           emit({
             kind: HYP_KINDS.PREDICATE,
             startTok: i,
@@ -1418,6 +1486,39 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         intrinsicConstraints: [],
         cost: 3,
       });
+    } else if (['total', 'count'].includes(tok.lower) && src.includes('?') && ['for', 'of'].includes(tokens[i + 1]?.lower ?? '')) {
+      emit({
+        kind: HYP_KINDS.PREDICATE,
+        startTok: i,
+        endTok: i,
+        licensed: [
+          { act: 'ask', mode: 'none', mood: 'ask', question: 'count' },
+          { act: 'ask', mode: 'none', mood: 'ask', question: 'total' },
+        ],
+        isKeepingVerb: false,
+        intrinsicConstraints: [],
+        cost: 1.2,
+      });
+    } else if (tok.lower === 'grand' && tokens[i + 1]?.lower === 'total' && ['of', 'for'].includes(tokens[i + 2]?.lower ?? '')) {
+      emit({
+        kind: HYP_KINDS.PREDICATE,
+        startTok: i,
+        endTok: i,
+        licensed: [{ act: 'ask', mode: 'none', mood: 'ask', question: 'total' }],
+        isKeepingVerb: false,
+        intrinsicConstraints: [],
+        cost: 1.0,
+      });
+    } else if (tok.lower === 'surprise' && tokens[i + 1]?.lower === 'me' && tabKeys.has('composition.source')) {
+      emit({
+        kind: HYP_KINDS.PREDICATE,
+        startTok: i,
+        endTok: i,
+        licensed: [{ act: 'make', mode: 'none', mood: 'do', question: 'none' }],
+        isKeepingVerb: false,
+        intrinsicConstraints: [{ attribute: 'composition.source', value: 'random', operator: 'eq', step: 'none', on: 'attribute' }],
+        cost: 0.8,
+      });
     }
 
     // 5c. Copula / desire predicates ("should be", "be", "want", "need", "would like")
@@ -1468,18 +1569,27 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           cost: 1.5,
         });
       } else if (redoCuePhrases.has(ph) && (len >= 2 || ph === 'again')) {
-        emit({
-          kind: HYP_KINDS.PREDICATE,
-          startTok: i,
-          endTok: e,
-          licensed: [
-            { act: 'redo', mode: 'none', mood: 'do', question: 'none' },
-            { act: 'copy', mode: 'repeat', mood: 'do', question: 'none' },
-          ],
-          isKeepingVerb: false,
-          intrinsicConstraints: [],
-          cost: len >= 2 ? 2 : 5,
-        });
+        // Guard: "the same <noun/adj>" ("the same bottom line", "the same size") is a comparison modifier, not `redo`!
+        const followedByModNoun = e + 1 < T && tokens[e + 1].kind === 'word' && !tokens[e + 1].isPunct && !tokens[e + 1].isFiller
+          && /^the same$/i.test(ph);
+        // Guard: "same again, another tree..." — discourse ellipsis lead before a new noun phrase is a FILLER!
+        const followedByCommaNP = e + 2 < T && tokens[e + 1].text === ',' && ['another', 'a', 'an'].includes(tokens[e + 2].lower);
+        if (followedByCommaNP) {
+          emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: e, isPureFiller: false, cost: 2 });
+        } else if (!followedByModNoun) {
+          emit({
+            kind: HYP_KINDS.PREDICATE,
+            startTok: i,
+            endTok: e,
+            licensed: [
+              { act: 'redo', mode: 'none', mood: 'do', question: 'none' },
+              { act: 'copy', mode: 'repeat', mood: 'do', question: 'none' },
+            ],
+            isKeepingVerb: false,
+            intrinsicConstraints: [],
+            cost: len >= 2 ? 2 : 5,
+          });
+        }
       }
     }
   }
@@ -1504,6 +1614,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
       if (matchedFamilies.size > 0) {
         const { det, detTok } = checkDetBefore(i);
+        // Guard: "face" after modal/infinitive ("should face left", "to face the house") or inside "with a <adj> face" is KEY_WORD(drawn.facing / drawn.expression), not TARGET_FAMILY!
+        const prevLow = i > 0 ? tokens[i - 1].lower : '';
+        const isVerbOrExprFace = rawPhrase.toLowerCase() === 'face' && (
+          ['to', 'should', 'must', 'can', 'could', 'would', 'will'].includes(prevLow) ||
+          (i >= 3 && tokens[i - 3].lower === 'with' && ['a', 'an'].includes(tokens[i - 2].lower))
+        );
+        const isSentStartImperative = len === 1 && tokens[i].isSentenceStart && det === 'none' && isCommandVerbToken(tokens[i], kb);
         for (const family of matchedFamilies) {
           emit({
             kind: HYP_KINDS.TARGET_FAMILY,
@@ -1518,7 +1635,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             ordinal: null,
             quantifier: null,
             quantity: null,
-            cost: 3,
+            cost: (isVerbOrExprFace || isSentStartImperative) ? 15 : 3,
           });
 
           // Preceding count / ordinal / quantifier before TARGET_FAMILY (e.g. "first paragraph", "two charts")
@@ -1679,7 +1796,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         // When a bare noun (no determiner) is ALSO a colour ("orange", "gold", "rose", "lime"), prefer colour over fruit/object sort!
         const isAlsoBodyPart = tab === 'drawing' && family === 'drawn' && sortMatches.some((x) => x.family === 'part');
         const isBareColourNoun = det === 'none' && Boolean(vocabMatch(kb?.domain?.colours, sort.toLowerCase()));
-        const baseSortCost = isAlsoBodyPart ? 14 : isBareColourNoun ? 10 : 2.5;
+        const isBareMidSentProper = len === 1 && tokens[i].isProperCandidate && det === 'none';
+        const isSceneContainerWord = tab === 'drawing' && ['picture', 'drawing', 'scene', 'canvas'].includes(sort.toLowerCase())
+          && i > 0 && Boolean(vocabMatch(kb?.domain?.scenes, tokens[i - 1].lower));
+        const baseSortCost = isAlsoBodyPart ? 14 : isSceneContainerWord ? 14 : isBareColourNoun ? 10 : isBareMidSentProper ? 8.5 : 2.5;
         emit({
           kind: HYP_KINDS.TARGET_SORT,
           startTok: i,
@@ -1696,6 +1816,33 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           quantity: null,
           cost: baseSortCost,
         });
+
+        // Post-nominal cardinal identifier ("block 9", "node 3", "step 2", "part 2", "room 4"):
+        // In English, singular noun + post-nominal number identifies an EXISTING numbered item, never `count=9`!
+        if (len === 1 && !rawPhrase.toLowerCase().endsWith('s') && e + 1 < T) {
+          const postNum = parseNumeric(tokens[e + 1]);
+          if (postNum !== null && Number.isInteger(postNum) && postNum >= 1 && postNum <= 99 && !UNIT_CANON.has(tokens[e + 2]?.lower ?? '')) {
+            const descSpan = src.slice(tokens[i].start, tokens[e + 1].end);
+            emit({
+              kind: HYP_KINDS.TARGET_SORT,
+              startTok: i,
+              endTok: e + 1,
+              family,
+              sort,
+              sortWords,
+              description: descSpan,
+              isPostNumId: true,
+              det: det !== 'none' ? det : 'definite',
+              detTok,
+              count: null,
+              countWords: null,
+              ordinal: null,
+              quantifier: null,
+              quantity: null,
+              cost: 1.2,
+            });
+          }
+        }
 
         // Also check immediate preceding modifier (count / ordinal / quantifier)
         if (i >= 1) {
@@ -1831,6 +1978,141 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
+    // Spoken letter + number-word codes ("g one", "n two", "o three", "b two", "c one")
+    if (
+      tok.kind === 'word' &&
+      /^[a-z]$/i.test(tok.text) &&
+      !['a', 'i'].includes(tok.lower) &&
+      i + 1 < T &&
+      tokens[i + 1].kind === 'word' &&
+      numberWords.has(tokens[i + 1].lower)
+    ) {
+      const codePrefixMap = { g: 'group', n: 'node', c: 'chart', l: 'link', b: 'block', s: 'section', o: 'drawn', p: 'part', r: 'room', m: 'meeting' };
+      const prefFam = codePrefixMap[tok.lower];
+      const fams = prefFam && tabFamilies.includes(prefFam) ? [prefFam] : tabFamilies;
+      const spokenCode = src.slice(tok.start, tokens[i + 1].end);
+      emit({
+        kind: HYP_KINDS.TARGET_REF,
+        startTok: i,
+        endTok: i + 1,
+        fill: 'written',
+        name: spokenCode,
+        isCode: true,
+        det: 'definite',
+        detTok: -1,
+        families: fams,
+        cost: 1.8,
+      });
+    }
+
+    // Definite chart-mark plurals ("the bars", "the slices", "the markers", "the points", "the dots") select the existing chart!
+    if (tab === 'diagram' && i > 0 && tokens[i - 1].lower === 'the' && ['bars', 'slices', 'markers', 'points', 'dots'].includes(tok.lower) && tabFamilies.includes('chart')) {
+      emit({
+        kind: HYP_KINDS.TARGET_FAMILY,
+        startTok: i,
+        endTok: i,
+        family: 'chart',
+        familyWords: tok.text,
+        det: 'definite',
+        detTok: i - 1,
+        count: null,
+        countWords: null,
+        ordinal: null,
+        quantifier: null,
+        quantity: null,
+        cost: 1.6,
+      });
+    }
+    // "on the <noun> <chartType>" ("on the order scatter", "on the sales bar") selects an existing chart by description!
+    if (
+      tab === 'diagram' &&
+      i >= 2 &&
+      tokens[i - 2].lower === 'on' &&
+      tokens[i - 1].lower === 'the' &&
+      i + 1 < T &&
+      tok.kind === 'word' &&
+      !tok.isGrammar &&
+      Boolean(vocabMatch(kb?.domain?.charts, tokens[i + 1].lower)) &&
+      tabFamilies.includes('chart')
+    ) {
+      emit({
+        kind: HYP_KINDS.TARGET_FAMILY,
+        startTok: i,
+        endTok: i + 1,
+        family: 'chart',
+        description: src.slice(tok.start, tokens[i + 1].end),
+        det: 'definite',
+        detTok: i - 1,
+        count: null,
+        countWords: null,
+        ordinal: null,
+        quantifier: null,
+        quantity: null,
+        cost: 1.2,
+      });
+    }
+    // "turn the scene/room/picture into ..." selects `family=page`, and "surprise me with a scene ..." creates `family=composition, sort=scene`!
+    if (tab === 'drawing' && i > 0 && tokens[i - 1].lower === 'the' && ['scene', 'room', 'picture', 'canvas'].includes(tok.lower) && tokens[i + 1]?.lower === 'into' && tabFamilies.includes('page')) {
+      emit({
+        kind: HYP_KINDS.TARGET_FAMILY,
+        startTok: i - 1,
+        endTok: i,
+        family: 'page',
+        familyWords: src.slice(tokens[i - 1].start, tok.end),
+        det: 'definite',
+        detTok: i - 1,
+        count: null,
+        countWords: null,
+        ordinal: null,
+        quantifier: null,
+        quantity: null,
+        cost: 1.0,
+      });
+    }
+    if (tab === 'drawing' && ['scene', 'drawing', 'picture'].includes(tok.lower) && /\bsurprise\s+me\b/i.test(src) && tabFamilies.includes('composition')) {
+      const { det, detTok } = checkDetBefore(i);
+      emit({
+        kind: HYP_KINDS.TARGET_SORT,
+        startTok: i,
+        endTok: i,
+        family: 'composition',
+        sort: 'scene',
+        det: det !== 'none' ? det : 'indefinite',
+        detTok,
+        count: null,
+        countWords: null,
+        ordinal: null,
+        quantifier: null,
+        quantity: null,
+        cost: 1.0,
+      });
+    }
+    // Lowercase event names right after existing-event calendar verbs ("reschedule review for 10:00 UTC...", "postpone standup...")
+    if (
+      tab === 'calendar' &&
+      i > 0 &&
+      ['reschedule', 'postpone', 'delay', 'cancel'].includes(tokens[i - 1].lower) &&
+      tok.kind === 'word' &&
+      !tok.isGrammar &&
+      !tok.isFiller
+    ) {
+      emit({
+        kind: HYP_KINDS.TARGET_REF,
+        startTok: i,
+        endTok: i,
+        fill: 'written',
+        name: tok.text,
+        isProper: true,
+        det: 'definite',
+        detTok: -1,
+        families: ['meeting'],
+        cost: 2.0,
+      });
+      if (tabKeys.has('meeting.id')) {
+        emitConstraint('meeting.id', tok.text, i, i, { phase: 'selector', cost: 2.5 });
+      }
+    }
+
     // Code tokens (n1, o2, b2, g1, c1, a1, e2, s1, p1...)
     if (tok.kind === 'code') {
       const { det, detTok } = checkDetBefore(i);
@@ -1957,11 +2239,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const { det, detTok } = checkDetBefore(i);
       const prevIsObliquePrep = i > 0 && tokens[i - 1].kind === 'word'
         && ['on', 'in', 'at', 'to', 'from', 'with', 'for', 'by', 'into', 'onto', 'of'].includes(tokens[i - 1].lower);
-      // 1..3 consecutive proper/sentence-case title tokens (or [Proper, number] like "Work 6")
-      for (let len = 1; len <= 3 && i + len <= T; len++) {
+      // 1..4 consecutive proper/sentence-case title tokens (or [Proper, number/numberWord] like "Work 6", "Background one", or title before family noun like "the Lab safety note section")
+      for (let len = 1; len <= 4 && i + len <= T; len++) {
         const e = i + len - 1;
         if (hasPunctInSpan(tokens, i, e)) break;
         const lastTok = tokens[e];
+        const followedByFamilyNoun = e + 1 < T && Boolean(mapGet(familyWords, tokens[e + 1].lower));
+        if (len === 4 && !followedByFamilyNoun) break;
         const isLowerTitleWord =
           lastTok.kind === 'word' &&
           !lastTok.isGrammar &&
@@ -1973,18 +2257,23 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           !SPATIAL_RELATIONS.has(lastTok.lower) &&
           !TEMPORAL_RELATIONS.has(lastTok.lower) &&
           !mapGet(familyWords, lastTok.lower) &&
-          (!isCommandVerbToken(lastTok, kb) || ['update', 'request', 'shop', 'review', 'plan', 'report', 'service', 'track', 'draft', 'appeal'].includes(lastTok.lower));
-        const isMidOf = len === 2 && lastTok.lower === 'of' && i + 2 < T && tokens[i + 2].kind === 'word';
+          (!isCommandVerbToken(lastTok, kb) || ['update', 'request', 'shop', 'review', 'plan', 'report', 'service', 'track', 'draft', 'appeal', 'note'].includes(lastTok.lower));
+        const isMidConnector = len === 2 && ['of', 'by', 'per', 'over', 'across', 'vs', 'for'].includes(lastTok.lower) && i + 2 < T && tokens[i + 2].kind === 'word';
+        const hasMidConnector = len >= 3 && ['of', 'by', 'per', 'over', 'across', 'vs', 'for'].includes(tokens[i + 1]?.lower ?? '');
         const validTail =
           len === 1 ||
           lastTok.isProperCandidate ||
           isLowerTitleWord ||
-          isMidOf ||
-          (len === 2 && lastTok.kind === 'number' && !lastTok.text.includes('%'));
+          isMidConnector ||
+          (len === 2 && ((lastTok.kind === 'number' && !lastTok.text.includes('%')) || numberWords.has(lastTok.lower)));
         if (!validTail) break;
-        if (isMidOf) continue; // don't emit dangling "Terms of", keep going to "Terms of service"
+        if (isMidConnector) continue; // don't emit dangling "Terms of" / "Orders by", keep going to "Orders by weekday"
         const nameText = src.slice(tokens[i].start, tokens[e].end);
-        const basePropCost = (tok.isSentenceStart ? 6 : 4) + (prevIsObliquePrep ? 15 : 0) + (len > 1 ? 1 : 0);
+        const basePropCost = followedByFamilyNoun && det === 'definite'
+          ? 2
+          : hasMidConnector
+            ? 2.5
+            : (tok.isSentenceStart ? 6 : 4) + (prevIsObliquePrep ? 15 : 0) + (len > 1 ? 1 : 0);
         emit({
           kind: HYP_KINDS.TARGET_REF,
           startTok: i,
@@ -1994,12 +2283,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           isProper: true,
           det,
           detTok,
-          families: tabFamilies,
+          families: hasMidConnector && tabFamilies.includes('chart') ? ['chart', ...tabFamilies.filter((f) => f !== 'chart')] : tabFamilies,
           cost: basePropCost,
         });
         for (const attr of idKeys) {
           if (attr.endsWith('.id')) {
-            emitConstraint(attr, nameText, i, e, { phase: 'selector', cost: basePropCost + 2 });
+            emitConstraint(attr, nameText, i, e, { phase: 'selector', cost: hasMidConnector ? 2.5 : basePropCost + 2 });
           }
         }
       }
@@ -2029,7 +2318,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // 9. KEY_WORD
   // -------------------------------------------------------------------------
   for (let i = 0; i < T; i++) {
-    for (let len = 1; len <= 3 && i + len <= T; len++) {
+    for (let len = 1; len <= 5 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const forms = singularisePhrase(spanTextLower(tokens, i, e), kb);
@@ -2209,8 +2498,15 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const isAcknowledgmentFine = ph === 'fine' && !(e + 1 < T && tokens[e + 1].kind === 'word' && !tokens[e + 1].isGrammar);
       const scaleHit = isAcknowledgmentFine ? null : (SCALE_DEGREE_MAP.get(ph) ?? vocabMatch(kb?.domain?.scales, ph));
       if (scaleHit) {
+        // Guard: when a word is ALSO a face/skin colour ("pale", "light") right next to a body part or colour slot, keep scale cost higher so part.colour wins!
+        // Also guard "the default" (standing preference scope) from firing drawn.size=default!
+        const alsoFaceColour = ['pale', 'light'].includes(ph) && Boolean(vocabMatch(kb?.domain?.colours, ph));
+        const isTheDefault = ph === 'default' && i > 0 && tokens[i - 1].lower === 'the';
         for (const attr of resolveAttrShortNames(tabKeys, ['size', 'length'])) {
-          emitConstraint(attr, scaleHit, i, e, { operator: 'degree', cost: len === 2 ? 1.5 : 2 });
+          emitConstraint(attr, scaleHit, i, e, { operator: 'degree', cost: isTheDefault ? 14 : alsoFaceColour ? 6.5 : (len === 2 ? 1.5 : 2) });
+        }
+        for (const attr of resolveAttrShortNames(tabKeys, ['markerSize', 'fontSize', 'barGap', 'gap', 'barWidth'])) {
+          emitConstraint(attr, scaleHit, i, e, { operator: 'degree', requiresKeyWord: true, allowOpen: true, cost: 1 });
         }
       }
     }
@@ -2228,8 +2524,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const targetAttrs = resolveAttrShortNames(tabKeys, spec.targets);
       for (const attr of targetAttrs) {
         const shortK = attr.split('.').slice(1).join('.');
+        const needsSubKw = SUBPART_KEY_REQUIRED_SHORTS.has(shortK);
         const isPrimary = shortK === spec.targets[0] || shortK === 'size';
-        emitConstraint(attr, '', i, i, { operator: 'delta', step, cost: isPrimary ? 1.5 : 5 });
+        emitConstraint(attr, '', i, i, {
+          operator: 'delta',
+          step,
+          requiresKeyWord: needsSubKw,
+          cost: needsSubKw ? 0.5 : isPrimary ? 1.5 : 5,
+        });
       }
     }
     for (let advLen = 1; advLen <= 2 && i + advLen < T; advLen++) {
@@ -2259,8 +2561,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
               : 'more';
         for (const attr of resolveAttrShortNames(tabKeys, spec.targets)) {
           const shortK = attr.split('.').slice(1).join('.');
+          const needsSubKw = SUBPART_KEY_REQUIRED_SHORTS.has(shortK);
           const isPrimary = shortK === spec.targets[0] || shortK === 'size';
-          emitConstraint(attr, '', i, advEnd + 1, { operator: 'delta', step, cost: isPrimary ? 1 : 4.5 });
+          emitConstraint(attr, '', i, advEnd + 1, {
+            operator: 'delta',
+            step,
+            requiresKeyWord: needsSubKw,
+            cost: needsSubKw ? 0.5 : isPrimary ? 1 : 4.5,
+          });
         }
       }
     }
@@ -2287,6 +2595,9 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           // Restrict section.order / meeting.relation to values valid for that key if closed
           const spec = tabKeys.get(attr);
           if (spec.values && !spec.values.has(relVal)) continue;
+          // After transformation verbs ("turn X into Y", "change X into Y"), "into" is a resultative marker, not spatial `in`!
+          const isResultativeInto = ph === 'into' && tokens.slice(Math.max(0, i - 4), i).some((t) => ['turn', 'turns', 'turned', 'turning', 'change', 'make', 'convert'].includes(t.lower));
+          if (isResultativeInto) continue;
           emitConstraint(attr, relVal, i, e, {
             operator: 'relation',
             on: 'place',
@@ -2382,7 +2693,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // 10f. Numbers & Number+Unit (also "a/an <unit>" -> measure=1, and comma-separated chart.values lists like "27, 23")
+    // 10f. Numbers & Number+Unit (including multi-word compound numbers like "four hundred", "twenty five", "two spaces left", and chart lists)
     if (tab === 'diagram' && tok.kind === 'number' && tabKeys.has('chart.values') && i + 2 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'number') {
       let endIdx = i + 2;
       while (endIdx + 2 < T && tokens[endIdx + 1].text === ',' && tokens[endIdx + 2].kind === 'number') {
@@ -2390,6 +2701,69 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
       const listVal = src.slice(tok.start, tokens[endIdx].end);
       emitConstraint('chart.values', listVal, i, endIdx, { cost: 1.5 });
+    }
+    // Chart inline label=value pairs ("A is 3, B is 7") and comma-separated category lists ("October,November,December")
+    if (tab === 'diagram' && i + 5 < T && tok.kind === 'word' && ['is', 'are', '='].includes(tokens[i + 1].lower) && tokens[i + 2].kind === 'number' && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && ['is', 'are', '='].includes(tokens[i + 5].lower)) {
+      const pairs = [];
+      let cur = i;
+      while (cur + 2 < T && tokens[cur].kind === 'word' && ['is', 'are', '='].includes(tokens[cur + 1].lower) && tokens[cur + 2].kind === 'number') {
+        pairs.push({ lbl: tokens[cur].text, val: tokens[cur + 2].text, end: cur + 2 });
+        if (cur + 3 < T && (tokens[cur + 3].text === ',' || tokens[cur + 3].lower === 'and')) cur += 4;
+        else break;
+      }
+      if (pairs.length >= 2 && tabKeys.has('chart.labels') && tabKeys.has('chart.values')) {
+        const endPair = pairs[pairs.length - 1].end;
+        const paired = [
+          ...pairs.map((p) => ({ attribute: 'chart.labels', value: p.lbl, on: 'attribute' })),
+          ...pairs.map((p) => ({ attribute: 'chart.values', value: p.val, on: 'attribute' })),
+        ];
+        emitConstraint('chart.labels', pairs[0].lbl, i, endPair, { pairedConstraints: paired, cost: 1 });
+      }
+    }
+    if (tab === 'diagram' && tabKeys.has('chart.labels') && tok.kind === 'word' && tok.isCapitalized && i + 4 < T && tokens[i + 1].text === ',' && tokens[i + 2].kind === 'word' && tokens[i + 2].isCapitalized && tokens[i + 3].text === ',' && tokens[i + 4].kind === 'word' && tokens[i + 4].isCapitalized) {
+      let endCat = i + 4;
+      while (endCat + 2 < T && tokens[endCat + 1].text === ',' && tokens[endCat + 2].kind === 'word' && tokens[endCat + 2].isCapitalized) {
+        endCat += 2;
+      }
+      emitConstraint('chart.labels', src.slice(tok.start, tokens[endCat].end), i, endCat, { cost: 1.5 });
+    }
+
+    // Compound English multi-word numbers ("four hundred" = 400, "twenty five" = 25, "two hundred and fifty" = 250)
+    if (tok.kind === 'word' && (numberWords.has(tok.lower) || tok.lower === 'a') && i + 1 < T && tokens[i + 1].kind === 'word') {
+      const n0 = tok.lower === 'a' ? 1 : numberWords.get(tok.lower);
+      const n1 = numberWords.get(tokens[i + 1].lower);
+      let compVal = null;
+      let compEnd = i + 1;
+      if (n0 >= 1 && n0 <= 19 && tokens[i + 1].lower === 'hundred') {
+        compVal = n0 * 100;
+        if (i + 2 < T && tokens[i + 2].lower === 'and' && i + 3 < T && numberWords.has(tokens[i + 3].lower)) {
+          compVal += numberWords.get(tokens[i + 3].lower);
+          compEnd = i + 3;
+        } else if (i + 2 < T && numberWords.has(tokens[i + 2].lower) && numberWords.get(tokens[i + 2].lower) < 100) {
+          compVal += numberWords.get(tokens[i + 2].lower);
+          compEnd = i + 2;
+        }
+      } else if (n0 >= 20 && n0 <= 90 && n0 % 10 === 0 && n1 >= 1 && n1 <= 9) {
+        compVal = n0 + n1;
+      }
+      if (compVal !== null) {
+        const hasApprox = i > 0 && ['about', 'around', 'roughly', 'approximately'].includes(tokens[i - 1].lower);
+        const startC = hasApprox ? i - 1 : i;
+        for (const attr of resolveAttrShortNames(tabKeys, ['size', 'width', 'height', 'words', 'distance'])) {
+          const sk = attr.split('.').slice(1).join('.');
+          emitConstraint(attr, String(compVal), startC, compEnd, {
+            requiresKeyWord: !['size', 'distance'].includes(sk),
+            cost: sk === 'size' ? 2 : 4.5,
+          });
+        }
+      }
+    }
+
+    // Grid/step movement grade ("two spaces left", "3 steps up") -> distanceGrade + direction
+    if ((tok.kind === 'number' || numberWords.has(tok.lower)) && i + 1 < T && ['space', 'spaces', 'step', 'steps', 'square', 'squares'].includes(tokens[i + 1].lower)) {
+      if (tabKeys.has('drawn.distanceGrade')) {
+        emitConstraint('drawn.distanceGrade', src.slice(tok.start, tokens[i + 1].end), i, i + 1, { allowOpen: true, cost: 1.2 });
+      }
     }
 
     const isArticleUnit = tok.kind === 'word' && (tok.lower === 'a' || tok.lower === 'an') && i + 1 < T && UNIT_CANON.has(tokens[i + 1].lower);
@@ -2592,19 +2966,90 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
         if (len === 1 && tabKeys.has('drawn.pose')) {
           const POSE_BASE = { run: 'running', walk: 'walking', sit: 'sitting', stand: 'standing', jump: 'jumping', wave: 'waving', dance: 'dancing', sleep: 'sleeping', fly: 'flying', swim: 'swimming' };
-          if (POSE_BASE[ph]) emitConstraint('drawn.pose', POSE_BASE[ph], i, e, { cost: 2 });
+          // Guard: "stand 120 in height" is a copular measure verb, not drawn.pose=standing!
+          const isMeasureStand = ph === 'stand' && i + 1 < T && tokens[i + 1].kind === 'number';
+          if (POSE_BASE[ph] && !isMeasureStand) emitConstraint('drawn.pose', POSE_BASE[ph], i, e, { cost: 2 });
+        }
+        // Dynamic poses, traits, and expressions from `k.faces`!
+        const poseHit = vocabMatch(kb?.domain?.poses, ph);
+        if (poseHit && tabKeys.has('drawn.pose')) {
+          emitConstraint('drawn.pose', poseHit, i, e, { allowOpen: poseHit === 'lying down', cost: len > 1 ? 1.2 : 2 });
+        }
+        const traitHit = vocabMatch(kb?.domain?.traits, ph);
+        if (traitHit && tabKeys.has('drawn.trait')) {
+          emitConstraint('drawn.trait', traitHit, i, e, { cost: len > 1 ? 1.5 : 2.5 });
+        }
+        const exprHit = vocabMatch(kb?.domain?.expressions, ph);
+        if (exprHit && tabKeys.has('drawn.expression')) {
+          emitConstraint('drawn.expression', exprHit, i, e, { cost: len > 1 ? 1.5 : 2 });
+        }
+        // Scene container header ("the full kitchen picture", "the harbour scene") -> page.scene!
+        if (len >= 2 && ['picture', 'drawing', 'scene', 'canvas'].includes(tokens[e].lower) && tabKeys.has('page.scene')) {
+          const scWord = tokens.slice(i, e).find((t) => vocabMatch(kb?.domain?.scenes, t.lower));
+          if (scWord) {
+            const detB = checkDetBefore(i);
+            const sIdx = detB.detTok >= 0 ? detB.detTok : i;
+            emitConstraint('page.scene', vocabMatch(kb?.domain?.scenes, scWord.lower), sIdx, e, { cost: 1.2 });
+          }
+        }
+        // "with a <adj> face" -> drawn.expression=<adj> (open_value allowed when bound to `face`!)
+        if (len === 1 && i >= 2 && i + 1 < T && tokens[i - 2].lower === 'with' && ['a', 'an'].includes(tokens[i - 1].lower) && tokens[i + 1].lower === 'face' && tabKeys.has('drawn.expression')) {
+          emitConstraint('drawn.expression', tok.lower, i, i, { allowOpen: true, requiresKeyWord: true, cost: 1.2 });
+        }
+        // "<adj> composition" ("centred composition", "symmetrical composition") -> page.composition
+        if (len === 2 && tokens[e].lower === 'composition' && tabKeys.has('page.composition')) {
+          emitConstraint('page.composition', src.slice(tokens[i].start, tokens[e].end), i, e, { cost: 1.4 });
+        }
+        // "that has [a] [<adj>]* <noun>" in random scene compositions ("surprise me with a scene that has a red car") -> composition.with=<noun>
+        if (len === 1 && tabKeys.has('composition.with') && /\bsurprise\s+me\b/i.test(src) && i >= 2 && ['has', 'with'].includes(tokens[i - 1]?.lower ?? '')) {
+          let headIdx = i;
+          if (DET_MAP.has(tokens[headIdx]?.lower ?? '')) headIdx++;
+          while (headIdx + 1 < T && tokens[headIdx + 1].kind === 'word' && !tokens[headIdx + 1].isGrammar && !SPATIAL_RELATIONS.has(tokens[headIdx + 1].lower)) {
+            headIdx++;
+          }
+          if (headIdx < T && tokens[headIdx].kind === 'word') {
+            emitConstraint('composition.with', singulariseNoun(tokens[headIdx].lower, kb)[0] ?? tokens[headIdx].lower, i, headIdx, { cost: 1.2 });
+          }
+        }
+        // Deadjectival -ier / -y / -en material modifiers ("stonier" -> stone, "wooden" -> wood, "golden" -> gold, "sandy" -> sand, "rocky" -> rock, "icy" -> ice, "metallic" -> metal)
+        if (len === 1 && tabKeys.has('drawn.material')) {
+          const MAT_DERIV = new Map([
+            ['stonier', 'stone'], ['stony', 'stone'], ['rockier', 'rock'], ['rocky', 'rock'],
+            ['sandier', 'sand'], ['sandy', 'sand'], ['icier', 'ice'], ['icy', 'ice'],
+            ['grassier', 'grass'], ['grassy', 'grass'], ['wooden', 'wood'], ['woodier', 'wood'], ['woody', 'wood'],
+            ['golden', 'gold'], ['metallic', 'metal'], ['glassy', 'glass'], ['rustier', 'rust'], ['rusty', 'rust'],
+          ]);
+          const matVal = MAT_DERIV.get(tok.lower);
+          if (matVal) emitConstraint('drawn.material', matVal, i, i, { allowOpen: true, cost: 1.8 });
         }
         for (const f of forms) {
           const sc = vocabMatch(kb?.domain?.scenes, f);
-          if (sc && tabKeys.has('page.scene')) emitConstraint('page.scene', sc, i, e, { cost: 2 });
+          // Guard: "two spaces left" is a movement step, and "turn the scene/room into ..." or "surprise me with a scene" is not `page.scene=scene`!
+          const isGridSpaceUnit = (f === 'space' || ph === 'spaces') && i > 0 && (tokens[i - 1].kind === 'number' || numberWords.has(tokens[i - 1].lower));
+          const isTautScene = ['scene', 'picture', 'drawing', 'canvas', 'room'].includes(f) && (tokens[e + 1]?.lower === 'into' || /\bsurprise\s+me\b/i.test(src));
+          if (sc && !isGridSpaceUnit && !isTautScene && tabKeys.has('page.scene')) emitConstraint('page.scene', sc, i, e, { cost: 2 });
 
           const fl = vocabMatch(kb?.domain?.feelings, f);
-          if (fl && tabKeys.has('drawn.expression')) emitConstraint('drawn.expression', fl, i, e, { cost: 2 });
+          // Guard: "surprise me" is composition.source=random, not drawn.expression=surprised!
+          const isSurpriseMe = tok.lower === 'surprise' && i + 1 < T && tokens[i + 1].lower === 'me';
+          if (fl && !isSurpriseMe && tabKeys.has('drawn.expression')) emitConstraint('drawn.expression', fl, i, e, { cost: 2 });
 
-          const st = vocabMatch(kb?.domain?.styles, f);
-          if (st) {
-            for (const attr of ['page.style', 'page.filter', 'drawn.font', 'drawn.fill', 'drawn.effect', 'drawn.material', 'drawn.frame']) {
-              if (tabKeys.has(attr)) emitConstraint(attr, st, i, e, { cost: 2.5 });
+          const stRaw = mapGet(kb?.domain?.styles, f);
+          const stName = unwrapVocabValue(stRaw, f);
+          const stKind = stRaw && typeof stRaw === 'object' ? stRaw.kind : null;
+          if (stName) {
+            const styleAttrMap = {
+              material: ['drawn.material'],
+              font: ['drawn.font'],
+              filter: ['page.filter'],
+              effect: ['drawn.effect', 'part.effect'],
+              fill: ['drawn.fill'],
+              frame: ['drawn.frame'],
+              style: ['page.style'],
+            };
+            const allowedStyleAttrs = (stKind && styleAttrMap[stKind]) ? styleAttrMap[stKind] : ['page.style'];
+            for (const attr of allowedStyleAttrs) {
+              if (tabKeys.has(attr)) emitConstraint(attr, stName, i, e, { cost: 2.5 });
             }
           }
 
@@ -2627,15 +3072,33 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
           const ly = vocabMatch(kb?.domain?.layouts, f);
           if (ly && tabKeys.has('drawn.arrangement')) {
-            // Bare shape/object noun ("circle object", "a circle") is a TARGET_SORT unless preceded by arrangement prep ("in a circle", "as a row", "into a grid")!
+            // Bare shape/object noun ("circle object", "a yellow table", "a tree") is a TARGET_SORT unless preceded by arrangement prep ("in a circle", "as a row", "into a grid")!
             const prev1 = i > 0 ? tokens[i - 1].lower : '';
             const prev2 = i > 1 ? tokens[i - 2].lower : '';
             const hasArrPrep = ['in', 'as', 'into'].includes(prev1) || (['a', 'an', 'the'].includes(prev1) && ['in', 'as', 'into'].includes(prev2));
-            const alsoShape = Boolean(vocabMatch(kb?.domain?.shapes, f));
-            emitConstraint('drawn.arrangement', ly, i, e, { cost: (alsoShape && !hasArrPrep) ? 10 : 2 });
+            const alsoShapeOrObj = Boolean(vocabMatch(kb?.domain?.shapes, f) || vocabMatch(kb?.domain?.objects, f));
+            emitConstraint('drawn.arrangement', ly, i, e, { cost: (alsoShapeOrObj && !hasArrPrep) ? 14 : 2 });
           }
         }
       } else if (tab === 'diagram') {
+        if (len === 1 && tok.lower === 'stack' && tabKeys.has('chart.stacked')) {
+          emitConstraint('chart.stacked', 'stacked', i, i, { allowOpen: true, requiresKeyWord: true, cost: 0.8 });
+        }
+        if (len === 1 && ['exponential', 'scientific', 'logarithmic', 'engineering'].includes(tok.lower) && tabKeys.has('chart.tickFormat')) {
+          emitConstraint('chart.tickFormat', tok.lower, i, i, { allowOpen: true, requiresKeyWord: true, cost: 1.0 });
+        }
+        if (len === 1 && ['darker', 'lighter', 'brighter', 'pastel', 'warm', 'cool', 'monochrome'].includes(tok.lower) && tabKeys.has('chart.palette')) {
+          emitConstraint('chart.palette', tok.lower, i, i, { allowOpen: true, requiresKeyWord: true, cost: 1.0 });
+        }
+        if (len === 3 && tabKeys.has('chart.sort')) {
+          if (['largest to smallest', 'highest to lowest', 'most to least', 'biggest to smallest'].includes(ph)) {
+            const sIdx = i > 0 && tokens[i - 1].lower === 'from' ? i - 1 : i;
+            emitConstraint('chart.sort', 'desc', sIdx, e, { cost: 0.8 });
+          } else if (['smallest to largest', 'lowest to highest', 'least to most'].includes(ph)) {
+            const sIdx = i > 0 && tokens[i - 1].lower === 'from' ? i - 1 : i;
+            emitConstraint('chart.sort', 'asc', sIdx, e, { cost: 0.8 });
+          }
+        }
         if (['same gap', 'equal gap', 'even gap', 'equal spacing', 'same spacing'].includes(ph)) {
           if (tabKeys.has('node.gap')) emitConstraint('node.gap', 'equal', i, e, { cost: 1.5 });
           if (tabKeys.has('diagram.spacing')) emitConstraint('diagram.spacing', 'equal', i, e, { cost: 2 });
@@ -2660,8 +3123,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         for (const f of forms) {
           const ch = vocabMatch(kb?.domain?.charts, f);
           if (ch) {
-            if (tabKeys.has('chart.type')) emitConstraint('chart.type', ch, i, e, { cost: 1.5 });
-            if (tabKeys.has('chart.layout')) emitConstraint('chart.layout', ch, i, e, { cost: 6 });
+            // Definite plural mark ("make the bars blue") or selector ("on the order scatter") refers to an existing chart, not creating a new chart!
+            const isDefPluralMark = len === 1 && i > 0 && tokens[i - 1].lower === 'the' && ph.endsWith('s');
+            const isOnTheModifiedChart = len === 1 && i >= 3 && tokens[i - 3].lower === 'on' && tokens[i - 2].lower === 'the';
+            const chCost = (isDefPluralMark || isOnTheModifiedChart) ? 11 : 1.5;
+            if (tabKeys.has('chart.type')) emitConstraint('chart.type', ch, i, e, { cost: chCost });
+            if (tabKeys.has('chart.layout')) emitConstraint('chart.layout', ch, i, e, { cost: chCost + 4 });
           }
           const dg = vocabMatch(kb?.domain?.diagrams, f);
           if (dg && !String(dg).endsWith('_chart') && !String(dg).includes(' ') && tabKeys.has('diagram.kind')) {
@@ -2699,6 +3166,29 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             if (tabKeys.has('text.genre')) emitConstraint('text.genre', gen, i, e, { cost: 4 });
             if (tabKeys.has('document.genre')) emitConstraint('document.genre', gen, i, e, { cost: 4.5 });
           }
+        }
+      }
+    }
+
+    // Standing preference scope, key & value triggers from `clauses.sop` (`w.lang.en.frame_lead`) + "the default"
+    if (tabKeys.has('preference.scope')) {
+      for (let len = 2; len <= 4 && i + len <= T; len++) {
+        const e = i + len - 1;
+        if (hasPunctInSpan(tokens, i, e)) break;
+        const ph = spanTextLower(tokens, i, e);
+        if (ph === 'the default' || ph === 'by default' || kb?.grammar?.frameLeads?.has?.(ph)) {
+          emitConstraint('preference.scope', src.slice(tokens[i].start, tokens[e].end), i, e, { cost: 1.5 });
+        }
+      }
+      if (/\b(the default|by default|from now on|in future|in the future|as a rule)\b/i.test(src) && tok.kind === 'word') {
+        const PREF_KEYS = new Set(['legend', 'grid', 'gridlines', 'background', 'font', 'colour', 'color', 'size', 'layout', 'style', 'theme', 'orientation']);
+        const PREF_VALS = new Set(['left', 'right', 'top', 'bottom', 'center', 'centre', 'on', 'off', 'show', 'hide', 'horizontal', 'vertical']);
+        if (PREF_KEYS.has(tok.lower) && tabKeys.has('preference.key')) {
+          emitConstraint('preference.key', tok.lower === 'gridlines' ? 'grid' : tok.lower, i, i, { cost: 1.4 });
+        }
+        const colHit = vocabMatch(kb?.domain?.colours, tok.lower);
+        if ((PREF_VALS.has(tok.lower) || colHit) && tabKeys.has('preference.value')) {
+          emitConstraint('preference.value', colHit ?? tok.lower, i, i, { cost: 1.4 });
         }
       }
     }
@@ -2788,8 +3278,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     // Key-word triggered open span (also allows explicitly key-word-anchored open_value on closed non-number keys!)
     if (kwTriggerAtEndTok.has(i) && nextStart < T) {
       const kwAll = [...kwTriggerAtEndTok.get(i)];
+      const nextClosedHits = toArray(mapGet(closedValueIndex, tokens[nextStart].lower));
+      const hasMarkerFillClosed = nextClosedHits.some((h) => h?.attr === 'chart.markerFill');
       const NUMERIC_DIM_SHORT_RE = /(width|height|size|radius|opacity|scale|gap|count|level|index|bins|fontSize|stroke|thickness)$/i;
       const kwSpanAttrs = kwAll.filter((a) => {
+        if (a === 'chart.markerEdge' && hasMarkerFillClosed) return false;
         const sp = tabKeys.get(a);
         const sk = a.includes('.') ? a.split('.').slice(1).join('.') : a;
         return sp && !sp.head.includes('number') && !NUMERIC_DIM_SHORT_RE.test(sk) && (sp.head.includes('span') || sp.head.includes('candidate'));
@@ -2827,6 +3320,20 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             isAnchor: true,
             cost: 2.5,
           });
+          // Pronoun anchor ("on it", "above it", "next to them", "behind her") where isGrammar=true blocked open-span emission!
+          const pronTok = tokens[nextStart];
+          if (pronTok.kind === 'word' && ['it', 'them', 'him', 'her', 'this', 'that'].includes(pronTok.lower)) {
+            for (const ak of anchorKeys) {
+              if (tabKeys.has(ak)) {
+                emitConstraint(ak, pronTok.lower, nextStart, nextStart, {
+                  phase: 'selector',
+                  operator: 'relation',
+                  isAnchor: true,
+                  cost: 2.0,
+                });
+              }
+            }
+          }
         }
         if (tab === 'drawing' && rPh === 'behind' && tabKeys.has('drawn.behind')) {
           emitOpenSpansStartingAt(nextStart, ['drawn.behind'], { phase: 'selector', cost: 2.5 });
@@ -2860,9 +3367,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     // Specific preposition & structural verb triggers
     if (tok.kind === 'word' && nextStart < T) {
       if (tok.lower === 'from') {
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['link.from', 'chart.datasets', 'chart.dateRange'], { phase: 'result', cost: 4 });
+        const isSortRange = ['largest', 'smallest', 'highest', 'lowest', 'biggest', 'most', 'least'].includes(tokens[nextStart]?.lower ?? '')
+          && tokens[nextStart + 1]?.lower === 'to';
+        if (tab === 'diagram' && !isSortRange) emitOpenSpansStartingAt(nextStart, ['link.from', 'chart.datasets', 'chart.dateRange'], { phase: 'result', cost: 4 });
       } else if (tok.lower === 'to' || tok.lower === 'into') {
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 2.5 });
+        const isSortRangeEnd = tok.lower === 'to' && i >= 2 && tokens[i - 2].lower === 'from'
+          && ['largest', 'smallest', 'highest', 'lowest', 'biggest', 'most', 'least'].includes(tokens[i - 1].lower);
+        if (tab === 'diagram' && !isSortRangeEnd) emitOpenSpansStartingAt(nextStart, ['link.to'], { phase: 'result', cost: 2.5 });
         if (tab === 'document') {
           emitOpenSpansStartingAt(nextStart, ['inline.link_target', 'section.text', 'block.text', 'text.title'], { phase: 'result', cost: 6 });
         }
@@ -2934,10 +3445,22 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         if (tab === 'document') emitOpenSpansStartingAt(nextStart, ['text.about', 'document.topic', 'section.content'], { cost: 4 });
         if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['diagram.about'], { cost: 6 });
         if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['drawn.about', 'drawn.cause'], { cost: 6 });
+      } else if (tab === 'drawing' && (tok.lower === 'face' || tok.lower === 'facing') && i > 0 && ['to', 'should', 'must', 'can', 'could', 'would', 'will'].includes(tokens[i - 1].lower)) {
+        emitOpenSpansStartingAt(nextStart, ['drawn.facing'], { requiresKeyWord: true, allowOpen: true, cost: 1.5, maxLen: 2 });
       } else if (tok.lower === 'with') {
         if (tab === 'calendar') emitOpenSpansStartingAt(nextStart, ['meeting.people', 'meeting.participants'], { cost: 4 });
-        if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['composition.with', 'drawn.holds', 'drawn.wear'], { cost: 6 });
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['composition.with'], { cost: 6 });
+        if (tab === 'drawing') {
+          // Never blindly spray arbitrary `with <X>` spans into `drawn.wear` (wearables are already matched from `kb.domain.wearables` at cost 2)!
+          // Support `"with the word 'BAKERY'"` / `"with text 'X'"` -> `drawn.text`!
+          if (['word', 'words', 'text', 'sign'].includes(tokens[nextStart]?.lower ?? '') && nextStart + 1 < T && tokens[nextStart + 1].kind === 'quote') {
+            emitConstraint('drawn.text', tokens[nextStart + 1].inner, nextStart, nextStart + 1, { cost: 1.5 });
+          } else if (!kwTriggerAtEndTok.has(nextStart) && !['scene', 'drawing', 'picture'].includes(tokens[nextStart]?.lower ?? '')) {
+            emitOpenSpansStartingAt(nextStart, ['composition.with'], { cost: 8 });
+          }
+        }
+        if (tab === 'diagram' && !kwTriggerAtEndTok.has(nextStart)) {
+          emitOpenSpansStartingAt(nextStart, ['composition.with'], { cost: 8 });
+        }
       } else if (tok.lower === 'in' || tok.lower === 'at' || tok.lower === 'on') {
         if (tab === 'calendar') {
           // Type discipline: meeting.room / meeting.calendar NEVER capture time or date tokens ("at 10:00", "on 2026-11-18")!

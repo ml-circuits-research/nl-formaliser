@@ -152,36 +152,43 @@ export async function createFormaliser({
     const famToks = new Set();
     const kwToks = new Set();
     const consToks = new Set();
-    let exclusiveHits = 0;
+    const exclusiveToks = new Set();
 
     for (const c of lattice.candidates) {
       if (c.kind === 'TARGET_SORT') {
         for (let t = c.startTok; t <= c.endTok; t++) sortToks.add(t);
       } else if (c.kind === 'TARGET_FAMILY') {
         for (let t = c.startTok; t <= c.endTok; t++) famToks.add(t);
-        if (['event', 'calendar', 'room', 'chart', 'diagram', 'document', 'section'].includes(c.family)) {
-          exclusiveHits += 1;
+        if (['meeting', 'calendar', 'room', 'person', 'chart', 'series', 'point', 'diagram', 'link', 'document', 'text', 'section', 'block', 'inline', 'part'].includes(c.family)) {
+          for (let t = c.startTok; t <= c.endTok; t++) exclusiveToks.add(t);
         }
       } else if (c.kind === 'KEY_WORD') {
         for (let t = c.startTok; t <= c.endTok; t++) kwToks.add(t);
-      } else if (c.kind === 'CONSTRAINT') {
+      } else if (c.kind === 'CONSTRAINT' && (c.cost ?? 10) <= 5) {
         for (let t = c.startTok; t <= c.endTok; t++) consToks.add(t);
         if (
           c.attribute === 'chart.type' ||
           c.attribute === 'diagram.kind' ||
-          c.attribute?.startsWith('event.') ||
+          c.attribute?.startsWith('meeting.') ||
           c.attribute?.startsWith('calendar.') ||
           c.attribute?.startsWith('room.') ||
-          c.attribute?.startsWith('doc.') ||
-          c.attribute?.startsWith('section.')
+          c.attribute?.startsWith('document.') ||
+          c.attribute?.startsWith('text.') ||
+          c.attribute?.startsWith('section.') ||
+          c.attribute?.startsWith('block.') ||
+          c.attribute?.startsWith('inline.') ||
+          c.attribute?.startsWith('chart.') ||
+          c.attribute?.startsWith('link.') ||
+          c.attribute?.startsWith('part.')
         ) {
-          exclusiveHits += 1;
+          for (let t = c.startTok; t <= c.endTok; t++) exclusiveToks.add(t);
         }
       }
     }
-    // Dynamic temporal-context signal: if @clock is supplied, boost tabs that declare temporal event keys.
-    if (clock && kb.tabs?.[tab]?.keys?.has('event.date')) {
-      exclusiveHits += 2;
+    let exclusiveHits = exclusiveToks.size;
+    // Dynamic temporal-context signal: if @clock is supplied, boost tabs that declare temporal meeting keys.
+    if (clock && (kb.tabs?.[tab]?.keys?.has('meeting.date') || kb.tabs?.[tab]?.keys?.has('meeting.day') || kb.tabs?.[tab]?.keys?.has('event.date'))) {
+      exclusiveHits += 3;
     }
     const score = sortToks.size * 3 + famToks.size * 3 + kwToks.size * 2.5 + consToks.size * 1.5 + exclusiveHits * 4;
     return { score, exclusiveHits };
@@ -277,7 +284,7 @@ export async function createFormaliser({
       const selectedTabs = scored;
 
       const proposalMap = new Map();
-      const perTabTimeout = Math.max(1200, Math.floor(timeout / Math.min(4, selectedTabs.length)));
+      const perTabTimeout = Math.max(1800, Math.floor(timeout * 0.6));
 
       for (let ti = 0; ti < selectedTabs.length; ti++) {
         const { tab: candTab, score: domainScore } = selectedTabs[ti];
@@ -364,6 +371,9 @@ export async function createFormaliser({
       }
 
       const sortedAll = [...proposalMap.values()].sort((a, b) => {
+        if ((a.warnings === 0) !== (b.warnings === 0) && Math.abs(a.domainScore - b.domainScore) <= 10) {
+          return a.warnings === 0 ? -1 : 1;
+        }
         if (a.rankInTab !== b.rankInTab && a.warnings === b.warnings && Math.abs(a.domainScore - b.domainScore) < 2) {
           return a.rankInTab - b.rankInTab;
         }

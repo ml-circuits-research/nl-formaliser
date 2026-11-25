@@ -185,3 +185,55 @@ test('v9.5: dynamic SOP alternations, k.actions.similar, k.objects.stand_in, and
   });
   assert.ok(['L0', 'L1c'].includes(rBadVal.legendGrade), `Wrong value must never get L4, got ${rBadVal.legendGrade}`);
 });
+
+test('v9.6: L1c root-cause fixes — k.faces ontologies, compound numbers, post-nominal IDs, chart subkeys, fronted-PP segmentation, and Z3 equivalences', async () => {
+  // 1. Dynamic k.faces ontologies loaded cleanly from sop-knowledge-worlds
+  assert.ok(formaliser.kb.domain.colours.has('hazel'), 'Expected hazel from k.faces/colours.sop');
+  assert.ok(formaliser.kb.domain.colours.has('blond'), 'Expected blond from k.faces/colours.sop');
+  assert.ok(formaliser.kb.domain.poses.size >= 5, 'Expected figure-poses.sop loaded');
+  assert.ok(formaliser.kb.grammar.frameLeads.has('from now on'), 'Expected frame_lead from clauses.sop');
+
+  // 2. Compound English number ("four hundred" = 400) + `part.id` on `mode=new` (no Z3 UNSAT!)
+  const pIdNew = await formaliser.formalise('add a part with id mouth', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(pIdNew.ok, true);
+  assert.equal(pIdNew.check.ok, true, JSON.stringify(pIdNew.check.errors));
+  assert.ok(pIdNew.sop.includes('act=make') && pIdNew.sop.includes('value=mouth'), pIdNew.sop);
+
+  const compNum = await formaliser.formalise('place a car about four hundred wide', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(compNum.ok, true);
+  assert.equal(compNum.check.ok, true);
+  assert.ok(compNum.sop.includes('value="400"') || compNum.sop.includes('value=400'), compNum.sop);
+
+  // 3. Post-nominal identifier ("block 9" -> existing target, NOT count=9)
+  const postId = await formaliser.formalise('make block 9 bold', { tab: 'document', spellcheck: false, verify: true });
+  assert.equal(postId.ok, true);
+  assert.equal(postId.check.ok, true);
+  assert.ok(!postId.sop.includes('count=9'), `Must not emit count=9 on "block 9": ${postId.sop}`);
+
+  // 4. Chart subpart comparative + sort order ("from largest to smallest" -> chart.sort=desc, NOT link.from/to!)
+  const chSort = await formaliser.formalise('sort Grant money from largest to smallest', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(chSort.ok, true);
+  assert.equal(chSort.check.ok, true);
+  assert.ok(chSort.sop.includes('attribute=chart.sort value=desc'), chSort.sop);
+
+  // 5. Z3 Semantic Evaluator compositional & morphological equivalences (LEGEND.md v1.2)
+  const z3Eval = await createZ3SemanticEvaluator({ kb: formaliser.kb, verifier: formaliser.verifier });
+
+  // Bundled modifier+head ("the blue cap") <-> decomposed `drawn.wear=cap` + `drawn.color=blue` -> L4!
+  const rDecomp = await z3Eval.evaluatePairZ3({
+    text: 'the man in the blue cap should face left',
+    tab: 'drawing',
+    goldSop: `@r1 w.request.request act=change mood=do\n@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite sort=man\n@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.wear value="the blue cap"\n@r1.c2 w.request.constraint request=$r1 on=attribute attribute=drawn.facing value=left key_words=face`,
+    predSop: `@r1 w.request.request act=change mood=do\n@r1.t w.request.target request=$r1 family=drawn mode=existing determiner=definite sort=man\n@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.wear value=cap\n@r1.c2 w.request.constraint request=$r1 on=attribute attribute=drawn.color value=blue\n@r1.c3 w.request.constraint request=$r1 on=attribute attribute=drawn.facing value=left key_words=face`,
+  });
+  assert.equal(rDecomp.legendGrade, 'L4', `Expected L4 on decomposed modifier+head, got ${rDecomp.legendGrade}`);
+
+  // Leading determiner on anchor ("the barn" === "barn") + plural lemma ("helms" === "helm") -> L4!
+  const rLemma = await z3Eval.evaluatePairZ3({
+    text: 'put helms below the barn',
+    tab: 'drawing',
+    goldSop: `@r1 w.request.request act=make mood=do predicate=put\n@r1.t w.request.target request=$r1 family=drawn mode=new sort=helms\n@r1.c1 w.request.constraint request=$r1 on=place attribute=drawn.relation value=below operator=relation\n@r1.c2 w.request.constraint request=$r1 on=place attribute=drawn.anchor value="the barn" operator=relation phase=selector`,
+    predSop: `@r1 w.request.request act=place mood=do predicate=put\n@r1.t w.request.target request=$r1 family=drawn mode=new sort=helm sort_words=helms\n@r1.c1 w.request.constraint request=$r1 on=place attribute=drawn.relation value=below operator=relation\n@r1.c2 w.request.constraint request=$r1 on=place attribute=drawn.anchor value=barn operator=relation phase=selector`,
+  });
+  assert.equal(rLemma.legendGrade, 'L4', `Expected L4 on plural lemma + determiner anchor, got ${rLemma.legendGrade}`);
+});

@@ -24,6 +24,7 @@ const limit = Number(getArg('limit', 200));
 const seed = Number(getArg('seed', 1337));
 const workers = Number(getArg('workers', 10));
 const spellcheck = Boolean(getArg('spellcheck', false));
+const z3Eval = Boolean(getArg('z3-eval', false));
 const maxProposals = Number(getArg('max-proposals', 8));
 const perTabTopK = Number(getArg('per-tab-topk', 2));
 
@@ -74,6 +75,7 @@ await new Promise((resolveAll, rejectAll) => {
         spellcheck,
         confidence: false,
         tabAgnostic: true,
+        z3Eval,
         maxProposals,
         perTabTopK,
       },
@@ -168,12 +170,16 @@ for (let i = 0; i < sample.length; i++) {
     }
   }
 
-  if (sampleByGrade[g] && sampleByGrade[g].length < 5 && !cmp.goldAnnotationFlawed && !cmp.inputHasTypo) {
+  const maxSamples = Number(getArg('samples', 5));
+  const fullOut = Boolean(getArg('full', false));
+  if (sampleByGrade[g] && sampleByGrade[g].length < maxSamples && !cmp.goldAnnotationFlawed && !cmp.inputHasTypo) {
+    const pFlat = predSop.replace(/\r?\n/g, ' | ');
+    const gFlat = row.goldSop.replace(/\r?\n/g, ' | ');
     sampleByGrade[g].push({
       tab: row.tab,
       text: row.text,
-      pred: predSop.replace(/\r?\n/g, ' | ').slice(0, 200),
-      gold: row.goldSop.replace(/\r?\n/g, ' | ').slice(0, 200),
+      pred: fullOut ? pFlat : pFlat.slice(0, 200),
+      gold: fullOut ? gFlat : gFlat.slice(0, 200),
     });
   }
 }
@@ -194,10 +200,11 @@ console.log('Top L1c FN attrs:', topN(l1cFn, 10));
 console.log('Top L1d causes:', topN(l1dWhy, 10));
 console.log('Top unread tokens:', topN(unreadWords, 15));
 
-for (const g of ['L1a', 'L1b', 'L1c', 'L1d', 'L2a', 'L2b']) {
+const showCount = Number(getArg('samples', 4));
+for (const g of ['L1a', 'L1b', 'L1c', 'L1d', 'L2a', 'L2b', 'L2c']) {
   if (!sampleByGrade[g]?.length) continue;
   console.log(`\n--- Clean-Gold ${g} examples ---`);
-  for (const e of sampleByGrade[g].slice(0, 4)) {
+  for (const e of sampleByGrade[g].slice(0, showCount)) {
     console.log(`[${e.tab}] "${e.text}"`);
     console.log(`  P: ${e.pred}`);
     console.log(`  G: ${e.gold}`);

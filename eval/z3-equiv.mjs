@@ -3,8 +3,9 @@
 // context-free defensible intent alternatives, and grounded refinement over defective Gold
 // directly as an SMT-LIB2 optimization problem solved by Z3!
 
-import { unquoteSop } from '../src/contracts.mjs';
+import { KEY_ALIASES, unquoteSop } from '../src/contracts.mjs';
 import { createZ3Runner } from '../src/smt/z3-runner.mjs';
+import { lemmatiseWord, singulariseNoun } from '../src/lattice/morph.mjs';
 import { compareCircuits } from './compare.mjs';
 
 const LEGEND_GRADE_RANK = {
@@ -38,12 +39,88 @@ const UK_TO_US = new Map([
   ['chequered', 'checked'],
 ]);
 
+const LEADING_DET_RE = /^(?:the|a|an|my|our|this|that|these|those)_+/;
+const TRAILING_DOMAIN_HEAD_RE = /_(?:calendar|meeting|event|section|heading|paragraph|chart|graph|diagram|page|room|object|block|node|there|here)$/;
+const TOGGLE_SHORTS = new Set([
+  'grid',
+  'show_values',
+  'legend',
+  'stacking',
+  'frame',
+  'border',
+  'shadow',
+  'smooth',
+  'trend',
+  'labels',
+]);
+const TOGGLE_ON = new Set(['on', 'show', 'true', 'yes', 'visible', 'shown']);
+const TOGGLE_OFF = new Set(['off', 'hide', 'false', 'no', 'none', 'hidden']);
+
 function normToken(s) {
-  const low = String(s ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
-  return low
+  const unq = unquoteSop(String(s ?? '')).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (/^-?(?:\d+\.?\d*|\.\d+)$/.test(unq)) {
+    const n = Number(unq);
+    if (Number.isFinite(n)) return String(n);
+  }
+  return unq
     .split('_')
+    .filter(Boolean)
     .map((w) => UK_TO_US.get(w) ?? w)
     .join('_');
+}
+
+function stripLeadingDet(tok) {
+  const s = tok.replace(LEADING_DET_RE, '');
+  return s || tok;
+}
+
+function lemmaHeadVariants(tok, kb = null) {
+  const s = stripLeadingDet(tok);
+  const parts = s.split('_').filter(Boolean);
+  if (parts.length === 0) return [s];
+  const prefix = parts.slice(0, -1);
+  const last = parts[parts.length - 1];
+  const out = new Set([s]);
+  if (last.length >= 3 && /^[a-z]+$/.test(last)) {
+    for (const cand of [...singulariseNoun(last, kb), ...lemmatiseWord(last, kb)]) {
+      const mapped = UK_TO_US.get(cand) ?? cand;
+      out.add([...prefix, mapped].join('_'));
+    }
+  }
+  return [...out];
+}
+
+function valuesSemanticallyEqual(gv, pv, uf, { allowLemma = true, isToggle = false, kb = null } = {}) {
+  const ng = normToken(gv);
+  const np = normToken(pv);
+  if (!ng && !np) return true;
+  if (!ng || !np) return false;
+  if (ng === np || uf.same(gv, pv)) return true;
+
+  if (isToggle) {
+    if (TOGGLE_ON.has(ng) && TOGGLE_ON.has(np)) return true;
+    if (TOGGLE_OFF.has(ng) && TOGGLE_OFF.has(np)) return true;
+  }
+
+  const sg = stripLeadingDet(ng);
+  const sp = stripLeadingDet(np);
+  if (sg === sp || uf.same(sg, sp)) return true;
+
+  const hg = sg.replace(TRAILING_DOMAIN_HEAD_RE, '');
+  const hp = sp.replace(TRAILING_DOMAIN_HEAD_RE, '');
+  if (hg && hp && (hg === hp || uf.same(hg, hp))) return true;
+
+  if (allowLemma) {
+    const gSet = new Set([...lemmaHeadVariants(ng, kb), ...(hg ? lemmaHeadVariants(hg, kb) : [])]);
+    const pList = [...lemmaHeadVariants(np, kb), ...(hp ? lemmaHeadVariants(hp, kb) : [])];
+    for (const pCand of pList) {
+      if (gSet.has(pCand)) return true;
+      for (const gCand of gSet) {
+        if (uf.same(gCand, pCand)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function buildValueUnionFind(kb) {
@@ -76,6 +153,13 @@ function buildValueUnionFind(kb) {
   for (const [k, v] of kb?.domain?.standIns?.entries?.() ?? []) {
     union(k, v);
   }
+  // Seed cardinal number words dynamically from w.lang.en/numbers.sop (e.g. "two" <-> "2")
+  for (const [w, info] of kb?.grammar?.numbers?.entries?.() ?? []) {
+    const val = typeof info === 'object' ? info?.value : info;
+    if (val !== undefined && val !== null && Number.isFinite(Number(val))) {
+      union(String(w), String(Number(val)));
+    }
+  }
   // Standard domain value synonyms in w.request schemas
   for (const [a, b] of [
     ['big', 'large'],
@@ -87,12 +171,25 @@ function buildValueUnionFind(kb) {
     ['center', 'middle'],
     ['left_side', 'left'],
     ['right_side', 'right'],
+    ['left_hand_side', 'left'],
+    ['right_hand_side', 'right'],
     ['top_side', 'top'],
     ['bottom_side', 'bottom'],
+    ['top_edge', 'top'],
+    ['bottom_edge', 'bottom'],
+    ['left_edge', 'left'],
+    ['right_edge', 'right'],
     ['solid', 'filled'],
     ['outline', 'hollow'],
+    ['transparent', 'hollow'],
+    ['see_through', 'hollow'],
+    ['unfilled', 'hollow'],
     ['dotted', 'spotted'],
     ['bar', 'column'],
+    ['happy', 'smiling'],
+    ['smile', 'smiling'],
+    ['sad', 'frowning'],
+    ['angry', 'mad'],
   ]) {
     union(a, b);
   }
@@ -112,7 +209,9 @@ function toCanonicalMinutes(valStr, unitStr) {
 }
 
 function shortAttr(attr) {
-  const a = normToken(attr);
+  const raw = String(attr ?? '').trim();
+  const aliased = KEY_ALIASES[raw] ?? raw;
+  const a = normToken(aliased);
   const idx = a.indexOf('.');
   const sk = idx >= 0 ? a.slice(idx + 1) : a;
   if (['title', 'label', 'heading'].includes(sk)) return 'name';
@@ -121,24 +220,54 @@ function shortAttr(attr) {
   if (['position', 'order'].includes(sk)) return 'relation';
   if (['relation_anchor', 'order_anchor'].includes(sk)) return 'anchor';
   if (['bar_width', 'line_width', 'stroke'].includes(sk)) return 'width';
+  if (['show_values', 'showvalues', 'valuelabels', 'value_labels'].includes(sk)) return 'show_values';
+  if (['showlegend', 'show_legend'].includes(sk)) return 'legend';
+  if (['gridlines', 'grid_lines'].includes(sk)) return 'grid';
+  if (['stacked'].includes(sk)) return 'stacking';
+  if (['side', 'edge'].includes(sk)) return 'at';
+  if (sk === 'value' && a.startsWith('part.')) return 'variant';
   return sk;
 }
 
 function extractVirtualConstraints(req) {
   const list = [];
   for (const c of req.constraints ?? []) {
+    const rawAttr = c.attribute ?? '';
+    let short = shortAttr(rawAttr);
+    const rawVals =
+      (c.values ?? []).length > 0
+        ? c.values
+        : c.words && c.operator !== 'delta'
+          ? [c.words]
+          : [];
+    let values = rawVals.map((v) => String(v));
+    if (rawAttr === 'chart.horizontal') {
+      short = 'orientation';
+      values = values.map((v) => {
+        const nv = normToken(v);
+        if (TOGGLE_ON.has(nv) || nv === 'horizontal') return 'horizontal';
+        if (TOGGLE_OFF.has(nv) || nv === 'vertical') return 'vertical';
+        return v;
+      });
+    }
     list.push({
-      short: shortAttr(c.attribute),
-      rawAttr: c.attribute ?? '',
-      values: (c.values ?? []).map((v) => String(v)),
+      short,
+      rawAttr,
+      values,
       unit: c.unit ?? '',
       operator: c.operator ?? 'eq',
       step: c.step ?? 'none',
       want: c.want ?? 'yes',
     });
   }
-  // Representational normalization: target.name / target.count / target.ids as virtual constraints so
-  // `target.name=Bee` <-> `drawn.name=Bee` and `target.count=6` <-> `drawn.count=6` unify cleanly in Z3!
+  // Representational normalization: target.sort / target.name / target.count / target.ids as virtual constraints so
+  // `target.sort=network` <-> `diagram.kind=network`, `target.name=Bee` <-> `drawn.name=Bee`, and `target.count=6` <-> `drawn.count=6` unify cleanly in Z3!
+  if (req.target?.sort) {
+    list.push({ short: 'kind', rawAttr: 'target.sort', values: [String(req.target.sort)], unit: '', operator: 'eq', step: 'none', want: 'yes', virtual: true });
+  }
+  for (const fw of req.target?.family_words ?? []) {
+    list.push({ short: 'kind', rawAttr: 'target.family_words', values: [String(fw)], unit: '', operator: 'eq', step: 'none', want: 'yes', virtual: true });
+  }
   if (req.target?.name) {
     list.push({ short: 'name', rawAttr: 'target.name', values: [String(req.target.name)], unit: '', operator: 'eq', step: 'none', want: 'yes', virtual: true });
   }
@@ -151,14 +280,26 @@ function extractVirtualConstraints(req) {
   return list;
 }
 
-function areConstraintsSemanticallyCompat(gc, pc, uf) {
+const SIZE_SLOT_GROUP = new Set(['width', 'height', 'size', 'scale']);
+const KIND_SLOT_GROUP = new Set(['kind', 'type', 'layout', 'shape', 'preset', 'base', 'genre', 'role']);
+const NAME_TEXT_SLOT_GROUP = new Set(['name', 'id', 'content', 'text']);
+const TOPIC_SLOT_GROUP = new Set(['about', 'topic', 'scene']);
+const LITERAL_SLOTS = new Set(['text', 'content', 'words']);
+
+function areShortSlotsCompat(gs, ps, gc = null, pc = null) {
+  if (gs === ps) return true;
+  if (SIZE_SLOT_GROUP.has(gs) && SIZE_SLOT_GROUP.has(ps)) return true;
+  if (KIND_SLOT_GROUP.has(gs) && KIND_SLOT_GROUP.has(ps)) return true;
+  if (NAME_TEXT_SLOT_GROUP.has(gs) && NAME_TEXT_SLOT_GROUP.has(ps)) return true;
+  if (TOPIC_SLOT_GROUP.has(gs) && TOPIC_SLOT_GROUP.has(ps)) return true;
+  if ((gs === 'id' && pc?.rawAttr === 'target.sort') || (ps === 'id' && gc?.rawAttr === 'target.sort')) return true;
+  return false;
+}
+
+function areConstraintsSemanticallyCompat(gc, pc, uf, kb = null) {
   if ((gc.want ?? 'yes') !== (pc.want ?? 'yes')) return false;
-  if (gc.short !== pc.short) {
-    // Allow width/height <-> size when value matches
-    if (!(['width', 'height', 'size'].includes(gc.short) && ['width', 'height', 'size'].includes(pc.short))) {
-      return false;
-    }
-  }
+  if (!areShortSlotsCompat(gc.short, pc.short, gc, pc)) return false;
+
   if (gc.operator === 'delta' || pc.operator === 'delta') {
     if (gc.operator !== pc.operator) return false;
     const gDir = gc.step?.includes('less') ? 'less' : 'more';
@@ -174,15 +315,11 @@ function areConstraintsSemanticallyCompat(gc, pc, uf) {
   if (gc.values.length === 0 && pc.values.length === 0) return true;
   if (gc.values.length === 0 || pc.values.length === 0) return false;
 
-  // Every value in gc has a semantic match in pc (including optional trailing domain head noun like "Work 2 calendar" === "Work 2")
-  const stripTrailingDomainHead = (s) => normToken(s).replace(/_(calendar|meeting|event|section|heading|paragraph|chart|graph|diagram|page|room|object|block)$/, '');
+  const allowLemma = !LITERAL_SLOTS.has(gc.short) && !LITERAL_SLOTS.has(pc.short);
+  const isToggle = TOGGLE_SHORTS.has(gc.short) || TOGGLE_SHORTS.has(pc.short);
+
   return gc.values.every((gv) =>
-    pc.values.some(
-      (pv) =>
-        normToken(gv) === normToken(pv) ||
-        uf.same(gv, pv) ||
-        (stripTrailingDomainHead(gv) && stripTrailingDomainHead(gv) === stripTrailingDomainHead(pv)),
-    ),
+    pc.values.some((pv) => valuesSemanticallyEqual(gv, pv, uf, { allowLemma, isToggle, kb })),
   );
 }
 
@@ -229,7 +366,33 @@ function areIntentsDefensiblyCompat(gReq, pReq, text) {
   return { exact: false, defensible: false };
 }
 
-function areTargetsSemanticallyCompat(gReq, pReq, uf) {
+function isGroundedInText(idStr, text) {
+  const raw = String(idStr ?? '').trim().toLowerCase();
+  if (!raw) return false;
+  const lowText = String(text ?? '').toLowerCase();
+  if (lowText.includes(raw)) return true;
+  const norm = raw.replace(/[_\s-]+/g, ' ');
+  return Boolean(norm && lowText.includes(norm));
+}
+
+function isContrastNegationGrounded(pc, text) {
+  if ((pc.want ?? 'yes') !== 'no' || !pc.values?.length) return false;
+  const lowText = String(text ?? '').toLowerCase();
+  const m = lowText.match(/\b(?:instead of|rather than|without|not)\s+([^.,;!?]+)/);
+  if (!m) return false;
+  const tail = m[1];
+  return pc.values.every((v) => {
+    const nv = unquoteSop(String(v)).trim().toLowerCase();
+    return nv && (tail.includes(nv) || lemmatiseWord(nv).some((lw) => tail.includes(lw)));
+  });
+}
+
+function splitContentWords(valStr) {
+  const s = stripLeadingDet(normToken(valStr));
+  return s.split('_').filter((w) => w && !['the', 'a', 'an', 'of', 'with', 'in', 'on'].includes(w));
+}
+
+function areTargetsSemanticallyCompat(gReq, pReq, uf, text, kb = null) {
   const gFam = gReq.target?.family ?? '';
   const pFam = pReq.target?.family ?? '';
   let famCompat = gFam === pFam;
@@ -237,11 +400,14 @@ function areTargetsSemanticallyCompat(gReq, pReq, uf) {
     const fams = new Set([gFam, pFam]);
     // Cross-aspect representations within the same tab
     if (
-      (fams.has('drawn') && (fams.has('part') || fams.has('page') || fams.has('composition'))) ||
+      (fams.has('drawn') && (fams.has('part') || fams.has('page') || fams.has('composition') || fams.has('preference'))) ||
+      (fams.has('page') && fams.has('preference')) ||
       (fams.has('section') && (fams.has('block') || fams.has('text') || fams.has('inline') || fams.has('document'))) ||
       (fams.has('block') && (fams.has('inline') || fams.has('text'))) ||
-      (fams.has('diagram') && (fams.has('node') || fams.has('page') || fams.has('group') || fams.has('chart'))) ||
-      (fams.has('node') && (fams.has('link') || fams.has('group'))) ||
+      (fams.has('document') && (fams.has('text') || fams.has('block') || fams.has('inline'))) ||
+      (fams.has('diagram') && (fams.has('node') || fams.has('page') || fams.has('group') || fams.has('chart') || fams.has('preference') || fams.has('composition'))) ||
+      (fams.has('chart') && (fams.has('group') || fams.has('series') || fams.has('point') || fams.has('page') || fams.has('preference'))) ||
+      (fams.has('node') && (fams.has('link') || fams.has('group') || fams.has('point'))) ||
       (fams.has('meeting') && (fams.has('calendar') || fams.has('room')))
     ) {
       famCompat = true;
@@ -249,23 +415,37 @@ function areTargetsSemanticallyCompat(gReq, pReq, uf) {
   }
   if (!famCompat) return { famCompat: false, idCompat: false };
 
-  const gIdents = [gReq.target?.sort, gReq.target?.name, ...(gReq.target?.ids ?? [])].filter(Boolean);
-  const pIdents = [pReq.target?.sort, pReq.target?.name, ...(pReq.target?.ids ?? [])].filter(Boolean);
-  // Also include *.name / *.title / *.id constraints on the request
+  // Filter out internal live-canvas target IDs (e.g. d1, obj_3) that never appear in text
+  const gGroundedIds = (gReq.target?.ids ?? []).filter((id) => isGroundedInText(id, text));
+  const gIdents = [gReq.target?.sort, gReq.target?.name, ...gGroundedIds].filter(Boolean);
+  const pIdents = [
+    pReq.target?.sort,
+    pReq.target?.name,
+    pReq.target?.description,
+    ...(pReq.target?.family_words ?? []),
+    ...(pReq.target?.ids ?? []),
+  ].filter(Boolean);
+  // Also include *.name / *.title / *.id / *.kind / *.type / *.preset / *.shape / *.genre constraints on the request
+  const identShorts = new Set(['name', 'id', 'kind', 'type', 'layout', 'preset', 'shape', 'genre']);
   for (const c of gReq.constraints ?? []) {
-    if (['name', 'id'].includes(shortAttr(c.attribute))) gIdents.push(...(c.values ?? []));
+    const sk = shortAttr(c.attribute);
+    if (sk === 'id') {
+      gIdents.push(...(c.values ?? []).filter((id) => isGroundedInText(id, text)));
+    } else if (identShorts.has(sk)) {
+      gIdents.push(...(c.values ?? []));
+    }
   }
   for (const c of pReq.constraints ?? []) {
-    if (['name', 'id'].includes(shortAttr(c.attribute))) pIdents.push(...(c.values ?? []));
+    if (identShorts.has(shortAttr(c.attribute))) pIdents.push(...(c.values ?? []));
   }
 
   if (gIdents.length === 0) return { famCompat: true, idCompat: true };
   if (pIdents.length === 0) {
-    // Context pronoun / implicit target when Gold had a redundant sort/name
+    // Context pronoun / implicit target when Gold had a sort/name
     return { famCompat: true, idCompat: false };
   }
   const idCompat = gIdents.some((gi) =>
-    pIdents.some((pi) => normToken(gi) === normToken(pi) || uf.same(gi, pi)),
+    pIdents.some((pi) => valuesSemanticallyEqual(gi, pi, uf, { allowLemma: true, kb })),
   );
   return { famCompat: true, idCompat };
 }
@@ -299,6 +479,10 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
     const gReqs = base.goldSummary?.requests ?? [];
     const pReqs = base.predSummary?.requests ?? [];
 
+    // 0-request Gold vs 0-request Pred (both valid pure conversational fillers, e.g. "thanks, that's perfect") -> L4!
+    if (gReqs.length === 0 && pReqs.length === 0) {
+      return { ...base, legendGrade: 'L4', z3SemanticGrade: 'L4', z3Used: false };
+    }
     // 0-request Gold vs >0 Pred: L1d unless Gold had uncovered/bad_filler defect!
     if (gReqs.length === 0 && pReqs.length > 0) {
       const grade = base.goldAnnotationFlawed && base.predZeroWarn ? 'L4' : 'L1d';
@@ -338,34 +522,95 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
     for (let g = 0; g < G; g++) {
       for (let p = 0; p < P; p++) {
         const ic = areIntentsDefensiblyCompat(gReqs[g], pReqs[p], text);
-        const tc = areTargetsSemanticallyCompat(gReqs[g], pReqs[p], uf);
+        const tc = areTargetsSemanticallyCompat(gReqs[g], pReqs[p], uf, text, kb);
         intentCompat[g][p] = ic;
         targetCompat[g][p] = tc;
 
-        // Maximal semantic constraint matching between gVirt[g] (real non-virtual Gold constraints) and pVirt[p]
-        const realGC = gVirt[g].filter((c) => !c.virtual);
+        // Ignore ungrounded internal Gold id constraints (e.g. drawn.id=d1 not in text)
+        const realGC = gVirt[g].filter(
+          (c) => !c.virtual && !(c.short === 'id' && c.values.every((v) => !isGroundedInText(v, text))),
+        );
         const realPC = pVirt[p].filter((c) => !c.virtual);
         const usedP = new Set();
+        const supportingRealP = new Set();
+        const matchedGCIdx = new Set();
         let matchedG = 0;
-        for (const gc of realGC) {
+
+        for (let gi = 0; gi < realGC.length; gi++) {
+          const gc = realGC[gi];
           let found = -1;
           for (let j = 0; j < pVirt[p].length; j++) {
             if (usedP.has(j)) continue;
-            if (areConstraintsSemanticallyCompat(gc, pVirt[p][j], uf)) {
+            if (areConstraintsSemanticallyCompat(gc, pVirt[p][j], uf, kb)) {
               found = j;
               break;
             }
           }
           if (found >= 0) {
             usedP.add(found);
+            matchedGCIdx.add(gi);
             matchedG++;
           }
         }
+
+        // Compositional decomposition check: e.g. Gold bundled `wear="the blue cap"` vs Pred `wear=cap` + `color=blue`
+        for (let gi = 0; gi < realGC.length; gi++) {
+          if (matchedGCIdx.has(gi)) continue;
+          const gc = realGC[gi];
+          if (gc.values.length !== 1) continue;
+          const gWords = splitContentWords(gc.values[0]);
+          if (gWords.length < 2) continue;
+          const headWord = gWords[gWords.length - 1];
+          const headIdx = pVirt[p].findIndex(
+            (pc) =>
+              areShortSlotsCompat(gc.short, pc.short) &&
+              pc.values.some((pv) => valuesSemanticallyEqual(headWord, pv, uf, { allowLemma: true, kb })),
+          );
+          if (headIdx >= 0) {
+            supportingRealP.add(pVirt[p][headIdx]);
+            const modWords = gWords.slice(0, -1);
+            const allModsCovered = modWords.every((mw) =>
+              pVirt[p].some((pc) => {
+                const hit = pc.values.some((pv) => valuesSemanticallyEqual(mw, pv, uf, { allowLemma: true, kb }));
+                if (hit) supportingRealP.add(pc);
+                return hit;
+              }),
+            );
+            if (allModsCovered) {
+              matchedGCIdx.add(gi);
+              matchedG++;
+            }
+          }
+        }
+
         // Check how many realPC are unmatched in gVirt[g]
         let unmatchedRealP = 0;
         for (const pc of realPC) {
-          const hit = gVirt[g].some((gc) => areConstraintsSemanticallyCompat(gc, pc, uf));
-          if (!hit) unmatchedRealP++;
+          if (supportingRealP.has(pc)) continue;
+          const directHit = gVirt[g].some((gc) => areConstraintsSemanticallyCompat(gc, pc, uf, kb));
+          if (directHit) continue;
+          // Symmetric check: Pred bundled `wear="blue cap"` while Gold decomposed `wear=cap` + `color=blue`
+          if (pc.values.length === 1) {
+            const pWords = splitContentWords(pc.values[0]);
+            if (pWords.length >= 2) {
+              const allInGold = pWords.every((pw) =>
+                gVirt[g].some((gc) => gc.values.some((gv) => valuesSemanticallyEqual(pw, gv, uf, { allowLemma: true, kb }))),
+              );
+              if (allInGold) continue;
+            }
+          }
+          if (isContrastNegationGrounded(pc, text)) continue;
+          // If Gold folded target modifiers into `target.description` (e.g. description="the woman in the green dress and purple hat")
+          // and Pred explicitly extracted those target-modifier constraints (`wear=dress`, `wear=hat`), do not penalize as L1d!
+          const gDescWords = gReqs[g]?.target?.description ? splitContentWords(gReqs[g].target.description) : [];
+          if (
+            gDescWords.length >= 2 &&
+            pc.values.length > 0 &&
+            pc.values.every((pv) => gDescWords.some((dw) => valuesSemanticallyEqual(dw, pv, uf, { allowLemma: true, kb })))
+          ) {
+            continue;
+          }
+          unmatchedRealP++;
         }
 
         consCompatCounts[g][p] = {

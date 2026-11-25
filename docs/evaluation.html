@@ -129,23 +129,25 @@
     </table>
 
     <h3>5.1.b Mod tab-agnostic + multi-interpretare (<code>--tab-agnostic --max-proposals 8 --per-tab-topk 2</code>, fără hint de tab — v9.4)</h3>
-    <h3>5.1.c Evaluatorul Semantic în Z3 (<code>eval/z3-equiv.mjs</code>, <code>--tab-agnostic --z3-eval</code> — v9.5)</h3>
+    <h3>5.1.c Evaluatorul Semantic în Z3 + Atacarea sistematică a <code>L1c</code> &amp; <code>L1b</code> (<code>--tab-agnostic --z3-eval</code> — v9.6)</h3>
     <p>
       Pe același eșantion 1% nevăzut (<code>N = 1.892</code>, <code>seed = 42</code>, tab-agnostic, fără hint de tab),
-      alinierea semantică MaxSMT din <code>eval/z3-equiv.mjs</code> (echivalență de unități <code>1 hour ≡ 60 minutes</code>,
-      clase de sinonime din <code>k.values</code> / <code>k.objects.stand_in</code>, alternative defensibile de intenție fără stare live,
-      și rafinare ancorată peste Gold defect la <code>check.mjs</code>) separă erorile reale de diferențele de reprezentare:
+      încărcarea dinamică a ontologiilor <code>k.faces</code> (<code>colours.sop</code>, <code>figure-poses.sop</code>, <code>traits.sop</code>)
+      și <code>clauses.sop</code> (<code>frame_lead</code>), numerele compuse, identificatorii post-nominali, sub-cheile comparative de grafic
+      (<code>chart.errorCap</code>, <code>chart.lineWidth</code>, <code>chart.sort</code>), segmentarea Stage-1 peste PP-uri frontale,
+      filtrarea preambulelor conversaționale și regulile compoziționale <code>LEGEND.md</code> v1.2 din <code>eval/z3-equiv.mjs</code>
+      urcă citirile rezonabile de la <code>26.2%</code> (v9.5) la <strong><code>35.3%</code></strong>:
     </p>
     <ul>
-      <li><strong>L0 – Fail:</strong> <code>3.0%</code> (56)</li>
-      <li><strong>L1a – Wrong intent:</strong> <strong><code>8.1%</code></strong> (153 — scăzut de la <code>29.0%</code> pe comparatorul mecanic!)</li>
-      <li><strong>L1b – Wrong target:</strong> <strong><code>8.0%</code></strong> (152)</li>
-      <li><strong>L1c – Wrong detail or role:</strong> <code>39.3%</code> (743 — principalul blocaj real rămas: lumea, intenția și ținta sunt corecte pe <code>~80.9%</code> din cereri!)</li>
-      <li><strong>L1d – Invented instruction:</strong> <strong><code>6.8%</code></strong> (129)</li>
-      <li><strong>L2a / L2b / L2c – Incomplete:</strong> <code>1.1%</code> (21) / <code>4.2%</code> (79) / <code>3.3%</code> (63) — total <code>L2 = 8.6%</code></li>
-      <li><strong>L3 – Identical to dataset:</strong> <code>2.3%</code> (43)</li>
-      <li><strong>L4 – Reasonable alternative:</strong> <strong><code>23.9%</code></strong> (453)</li>
-      <li><strong>Total rezonabile (<code>L3 + L4</code>):</strong> <strong><code>26.2%</code> (496 / 1.892)</strong> vs <code>20.0%</code> (378) pe comparatorul mecanic pe aceleași propuneri (<code>AliasF1 = 0.420</code>, <code>goldTabInProposals = 99.5%</code>).</li>
+      <li><strong>L0 – Fail:</strong> <code>2.9%</code> (54)</li>
+      <li><strong>L1a – Wrong intent:</strong> <strong><code>7.5%</code></strong> (142 — scăzut de la <code>8.1%</code> în v9.5 și <code>35.6%</code> în v9.0)</li>
+      <li><strong>L1b – Wrong target:</strong> <strong><code>4.7%</code></strong> (88 — redus cu <strong>42%</strong> față de <code>8.0%</code> în v9.5!)</li>
+      <li><strong>L1c – Wrong detail or role:</strong> <strong><code>31.9%</code></strong> (603 — scăzut cu <strong>-7.4 pp</strong> / -140 erori față de <code>39.3%</code> în v9.5!)</li>
+      <li><strong>L1d – Invented instruction:</strong> <code>7.8%</code> (147)</li>
+      <li><strong>L2a / L2b / L2c – Incomplete:</strong> <code>1.6%</code> (31) / <code>3.6%</code> (69) / <code>4.8%</code> (90) — total <code>L2 = 10.0%</code> (190)</li>
+      <li><strong>L3 – Identical to dataset:</strong> <code>2.2%</code> (42)</li>
+      <li><strong>L4 – Reasonable alternative:</strong> <strong><code>33.1%</code></strong> (626 — față de <code>23.9%</code> în v9.5)</li>
+      <li><strong>Total rezonabile (<code>L3 + L4</code>):</strong> <strong><code>35.3%</code> (668 / 1.892)</strong> pe întreg holdout-ul nevăzut (cu <code>31.5%</code> <em>Dataset error flag</em>); pe split-ul de dev disjunct (<code>seed = 1337</code>), <code>L3 + L4 = 45.0%</code> (<strong><code>60.7%</code></strong> pe rândurile cu Gold și text curat). Chiar și pe comparatorul mecanic strict, <code>Exact</code> a urcat de la <code>12.2%</code> la <strong><code>16.8%</code></strong> și <code>AliasF1</code> la <strong><code>0.446</code></strong> (<code>drawing = 0.502</code>, <code>document = 0.554</code>, <code>calendar = 0.769</code>).</li>
     </ul>
 
     <h2>5.2 Calibrarea încrederii simbolice pe benzi operaționale (<code>--confidence</code>, v9)</h2>

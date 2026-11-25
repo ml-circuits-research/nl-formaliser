@@ -236,8 +236,29 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
         smtLines.push(`(assert-soft cut_${i} :weight 12)`);
       }
     } else if (sp.kind === 'comma' || sp.kind === 'coord') {
+      // Check if R is a short fronted prepositional phrase (", right on the dock, two medium grey nets" or ", and just above the boat, three small white gulls")
+      // whose object head stands right after the next comma!
+      const nextSp = i + 1 < S ? splitPoints[i + 1] : null;
+      const afterNextStart = nextSp ? nextSp.endTok + 1 : -1;
+      const afterNextEnd = nextSp ? (i + 2 < S ? splitPoints[i + 2].startTok - 1 : T - 1) : -1;
+      const RNext = nextSp && nextSp.kind === 'comma' && afterNextStart <= afterNextEnd
+        ? rangeStats(afterNextStart, afterNextEnd)
+        : null;
+      const prevSp = i > 0 ? splitPoints[i - 1] : null;
+      const beforePrevStart = prevSp ? (i >= 2 ? splitPoints[i - 2].endTok + 1 : 0) : -1;
+      const beforePrevEnd = prevSp ? prevSp.startTok - 1 : -1;
+      const LPrev = prevSp && beforePrevStart >= 0 && beforePrevStart <= beforePrevEnd
+        ? rangeStats(beforePrevStart, beforePrevEnd)
+        : null;
+
+      const isFrontedPpBeforeObj = !R.hasObjHead && !R.hasPred && R.nonFillerContent <= 4 && Boolean(RNext?.hasObjHead);
+      const isCommaInsideFrontedPp = sp.kind === 'comma' && !L.hasObjHead && !L.hasPred && L.nonFillerContent <= 4 && R.hasObjHead && Boolean(LPrev?.hasObjHead || LPrev?.hasPred);
+
       // Enumerated object list or coordinated verb clauses
-      if (R.hasObjHead && (L.hasObjHead || L.hasPred)) {
+      if (isCommaInsideFrontedPp) {
+        // Keep the fronted PP ("right on the dock,") attached to its following object ("two medium grey nets")!
+        smtLines.push(`(assert-soft (not cut_${i}) :weight 30)`);
+      } else if ((R.hasObjHead || isFrontedPpBeforeObj) && (L.hasObjHead || L.hasPred || Boolean(LPrev?.hasObjHead))) {
         smtLines.push(`(assert-soft cut_${i} :weight 28)`);
       } else if (R.hasPred && L.hasPred && !R.startsWithPrep) {
         smtLines.push(`(assert-soft cut_${i} :weight 22)`);

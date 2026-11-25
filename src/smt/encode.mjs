@@ -28,7 +28,7 @@ const TOKEN_RE = /[A-Za-z0-9]+(?:['\u2019][A-Za-z]+)?/g;
 const PLACE_SHORT_KEYS = new Set([
   'relation', 'anchor', 'position', 'order', 'order_anchor', 'relation_anchor',
   'direction', 'at', 'x', 'y', 'place', 'edge', 'side', 'distance', 'distanceGrade', 'offset',
-  'from', 'to', 'fromX', 'fromY', 'toX', 'toY', 'shift',
+  'from', 'to', 'fromX', 'fromY', 'toX', 'toY', 'shift', 'layout', 'arrangement', 'axis', 'sort',
 ]);
 
 const smtOr = (xs) => (xs.length === 0 ? 'false' : xs.length === 1 ? xs[0] : `(or ${xs.join(' ')})`);
@@ -270,8 +270,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         (isWordStrongSep && hasPredBefore && hasPredAfter) ||
         (isPunctStrongSep && afterNonFillerContent >= 1 && !afterIsOnlyFillerPhrase);
       if (shouldSplit) {
+        const sepPenalty = isPunctStrongSep ? Math.max(95, W.strongSepNoStraddle) : W.strongSepNoStraddle;
         for (let r = 1; r <= R; r++) {
-          emit(`(assert-soft (not (and active_${r} (< rstart_${r} ${sp.startTok}) (> rend_${r} ${sp.endTok}))) :weight ${W.strongSepNoStraddle})`);
+          emit(`(assert-soft (not (and active_${r} (< rstart_${r} ${sp.startTok}) (> rend_${r} ${sp.endTok}))) :weight ${sepPenalty})`);
         }
       }
     }
@@ -332,7 +333,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   for (const c of constraints) {
     const shortKey = c.attribute && c.attribute.includes('.') ? c.attribute.split('.').slice(1).join('.') : '';
-    const isSelectorOnly = ['id', 'ids', 'anchor', 'relation_anchor', 'order_anchor', 'behind', 'seat'].includes(shortKey) && c.attribute !== 'part.ids';
+    const isSelectorOnly = ['ids', 'anchor', 'relation_anchor', 'order_anchor', 'behind', 'seat'].includes(shortKey) && c.attribute !== 'part.ids';
     const allowedPh = c.allowedPhases?.length
       ? c.allowedPhases
       : isSelectorOnly
@@ -600,7 +601,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       posSetters.push(`(and sel_${s.id} (= own_${s.id} ${r}))`);
       if (s.det && s.det !== 'none') {
         emit(`(assert-soft (=> (and sel_${s.id} (= own_${s.id} ${r})) (= tdet_${r} ${detToSmt(s.det)})) :weight 20)`);
-        if (s.det === 'indefinite') {
+        if (s.isPostNumId) {
+          emit(`(assert-soft (=> (and sel_${s.id} (= own_${s.id} ${r})) (not (= tmode_${r} TM_NEW))) :weight 24)`);
+        } else if (s.det === 'indefinite') {
           emit(`(assert-soft (=> (and sel_${s.id} (= own_${s.id} ${r})) (= tmode_${r} TM_NEW)) :weight 18)`);
         } else if (s.det === 'definite' || s.det === 'demonstrative' || s.det === 'possessive') {
           emit(`(assert-soft (=> (and sel_${s.id} (= own_${s.id} ${r})) (not (= tmode_${r} TM_NEW))) :weight 18)`);
@@ -715,8 +718,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (phase-new-law tmode_${r} ${c.isAnchor ? 'true' : 'false'} ${phExpr})))`);
 
       if (phExpr === `ph_${c.id}`) {
-        emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r}) (not (= tmode_${r} TM_NEW)) (>= tpos_${r} 0) (< ${c.endTok} tpos_${r})) (= ${phExpr} PH_SELECTOR)) :weight 10)`);
-        emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r}) (not (= tmode_${r} TM_NEW)) (or (< tpos_${r} 0) (> ${c.startTok} tpos_${r}))) (= ${phExpr} PH_RESULT)) :weight 14)`);
+        if (shortKey === 'id') {
+          emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r}) (not (= tmode_${r} TM_NEW))) (= ${phExpr} PH_SELECTOR)) :weight 22)`);
+        } else {
+          emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r}) (not (= tmode_${r} TM_NEW)) (>= tpos_${r} 0) (< ${c.endTok} tpos_${r})) (= ${phExpr} PH_SELECTOR)) :weight 10)`);
+          emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r}) (not (= tmode_${r} TM_NEW)) (or (< tpos_${r} 0) (> ${c.startTok} tpos_${r}))) (= ${phExpr} PH_RESULT)) :weight 14)`);
+        }
       }
     }
 
@@ -794,7 +801,18 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     );
     emit(`(assert (=> (and active_${r} (< ppos_${r} 0) (not ${layoutConsInR})) (= amode_${r} MODE_NONE)))`);
     // - Verbless layout ("a radial for me, Roadmap") -> ACT_PLACE + MODE_ARRANGE!
-    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${layoutConsInR}) (and (= act_${r} ACT_PLACE) (= amode_${r} MODE_ARRANGE))) :weight 22)`);
+    emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${layoutConsInR}) (and (= act_${r} ACT_PLACE) (= amode_${r} MODE_ARRANGE))) :weight 38)`);
+    // - Non-empty change/place requests should carry at least one PH_RESULT constraint when constraints are selected!
+    const anyNonAnchorConsInR = smtOr(constraints.filter((c) => !c.isAnchor && !['id', 'ids'].includes(c.attribute?.split('.')[1] ?? '')).map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
+    const anyResultConsInR = smtOr(constraints.filter((c) => !c.isAnchor).map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`));
+    if (constraints.length > 0) {
+      emit(`(assert-soft (=> (and active_${r} (or (= act_${r} ACT_CHANGE) (= act_${r} ACT_PLACE)) ${anyNonAnchorConsInR}) ${anyResultConsInR}) :weight 22)`);
+    }
+    // - Suggestion lead ("how about ...", "what about ...") strongly prefers MOOD_DO even when ending with '?'!
+    const startsWithSuggestionAbout = tokens.slice(0, 4).some((t, idx) => ['how', 'what'].includes(t.lower) && tokens[idx + 1]?.lower === 'about');
+    if (startsWithSuggestionAbout) {
+      emit(`(assert-soft (=> active_${r} (= mood_${r} MOOD_DO)) :weight 38)`);
+    }
     // - Verbless noun/chart/diagram phrase ("stove, please", "room for 6 called Birch", "bar graph, orange...") -> ACT_MAKE (unless delta comparative!)
     // - Verbless property/delta without creation head ("bigger!", "blue") -> ACT_CHANGE; verbless place/direction -> ACT_PLACE!
     emit(`(assert-soft (=> (and active_${r} (< ppos_${r} 0) ${hasCreationHeadInR} (not ${hasDeltaInR})) (= act_${r} ACT_MAKE)) :weight ${W.verblessCreationMake})`);
@@ -929,6 +947,28 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     if (anchors.length > 0) {
       emit(`(assert-soft (=> sel_${rel.id} ${smtOr(anchors.map((a) => `(and sel_${a.id} (= own_${a.id} own_${rel.id}))`))}) :weight 16)`);
     }
+  }
+
+  // Semantically substantive spatial/temporal relation phrases ("below", "above", "under", "behind", "beside", "next to",
+  // "in front of", "on top of", "left of", "right of", "inside", "outside", "between", "before", "after", or "on it/them"):
+  // Because prepositions & pronouns are `isGrammar=true` in w.lang.en, reward Z3 for covering them rather than silently dropping "below X" or "on it"!
+  const STRONG_SPATIAL_PREP_RE = /^(below|above|under|underneath|beneath|behind|beside|near|close to|next to|in front of|on top of|to the left of|left of|on the left side of|to the right of|right of|on the right side of|inside|outside|between|before|after)$/i;
+  const relSpanBuckets = new Map();
+  for (const rel of constraints.filter((c) => c.needsAnchor)) {
+    const followedByPronoun = rel.text.toLowerCase() === 'on' && ['it', 'them'].includes(tokens[rel.endTok + 1]?.lower ?? '');
+    if (!STRONG_SPATIAL_PREP_RE.test(rel.text) && !followedByPronoun) continue;
+    const spKey = `${rel.startTok}:${rel.endTok}`;
+    if (!relSpanBuckets.has(spKey)) relSpanBuckets.set(spKey, []);
+    relSpanBuckets.get(spKey).push(rel);
+  }
+  for (const [spKey, relGroup] of relSpanBuckets) {
+    const [sTokStr, eTokStr] = spKey.split(':');
+    const sTok = Number(sTokStr), eTok = Number(eTokStr);
+    const allCovVars = new Set(relGroup.map((r) => `sel_${r.id}`));
+    for (let t = sTok; t <= eTok; t++) {
+      for (const c of tokCover[t] ?? []) allCovVars.add(`sel_${c.id}`);
+    }
+    emit(`(assert-soft ${smtOr([...allCovVars])} :weight 18)`);
   }
 
   return {

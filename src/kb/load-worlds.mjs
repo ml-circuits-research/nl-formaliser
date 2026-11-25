@@ -74,7 +74,7 @@ const EXTRA_FAMILY_SYNONYMS = {
 const HARD_FILLER_PHRASES = [
   'thank you', 'thanks', 'can you', 'could you', 'would you', 'will you',
   'could you please', 'can you please', 'would you please', 'will you please',
-  'i want', "i'd like", 'i would like', 'i need', "let's", 'let us',
+  'i want', "i'd like", 'i would like', 'i need', "let's", "let's have", 'lets have', 'let us',
   'please could you', 'please can you', 'do you think you could',
   'if you can', 'if possible', 'by the way', 'for me', 'just',
 ];
@@ -293,8 +293,44 @@ function buildTabs(parse, worldsDir, grammar) {
       if (shortName === 'barHeight' || shortName === 'barWidth') {
         keyWords.add('bars');
       }
+      if (shortName === 'barEdgeColour' || shortName === 'barEdgeWidth') {
+        for (const kw of ['bar edge', 'bar edges', 'edges', 'edge', 'outline']) keyWords.add(kw);
+      }
+      if (shortName === 'palette') {
+        for (const kw of ['palette', 'colours', 'colors', 'colour scheme', 'color scheme']) keyWords.add(kw);
+      }
       if (shortName === 'errorCap') {
-        for (const kw of ['cap', 'caps', 'error cap', 'error caps']) keyWords.add(kw);
+        for (const kw of ['cap', 'caps', 'error cap', 'error caps', 'error bar', 'error bars', 'caps on the error bars']) keyWords.add(kw);
+      }
+      if (shortName === 'lineWidth') {
+        for (const kw of ['line', 'lines', 'line width']) keyWords.add(kw);
+      }
+      if (shortName === 'axisSide') {
+        for (const kw of ['axis', 'x axis', 'y axis']) keyWords.add(kw);
+      }
+      if (shortName === 'xAxis') {
+        for (const kw of ['x axis']) keyWords.add(kw);
+      }
+      if (shortName === 'tickFormat') {
+        for (const kw of ['tick format', 'tick numbers', 'axis numbers', 'x axis numbers', 'y axis numbers', 'numbers']) keyWords.add(kw);
+      }
+      if (shortName === 'stacked' || shortName === 'stacking') {
+        for (const kw of ['bars', 'the bars']) keyWords.add(kw);
+      }
+      if (shortName === 'barGap') {
+        for (const kw of ['gap', 'gaps', 'bar gap', 'gaps between the bars', 'space between bars']) keyWords.add(kw);
+      }
+      if (shortName === 'markerFill' || shortName === 'markerSize' || shortName === 'markerType' || shortName === 'markerEdge') {
+        for (const kw of ['marker', 'markers', 'point', 'points', 'dot', 'dots']) keyWords.add(kw);
+      }
+      if (shortName === 'facing') {
+        for (const kw of ['face', 'faces', 'facing', 'looking']) keyWords.add(kw);
+      }
+      if (shortName === 'expression') {
+        for (const kw of ['face', 'expression', 'look']) keyWords.add(kw);
+      }
+      if (shortName === 'grid') {
+        for (const kw of ['grid', 'gridlines', 'grid lines']) keyWords.add(kw);
       }
 
       const spec = {
@@ -344,6 +380,49 @@ function buildTabs(parse, worldsDir, grammar) {
         if (spacedVal !== valLower) addSpellingVariants(variants, spacedVal);
         for (const v of variants) {
           if (v !== valLower && v !== spacedVal) pushClosed(v, false);
+        }
+        // Compositional closed-value surface forms aligned with w.lang.en cues & keys.sop
+        if (name === 'chart.type' && rawVal === 'polarArea') {
+          pushClosed('polar', false);
+          pushClosed('polar area', false);
+        }
+        if (name === 'chart.markerFill' && rawVal === 'hollow') {
+          for (const syn of ['see-through', 'see through', 'transparent', 'unfilled', 'empty']) pushClosed(syn, false);
+        }
+        if ((shortName === 'at' || name === 'chart.legend' || name === 'chart.axisSide') && ['left', 'right', 'top', 'bottom'].includes(valLower)) {
+          pushClosed(`${valLower} side`, false);
+          pushClosed(`the ${valLower} side`, false);
+          pushClosed(`${valLower} edge`, false);
+          pushClosed(`the ${valLower} edge`, false);
+          if (valLower === 'left' || valLower === 'right') {
+            pushClosed(`${valLower}-hand side`, false);
+            pushClosed(`${valLower} hand side`, false);
+            pushClosed(`the ${valLower}-hand side`, false);
+          }
+        }
+        if (name === 'node.axis') {
+          if (valLower === 'vertical') {
+            for (const syn of ['up and down', 'top to bottom', 'vertically']) pushClosed(syn, false);
+          } else if (valLower === 'horizontal') {
+            for (const syn of ['left and right', 'side to side', 'left to right', 'horizontally', 'across']) pushClosed(syn, false);
+          }
+        }
+        if (name === 'composition.source' && valLower === 'random') {
+          pushClosed('surprise me', false);
+          pushClosed('surprise', false);
+        }
+        if (name === 'page.weather') {
+          const weatherAdjs = {
+            sun: ['sunny', 'bright sunny', 'bright sunny afternoon', 'sunny afternoon', 'sunny day'],
+            rain: ['rainy', 'raining', 'rainy day'],
+            snow: ['snowy', 'snowing', 'snowy day'],
+            clouds: ['cloudy', 'overcast', 'cloudy sky'],
+            cloud: ['cloudy', 'overcast'],
+            storm: ['stormy', 'thunderstorm'],
+            fog: ['foggy', 'misty', 'mist'],
+            wind: ['windy', 'breezy'],
+          };
+          for (const syn of weatherAdjs[valLower] ?? []) pushClosed(syn, false);
         }
       }
     }
@@ -611,7 +690,7 @@ function loadActions(parse, worldsDir, grammar) {
     ['cancel', 'remove'], ['bin', 'remove'], ['trash', 'remove'], ['scrap', 'remove'], ['discard', 'remove'],
     ['compose', 'make'], ['draft', 'make'], ['write', 'make'], ['author', 'make'],
     ['plot', 'make'], ['visualize', 'make'], ['visualise', 'make'], ['display', 'make'], ['show', 'make'], ['show', 'ask'],
-    ['try', 'make'], ['insert', 'make'], ['invite', 'change'],
+    ['try', 'make'], ['surprise', 'make'], ['insert', 'make'], ['invite', 'change'], ['stack', 'change'],
     ['rename', 'change'], ['retitle', 'change'], ['relabel', 'change'], ['recolour', 'change'], ['recolor', 'change'],
     ['resize', 'change'], ['enlarge', 'change'], ['shrink', 'change'], ['widen', 'change'], ['narrow', 'change'],
     ['thicken', 'change'], ['shorten', 'change'], ['lengthen', 'change'],
@@ -697,6 +776,8 @@ function loadGrammar(parse, worldsDir) {
   const alternations = [];
   const questionAlternations = new Map(); // prefix -> { mood, question }
   const benefactiveVerbs = new Set();
+  const frameLeads = new Set();
+  const corrections = new Set();
 
   for (const fp of enShardPaths) {
     const fileName = fp.split('/').pop();
@@ -769,6 +850,8 @@ function loadGrammar(parse, worldsDir) {
         const role = one(w, 'order') ?? one(w, 'role');
         const isTime = w.type === 'w.lang.en.prep.time' || many(w, 'in').includes('time');
         for (const t of texts) {
+          // Bare "next" is an ordinal/sequence marker ("next week", "next snap..."), never spatial `near` (only "next to" is spatial!)
+          if (t === 'next') continue;
           const prev = prepositions.get(t) ?? {};
           const info = { ...prev };
           // Prefer hand-joins explicit rel/layout/role over bare fallback
@@ -778,6 +861,18 @@ function loadGrammar(parse, worldsDir) {
           if (role) info.role = role;
           if (isTime) info.isTime = true;
           prepositions.set(t, info);
+        }
+      }
+
+      if (w.type === 'w.lang.en.frame_lead') {
+        for (const t of texts) {
+          if (t === 'for now') fillerPhrases.add(t);
+          else frameLeads.add(t);
+        }
+      }
+      if (w.type === 'w.lang.en.correction') {
+        for (const t of texts) {
+          if (t.includes(' ')) corrections.add(t);
         }
       }
 
@@ -1072,6 +1167,8 @@ function loadGrammar(parse, worldsDir) {
     alternations: alternations.sort((a, b) => a.n - b.n),
     questionAlternations,
     benefactiveVerbs,
+    frameLeads,
+    corrections,
     enShardsLoaded: enShardPaths.length,
   };
 }
@@ -1118,11 +1215,17 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   const units = new Map();
   const givenNames = new Set();
   const fills = new Map();
+  const poses = new Map();
+  const traits = new Map();
+  const expressions = new Map();
   const standIns = new Map(); // standInNoun -> canonicalDrawingNoun
   const valueEquivGroups = []; // Array<string[]> from k.values core.word wires
 
   // Dynamic directory-based loading for all lightweight `k.*` worlds
   loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.colours', 'shards')), 'k.colours.colour', colours);
+  // Also load face/hair/eye/skin colours from `k.faces/shards/colours.sop` (hazel, amber, auburn, blond, pale, tan, olive, etc.)!
+  loadSimpleNameMap(parse, [join(worldsDir, 'k.faces', 'shards', 'colours.sop')], 'k.faces.colour', colours);
+  if (colours.has('blond') && !colours.has('blonde')) colours.set('blonde', colours.get('blond'));
   for (const [k, v] of [...colours.entries()]) {
     if (k.includes('grey')) colours.set(k.replace(/grey/g, 'gray'), v);
     if (k.includes('gray')) colours.set(k.replace(/gray/g, 'grey'), v);
@@ -1213,8 +1316,55 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
       bodyParts.set(n.toLowerCase().replace(/_/g, ' '), n);
     }
   }
+  for (const w of parseShard(parse, join(worldsDir, 'k.faces', 'shards', 'words.sop'))) {
+    if (w.type === 'core.word' && one(w, 'of') === 'k.faces.slot.name' && w.attrs.means?.[0]) {
+      const mean = one(w, 'means');
+      for (const t of many(w, 'text')) {
+        if (!bodyParts.has(t.toLowerCase())) bodyParts.set(t.toLowerCase(), mean);
+      }
+    }
+  }
+  // Dynamically load figure poses (`k.faces/shards/figure-poses.sop`) and traits/expressions (`k.faces/shards/traits.sop`)!
+  for (const w of parseShard(parse, join(worldsDir, 'k.faces', 'shards', 'figure-poses.sop'))) {
+    if (w.type === 'k.faces.pose' && w.attrs.name?.[0]) {
+      const p = one(w, 'name');
+      poses.set(p.toLowerCase(), p);
+    } else if (w.type === 'core.word' && one(w, 'of') === 'k.faces.pose.name' && w.attrs.means?.[0]) {
+      const p = one(w, 'means');
+      for (const t of many(w, 'text')) {
+        const tl = t.toLowerCase();
+        // Avoid bare noun "seat"/"point"/"hold" colliding with poses unless participial or multi-word!
+        if (!['seat', 'point', 'points', 'hold', 'holds', 'stand', 'stands'].includes(tl)) {
+          poses.set(tl, p);
+        }
+      }
+    }
+  }
+  poses.set('lying down', 'lying down');
+  poses.set('lying', 'lying down');
+  for (const w of parseShard(parse, join(worldsDir, 'k.faces', 'shards', 'traits.sop'))) {
+    if (w.type === 'k.faces.trait' && w.attrs.name?.[0]) {
+      const tr = one(w, 'name');
+      traits.set(tr.toLowerCase(), tr);
+    } else if (w.type === 'core.word' && one(w, 'of') === 'k.faces.trait.name' && w.attrs.means?.[0]) {
+      const tr = one(w, 'means');
+      for (const t of many(w, 'text')) {
+        const tl = t.toLowerCase();
+        if (!['glasses', 'beard', 'moustache', 'mustache', 'pale', 'tan', 'blond', 'blonde', 'ginger'].includes(tl)) {
+          traits.set(tl, tr);
+        }
+      }
+    } else if (w.type === 'core.word' && one(w, 'of') === 'k.faces.expression.name' && w.attrs.means?.[0]) {
+      const ex = one(w, 'means');
+      for (const t of many(w, 'text')) {
+        expressions.set(t.toLowerCase(), ex);
+      }
+    }
+  }
   loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.wearables', 'shards')), 'k.wearables.wearable', wearables);
   loadSimpleNameMap(parse, listSopShards(join(worldsDir, 'k.feelings', 'shards')), 'k.feelings.feeling', feelings);
+  // Spatial/directional particle "down" ("lying down", "move down", "up and down") is never a standalone face expression!
+  feelings.delete('down');
   loadSimpleNameMap(
     parse,
     listSopShards(join(worldsDir, 'k.layouts', 'shards')).filter((p) => !p.includes('outlines-') && !p.includes('anchors-')),
@@ -1441,6 +1591,9 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     directions,
     positions,
     fills,
+    poses,
+    traits,
+    expressions,
     standIns,
     valueEquivGroups,
     objects,
