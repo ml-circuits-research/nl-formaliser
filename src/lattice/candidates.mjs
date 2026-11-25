@@ -3591,6 +3591,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     candidates: rawCandidates,
     emit,
     emitConstraint,
+    parseNumeric,
   });
 
   // -------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 
 import { HYP_KINDS, ACTS, ACT_MODES } from '../contracts.mjs';
 import { lemmatiseVerb, singularisePhrase } from './morph.mjs';
+import { tokenize } from './tokenize.mjs';
 
 const VALID_ACT_SET = new Set(ACTS);
 const VALID_MODE_SET = new Set(ACT_MODES);
@@ -420,7 +421,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
  * Enrich lattice candidates with grounded argument-structure hypotheses from matched `w.lang.en.frame` instances
  * and attach explicit candidate-ID bindings so `src/smt/encode.mjs` can encode Z3 frame-attachment laws!
  */
-export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb, tabSpec, candidates, emit, emitConstraint }) {
+export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb, tabSpec, candidates, emit, emitConstraint, parseNumeric }) {
   if (!frameMatches?.length) return [];
 
   const tabKeys = tabSpec?.keys ?? new Map();
@@ -431,6 +432,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const blockedSpatialToks = new Set();
     const blockedEndpointToks = new Set();
     const expectedAttrs = new Set();
+    const numericPropertyFamilies = new Set();
     const requiredCandGroups = []; // each group is an array of candidate IDs (at least one must be selected if frame active)
     const forceResultCandIds = new Set();
     const forceSelectorCandIds = new Set();
@@ -470,9 +472,22 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
         }
       }
       if (valSpan && matchedAttrs.size > 0) {
+        const surface = attrSpan.text.toLowerCase();
+        for (const attr of matchedAttrs) {
+          const key = tabKeys.get(attr);
+          if (key.head === 'number' && key.literalKeyWords?.has(surface)) numericPropertyFamilies.add(key.family);
+        }
+        // Ordinary numbers and measures already have structured lattice candidates.
+        // A quoted scalar is numeric here only when the complete inner text is one number.
+        const quoted = valSpan.startTok === valSpan.endTok ? tokens[valSpan.startTok] : null;
+        const inner = quoted?.kind === 'quote' ? tokenize(quoted.inner, kb) : [];
+        const quotedNumber = inner.length === 1 && inner[0].kind === 'number' ? parseNumeric?.(inner[0]) : null;
         for (const attr of matchedAttrs) {
           expectedAttrs.add(attr);
-          emitConstraint(attr, valSpan.text, valSpan.startTok, valSpan.endTok, {
+          const key = tabKeys.get(attr);
+          const numeric = key.head === 'number' || numericPropertyFamilies.has(key.family);
+          if (numeric && quotedNumber == null) continue;
+          emitConstraint(attr, numeric ? String(quotedNumber) : valSpan.text, valSpan.startTok, valSpan.endTok, {
             phase: 'result',
             requiresKeyWord: true,
             allowOpen: true,
@@ -625,6 +640,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       thingSpan: thingSpan ? { startTok: thingSpan.startTok, endTok: thingSpan.endTok } : null,
       endsSpan: endsSpan ? { startTok: endsSpan.startTok, endTok: endsSpan.endTok } : null,
       expectedAttrs: [...expectedAttrs],
+      numericPropertyFamilies: [...numericPropertyFamilies],
       requiredCandGroups,
       forceResultCandIds: [...forceResultCandIds],
       forceSelectorCandIds: [...forceSelectorCandIds],

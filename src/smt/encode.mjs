@@ -1124,7 +1124,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       : [];
 
     const propertyResults = ownerMarker
-      ? valCands.flatMap((value) => (compatKwsOfConstraint.get(value.id) ?? [])
+      ? valCands.filter((value) => {
+          const numeric = tabSpec.keys.get(value.attribute)?.head === 'number' ||
+            fm.numericPropertyFamilies?.includes(value.family);
+          return !numeric || (!value.pairedConstraints?.length && (value.operator !== 'eq' ||
+            (String(value.value ?? '').trim() !== '' && Number.isFinite(Number(value.value)))));
+        }).flatMap((value) => (compatKwsOfConstraint.get(value.id) ?? [])
           .filter((keyword) => sameSpan(keyword, fm.attrSpan) && sameSpan(value, fm.valSpan))
           .map((keyword) => ({ value, keyword })))
       : [];
