@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createReader } from '../src/reader.mjs';
+import { loadKnowledge } from '../src/kb/load-worlds.mjs';
 
 const cli = fileURLToPath(new URL('../bin/formalise.mjs', import.meta.url));
 const cwd = fileURLToPath(new URL('../../', import.meta.url));
@@ -678,6 +679,49 @@ test('chart display edits bind label and grid visibility separately from grid st
       assert.ok(result.candidates.length);
       assert.doesNotMatch(result.candidates[0].sop, /attribute=chart\.(?:show_values|grid|gridStyle)\b/);
     }
+  } finally {
+    await reader.close();
+  }
+});
+
+test('chart stroke edits preserve slot-owned open literals and keep dependent wording separate', async () => {
+  const kb = await loadKnowledge({ includeLegacy: false });
+  const closedGridStroke = kb.catalog.keys.get('chart.gridStyle').values.has('dash_dot');
+  const reader = await createReader({ topK: 1 });
+  try {
+    const cases = [
+      ['Can we have dash-dot gridlines on the sales chart, so the reviewer can see the pattern without the table',
+        /description="the sales chart"/, /text="so the reviewer can see the pattern without the table"/],
+      ['Try the grid line style dash-dot', /predicate=Try/, null],
+      ['Dash-dot gridlines', /key=thing from=any/, null],
+    ];
+    for (const [text, owner, qualifier] of cases) {
+      const result = await reader.propose(text);
+      const { sop, check } = result.candidates[0];
+      assert.ok(check.ok, sop);
+      assert.match(sop, owner);
+      if (qualifier) assert.match(sop, qualifier);
+      assert.equal(result.status, qualifier ? 'partial' : 'sat');
+      if (closedGridStroke) {
+        assert.match(sop, /attribute=chart\.gridStyle value=dash_dot .*phase=result/);
+        assert.doesNotMatch(sop, /open_value=true/);
+      } else {
+        assert.match(sop, /attribute=chart\.gridStyle value=[Dd]ash-dot .*phase=result open_value=true/);
+      }
+      assert.doesNotMatch(sop, /attribute=(?:chart\.(?:grid|gridlines|lineStyle)|diagram\.kind)\b/);
+    }
+
+    const line = (await reader.propose('Set the line style on Monthly sales to dash dot')).candidates[0];
+    assert.ok(line.check.ok, line.sop);
+    assert.match(line.sop, /name="Monthly sales"/);
+    assert.match(line.sop, /attribute=chart\.lineStyle value=dash_dot words="dash dot" .*phase=result/);
+    assert.doesNotMatch(line.sop, /open_value|attribute=chart\.grid/);
+
+    const compound = (await reader.propose('Can we have dashed grid lines on sales chart, so the reviewer can see it, then draw a cat.')).candidates[0];
+    assert.ok(compound.check.ok, compound.sop);
+    assert.match(compound.sop, /@r1\.c\d+ .*chart\.gridStyle value=dashed/);
+    assert.match(compound.sop, /@r1\.u\d+ .*text="so the reviewer can see it"/);
+    assert.match(compound.sop, /@r2\.t .*sort=cat/);
   } finally {
     await reader.close();
   }

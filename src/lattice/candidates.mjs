@@ -3668,12 +3668,16 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     ...matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb),
     ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb),
   ] : [];
-  for (const { startTok, endTok, fields, owner, limit, fragment } of chartAssignments) {
+  for (const { startTok, endTok, fields, owner, limit, fragment, qualifier } of chartAssignments) {
+    const scopeEnd = qualifier?.endTok ?? limit - 1;
     if (!fragment) {
       emit({
-        kind: HYP_KINDS.PREDICATE, startTok, endTok, chartEditEnd: limit - 1,
+        kind: HYP_KINDS.PREDICATE, startTok, endTok, chartEditEnd: scopeEnd,
         licensed: [{ act: 'change', mode: 'none', mood: 'do' }], cost: 0,
       });
+    }
+    if (qualifier) {
+      emit({ kind: HYP_KINDS.UNREAD, ...qualifier, chartEditPredicate: startTok, cost: 0 });
     }
     for (const field of fields) {
       const hasCue = field.cueStart !== undefined;
@@ -3681,16 +3685,17 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         emit({
           kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd,
           attrs: [field.attribute], families: ['chart'], cost: 0,
-          ...(fragment ? { chartEditEnd: limit - 1, chartEditStart: startTok } : {}),
+          ...(fragment ? { chartEditEnd: scopeEnd, chartEditStart: startTok } : {}),
         });
       }
-      const valueToken = tokens[field.startTok];
+      const valueToken = tokens[field.literalStart ?? field.startTok];
       const end = tokens[field.endTok].end;
       const value = field.value ?? (valueToken.kind === 'quote' && field.startTok === field.endTok
         ? valueToken.inner : src.slice(valueToken.start, end));
       const words = field.wordsStart === undefined ? null : src.slice(tokens[field.wordsStart].start, end);
       emitConstraint(field.attribute, value, field.startTok, field.endTok, {
         phase: 'result', words, requiresKeyWord: hasCue, chartEditPredicate: startTok, cost: 1,
+        allowOpen: field.allowOpen,
       });
     }
     if (owner) {

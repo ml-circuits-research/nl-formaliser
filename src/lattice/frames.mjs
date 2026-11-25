@@ -257,16 +257,31 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
   const { catalog } = kb;
   const grid = catalog.keys.get('chart.grid');
   const gridStyle = catalog.keys.get('chart.gridStyle');
+  const lineStyle = catalog.keys.get('chart.lineStyle');
   const labels = catalog.keys.get('chart.show_values');
-  if (!grid || !gridStyle || !labels) return [];
+  if (!grid || !gridStyle || !lineStyle || !labels) return [];
 
-  const cues = [grid, gridStyle, labels].flatMap((key) => [...key.keyWords].map((phrase) =>
-    ({ attribute: key.name, phrase, words: phrase.split(' ') })))
-    .sort((a, b) => b.words.length - a.words.length);
-  if (!cues.some(({ words }) => tokens.some(({ lower }) => lower === words[0]))) return [];
+  const compactCue = (phrase) => phrase.replace(/[ _-]/g, '');
+  const cues = [grid, gridStyle, lineStyle, labels].flatMap((key) => [...key.keyWords].map((phrase) =>
+    ({ attribute: key.name, phrase, compact: compactCue(phrase) })))
+    .sort((a, b) => b.compact.length - a.compact.length);
+  if (!tokens.some(({ kind, lower }) => kind === 'word' && cues.some(({ compact }) =>
+    compact.startsWith(compactCue(lower))))) return [];
+  const styleValues = new Set([...gridStyle.values, ...lineStyle.values]);
+  const maxStyleWords = Math.max(...[...styleValues].map((value) => value.split('_').length));
+  const matchStyleAt = (startTok, limit) => {
+    for (let endTok = Math.min(startTok + maxStyleWords, limit) - 1; endTok >= startTok; endTok--) {
+      const span = tokens.slice(startTok, endTok + 1);
+      if (span.some(({ kind }) => kind !== 'word')) continue;
+      const value = span.map(({ lower }) => lower).join('_').replace(/-/g, '_');
+      if (styleValues.has(value)) return { startTok, endTok, value };
+    }
+    return null;
+  };
   const leads = modalHaveLeads(kb.grammar);
   const wish = kb.grammar.frames?.get('acts.more.change.would');
   const wishLeads = wish?.parts.find((part) => part.is === 'word')?.words.map((phrase) => phrase.split(' ')) ?? [];
+  if (kb.grammar.phraseItems?.get('shape.want')?.has('try')) wishLeads.push(['try']);
   const isChartNoun = ({ kind, lower }) => {
     const families = catalog.familyWords.get(lower);
     return kind === 'word' && families?.size === 1 && families.has('chart');
@@ -288,39 +303,57 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const visibility = labels.values.has(verb);
       let limit = end + 1;
       while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      let qualifier;
+      const tail = tokens.slice(limit + 1, window.endTok + 1);
+      if (tail.some(({ isContent }) => isContent)) {
+        const [joiner, subject] = tail;
+        const modal = kb.grammar.phraseItems?.get('shape.can');
+        const subjectIsWritten = DET_WORDS.has(subject?.lower) || kb.grammar.pronouns?.get(subject?.lower)?.cases.includes('subject');
+        const finiteContinuation = subjectIsWritten && tail.slice(2).some(({ lower }) => modal?.has(lower));
+        if (tokens[limit]?.text !== ',' || joiner?.lower !== 'so' || !kb.grammar.phraseItems?.get('connective')?.has('so') ||
+            !(subject?.lower === 'that' || finiteContinuation)) continue;
+        let endTok = window.endTok;
+        while (endTok > limit + 1 && tokens[endTok].isPunct) endTok--;
+        qualifier = { startTok: limit + 1, endTok };
+      }
       while (limit > end + 1 && tokens[limit - 1].isFiller) limit--;
 
       let cueStart = end + 1;
       if (DET_WORDS.has(tokens[cueStart]?.lower)) cueStart++;
-      let styleAt;
-      if (!visibility && verb !== 'set' && gridStyle.values.has(tokens[cueStart]?.lower)) styleAt = cueStart++;
-      const cue = cues.find(({ attribute, words }) => {
-        if (attribute === (visibility ? gridStyle.name : labels.name)) return false;
-        const next = matchWordSeqAt(tokens, cueStart, words);
-        return next > cueStart && next <= limit;
-      });
+      let style = !visibility && verb !== 'set' ? matchStyleAt(cueStart, limit) : null;
+      if (style) cueStart = style.endTok + 1;
+      const spellings = [];
+      for (let i = cueStart; i < Math.min(limit, cueStart + 3) && tokens[i].kind === 'word'; i++) {
+        spellings.push((spellings.at(-1) ?? '') + compactCue(tokens[i].lower));
+      }
+      const cue = cues.find(({ attribute, compact }) => spellings.includes(compact) &&
+        (visibility ? catalog.keys.get(attribute).values.has(verb) : attribute !== labels.name));
       if (!cue) continue;
 
-      const cueEnd = cueStart + cue.words.length - 1;
+      const cueEnd = cueStart + spellings.indexOf(cue.compact);
       let cursor = cueEnd + 1;
-      if (!visibility && styleAt === undefined && gridStyle.values.has(tokens[cursor]?.lower)) styleAt = cursor++;
+      if (!visibility && !style) {
+        style = matchStyleAt(cursor, limit);
+        if (style) cursor = style.endTok + 1;
+      }
       let owner;
       if (['on', 'of'].includes(tokens[cursor]?.lower)) {
         const first = ++cursor;
-        while (cursor < limit && (visibility || styleAt !== undefined ||
-          (!['to', 'should'].includes(tokens[cursor].lower) && !gridStyle.values.has(tokens[cursor].lower)))) cursor++;
+        while (cursor < limit && (visibility || style ||
+          (!['to', 'should'].includes(tokens[cursor].lower) && !matchStyleAt(cursor, limit)))) cursor++;
         if (cursor <= first) continue;
         owner = { startTok: first, endTok: cursor - 1 };
       }
       let styleStart;
-      if (!visibility && styleAt === undefined) {
+      if (!visibility && !style) {
         if (tokens[cursor]?.lower === 'to') cursor++;
         if (fragment && tokens[cursor]?.lower === 'should' && tokens[cursor + 1]?.lower === 'be') {
           styleStart = cursor;
           cursor += 2;
         }
-        if (!gridStyle.values.has(tokens[cursor]?.lower)) continue;
-        styleAt = cursor++;
+        style = matchStyleAt(cursor, limit);
+        if (!style) continue;
+        cursor = style.endTok + 1;
       }
       if (cursor !== limit) continue;
 
@@ -335,16 +368,22 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const nearbyChart = (!owner || ownerIsPronoun) && tokens.slice(0, start).some(isChartNoun);
       if (weakCue && !chartOwner && !nearbyChart) continue;
 
+      const styleKey = cue.attribute === lineStyle.name ? lineStyle : gridStyle;
       const field = visibility
         ? { attribute: cue.attribute, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
-        : { attribute: gridStyle.name, value: tokens[styleAt].lower, startTok: styleStart ?? styleAt,
-          endTok: styleAt, wordsStart: styleStart, cueStart, cueEnd };
-      if (!byStart.has(start) || byStart.get(start).limit > limit) {
-        byStart.set(start, { startTok: start, endTok: end, owner, limit, fields: [field], fragment });
+        : { attribute: styleKey.name, startTok: styleStart ?? style.startTok, endTok: style.endTok,
+          literalStart: style.startTok, wordsStart: styleStart, cueStart, cueEnd,
+          ...(styleKey.values.has(style.value) ? { value: style.value } : { allowOpen: true }) };
+      const earlier = byStart.get(start);
+      if (!earlier || earlier.limit > limit ||
+          (earlier.limit === limit && (earlier.qualifier?.endTok ?? limit) > (qualifier?.endTok ?? limit))) {
+        byStart.set(start, { startTok: start, endTok: end, owner, limit, qualifier, fields: [field], fragment });
       }
     }
   }
-  return [...byStart.values()];
+  const edits = [...byStart.values()];
+  const explicitValues = new Set(edits.filter((edit) => !edit.fragment).map((edit) => edit.fields[0].endTok));
+  return edits.filter((edit) => !edit.fragment || !explicitValues.has(edit.fields[0].endTok));
 }
 
 export function matchModalWants(tokens, splitPoints, predicates, candidates, kb) {

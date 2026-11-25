@@ -73,7 +73,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const activeCandidates = rawCandidates.filter((c) => {
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
     if (c.kind !== HYP_KINDS.SEP && excluded(c)) return false;
-    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier && c.rolePredicate === undefined) return false;
+    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier &&
+        c.rolePredicate === undefined && c.chartEditPredicate === undefined) return false;
     return true;
   });
 
@@ -559,7 +560,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const anchor of chartEdits) {
     const start = anchor.chartEditStart ?? anchor.startTok;
     const operands = activeCandidates.filter((candidate) => candidate.chartEditPredicate === start);
-    if (!operands.some((candidate) => candidate.kind === HYP_KINDS.CONSTRAINT)) continue;
+    if (!operands.some(({ kind }) => kind === HYP_KINDS.CONSTRAINT)) continue;
     if (chartEdits.length + outputPredicates.length <= R) {
       emit(`(assert sel_${anchor.id})`);
     } else {

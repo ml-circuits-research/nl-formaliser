@@ -83,3 +83,5 @@
 - 2026-11-25 — Q-NL-047 binds chart value-label visibility, grid visibility and grid style to separate canonical result keys. Eleven of thirteen exact published probes bind the intended display operand. Focused 2/2, full serial 243/243. Open roles and the reusable dash-dot proposal are in `questions.md`.
 
 - 2026-11-25 — Q-NL-048 guards L3/L4 against wrong or missing request references, preserving default, reordered and renamed equivalents and later reference alternatives. Evaluator/verifier 14/14 and full serial 244/244. Reproduction and review request in `questions.md`.
+
+- 2026-11-25 — Q-NL-049 preserves exact open grid strokes, canonical series-line strokes and dependent wording. Seven of twelve published probes retain the intended grid result. Focused 3/3, full serial 245/245. The shared choice lead proposal and review are in `questions.md`.

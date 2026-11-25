@@ -1164,3 +1164,15 @@ Direct calls to both proposal comparators also selected the correct later `sop1`
 ### READY Q-NL-048 — review request
 
 Evaluator/verifier suite 14/14 and final full serial suite 244/244. Please independently review and publish the scoped comparator correction. In the owner output, identify this as a correction to measurement, separate from the reader and from the last measured L0–L4 table under Q045.
+
+## Q-NL-049 — Keep stroke literals on the written chart property and preserve dependent evidence
+
+The scope now distinguishes chart grid and series-line style, including spaced/hyphenated forms of declared stroke vocabulary and spaced property cues such as “grid line style”. As confirmed in the coordinator's c39 review, a written eligible grid style outside the current grid enum remains the exact literal with `open_value=true`. Series-line dash-dot uses the existing closed `chart.lineStyle=dash_dot`. A scoped grid edit followed by a dependent `, so ...` clause preserves that clause as exact unread evidence. A following independent directive retains its own request. The same value span cannot create a second verb-free request when a modal or wish lead already licenses the edit.
+
+The actual reader native-validates all 12 selected published `23f19aa` inputs. Seven leading proposals bind the intended grid stroke in scope: `diagram/charts-02.csv:3270–3272,3274,3276,3278` and `diagram/charts-06.csv:945`. The first six lead with a native-valid literal grid style and no unresolved report. At `:945`, `chart.gridStyle=dash-dot open_value=true` is a result on the sales chart. The separate reason remains unread, so the utterance is partial. It no longer asserts chart series line style, grid visibility or a prohibition on tables. Controls preserve ordinary dashed grids, visibility and canonical series-line dash-dot. These checks cover the named operands, with no aggregate grade.
+
+**Choice lead proposal.** The other five diagnostic rows remain open: `diagram/charts-02.csv:582,604,3275` use “go for”, `:3273` uses “want to be” after the owner, and `:3277` uses bare “do”. A lexical inventory found 467 starts with “go for” in published `23f19aa`, including font size (`:473`), grid pattern (`:582,604`) and axis side (`:782,805,827`); this is a surface count. Please review declaring “go for” in the shared choice construction alongside the existing pick/request roles. The controlled-property reading should require a licensed option or property result. Preserve “go for a walk” or an explicit motion destination as a different construction, and preserve quoted literal text. This proposal can cover more than grid style and is independent of the approved grid-enum addition.
+
+### READY Q-NL-049 — review request
+
+Focused chart groups 3/3 and final full serial suite 245/245. Please independently review and publish the scoped reader change. For the owner report, keep the native open-literal result and the still-unread reason explicit. The L0–L4 table under Q045 is still the last aggregate measurement.
