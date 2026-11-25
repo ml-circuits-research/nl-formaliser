@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ACTS,
+  CREATION_TYPE_KEYS,
   HYP_KINDS,
   DEFAULT_TAB_FAMILY,
   COMPAT_FAMILIES,
@@ -743,6 +744,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r})) (= fam_${r} ${cFamId})) :weight 12)`);
       }
       emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (phase-new-law tmode_${r} ${c.isAnchor ? 'true' : 'false'} ${phExpr})))`);
+      if (c.creationOnly) {
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= fam_${r} ${cFamId}) (<= 0 ppos_${r}) (< ppos_${r} ${c.startTok}))))`);
+      }
 
       if (phExpr === `ph_${c.id}`) {
         if (shortKey === 'id') {
@@ -772,9 +776,24 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
 
   // Act–Constraint Alignment in Z3 (resolves ambiguous verbs like "set"/"put" AND verbless fragments like "stove, please" / "room for 6 called Birch"!)
-  const creationHeadCons = constraints.filter((c) => c.attribute === 'chart.type' || c.attribute === 'diagram.kind');
+  const creationHeadCons = constraints.filter((c) => CREATION_TYPE_KEYS.has(c.attribute));
+  const modifiedTypeSpans = new Map();
+  for (const candidate of creationHeadCons.filter((c) => c.creationOnly)) {
+    const span = `${candidate.startTok}:${candidate.endTok}`;
+    if (!modifiedTypeSpans.has(span)) modifiedTypeSpans.set(span, []);
+    modifiedTypeSpans.get(span).push(candidate);
+  }
   const deltaConstraints = constraints.filter((c) => c.operator === 'delta');
   for (let r = 1; r <= R; r++) {
+    // Prefer retaining the catalog type over an equally grounded but untyped target description.
+    for (const candidates of modifiedTypeSpans.values()) {
+      const [{ startTok, endTok }] = candidates;
+      const followsMake = `(and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (<= 0 ppos_${r}) (< ppos_${r} ${startTok}) (span-in-req rstart_${r} rend_${r} ${startTok} ${endTok}))`;
+      const withFamilyHead = candidates.filter((c) => c.hasCreationFamilyHead);
+      const preferredTypes = withFamilyHead.length ? withFamilyHead : candidates;
+      const selectedType = smtOr(preferredTypes.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
+      emit(`(assert-soft (=> ${followsMake} ${selectedType}) :weight ${W.creationTypeEvidence})`);
+    }
     const hasPlaceInR = smtOr(placeConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const hasAttrInR = smtOr(attrOnlyConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const hasDeltaInR = smtOr(deltaConstraints.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
@@ -812,7 +831,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const chartOrDiagHeadInR = smtOr(creationHeadCons.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`));
     const postTargetPropInR = smtOr(
       attrOnlyConstraints
-        .filter((c) => c.attribute !== 'chart.type' && c.attribute !== 'diagram.kind' && !c.attribute?.endsWith('.title') && !c.attribute?.endsWith('.name') && !c.attribute?.endsWith('.content') && !c.attribute?.endsWith('.about') && !c.attribute?.endsWith('.genre'))
+        .filter((c) => !CREATION_TYPE_KEYS.has(c.attribute) && !c.attribute?.endsWith('.title') && !c.attribute?.endsWith('.name') && !c.attribute?.endsWith('.content') && !c.attribute?.endsWith('.about') && !c.attribute?.endsWith('.genre'))
         .map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (>= tpos_${r} 0) (> ${c.startTok} tpos_${r}))`)
     );
     if (attrOnlyConstraints.length > 0) {
@@ -868,8 +887,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         const det = kb.grammar?.determiners?.get(tokens[k.startTok - 1]?.lower)?.det;
         const groundedEdits = [];
         for (let r = 1; r <= R && editPredicates.length > 0; r++) {
-          const boundResult = exactUsers.map((c) =>
-            `(and ${boundToKeyword(c)} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`);
+          const boundResult = exactUsers.map((c) => {
+            const ownerFamily = famToId.get(c.family);
+            // The property can identify its own family when there is no separate owner evidence.
+            const supportedOwner = ownerFamily === undefined
+              ? 'true'
+              : `(or (>= tpos_${r} 0) (= fam_${r} ${ownerFamily}))`;
+            return `(and ${boundToKeyword(c)} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT) ${supportedOwner})`;
+          });
           const editPredicate = editPredicates.map((p) => `(and sel_${p.id} (= own_${p.id} ${r}))`);
           const groundedEdit = `(and ${smtOr(boundResult)} ${smtOr(editPredicate)})`;
           groundedEdits.push(groundedEdit);

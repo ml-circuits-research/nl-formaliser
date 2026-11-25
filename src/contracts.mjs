@@ -2,6 +2,7 @@
 // All enums match sop-knowledge-worlds/docs/worlds/w.request/schema.sop and smt/prelude.smt2 1-to-1.
 
 export const TABS = ['drawing', 'diagram', 'document', 'calendar'];
+export const CREATION_TYPE_KEYS = new Set(['chart.type', 'diagram.kind']);
 
 export const ACTS = [
   'make',

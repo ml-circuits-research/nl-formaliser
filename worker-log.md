@@ -5,3 +5,5 @@
 - 2026-11-25 — Q-NL-004 ranks complete grounded property names in local edits. Two paired dev rows move from L1c to L4 and `npm test` passes 76/76. Holdout L3+L4 is 656/1892 versus 659/1892 at baseline. `questions.md` contains the cases, controls and review request.
 
 - 2026-11-25 — Q-NL-007 prioritizes a declared spatial value among same-evidence anchor candidates. Two concrete Diagram placement clauses and the abstract-relation control pass. Focused tests 4/4, `npm test` 80/80 and dev L3+L4 125/250. Also submitted canonical scene and property-frame proposals Q-NL-005/006 in `questions.md`.
+
+- 2026-11-25 — Q-NL-008 retains declared creation types with `new`, preserves quoted names and restores the distinct line-width alternative. Focused tests 15/15 and `npm test` 88/88. Dev L3+L4 stays 125/250. Recorded the dev/holdout overlap separately under Q-NL-009.

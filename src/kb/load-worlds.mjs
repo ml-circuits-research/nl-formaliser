@@ -854,10 +854,12 @@ function loadGrammar(parse, worldsDir) {
       }
 
       if (w.type === 'w.lang.en.det') {
-        const det = mapDetKind(one(w, 'kind'), one(w, 'definite'));
+        const kind = one(w, 'kind');
+        const det = mapDetKind(kind, one(w, 'definite'));
         const num = one(w, 'number');
+        const meaning = one(w, 'meaning');
         for (const t of texts) {
-          const info = { det };
+          const info = { det, kind, meaning };
           if (num) info.number = num;
           determiners.set(t, info);
         }

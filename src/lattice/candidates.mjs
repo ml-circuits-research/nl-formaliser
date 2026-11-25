@@ -8,6 +8,7 @@
 import {
   HYP_KINDS,
   DETERMINERS,
+  CREATION_TYPE_KEYS,
   defaultOnFor,
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
@@ -3549,6 +3550,31 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
   }
 
+  // A creation modifier belongs to the same evidence as a catalog type name.
+  // Preserve a type-bearing candidate alongside the extended target description.
+  const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
+    c.licensed?.some((licence) => licence.act === 'make'));
+  const typeMentions = rawCandidates.filter((c) => CREATION_TYPE_KEYS.has(c.attribute) &&
+    c.startTok < c.endTok && !c.requiresKeyWord && tabKeys.get(c.attribute)?.values?.has(c.value.toLowerCase()));
+  for (const c of typeMentions) {
+    const startTok = c.startTok - 1;
+    const modifier = mapGet(kb?.grammar?.determiners, tokens[startTok]?.lower);
+    if (modifier?.kind !== 'modifier' || modifier.meaning !== 'one-more') continue;
+    const { det, detTok } = checkDetBefore(startTok);
+    if (det !== 'none' && det !== 'indefinite') continue;
+    const nounStart = detTok >= 0 ? detTok : startTok;
+    const followsCreation = creationPredicates.some((pred) => pred.endTok < nounStart &&
+      tokens.slice(pred.endTok + 1, nounStart).every((tok) => tok.isGrammar && !tok.isPunct));
+    if (!followsCreation) continue;
+    const head = tokens[c.endTok].lower;
+    const familiesForHead = toArray(mapGet(familyWords, head));
+    emit({
+      ...c, startTok, creationOnly: true,
+      hasCreationFamilyHead: head === c.family || (familiesForHead.length === 1 && familiesForHead[0] === c.family),
+      words: src.slice(tokens[startTok].start, tokens[c.endTok].end),
+    });
+  }
+
   // -------------------------------------------------------------------------
   // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
   // -------------------------------------------------------------------------
@@ -3615,6 +3641,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       c.phase ?? '',
       c.isAnchor ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
+      c.creationOnly ? 1 : 0,
       c.pairedConstraints ? JSON.stringify(c.pairedConstraints) : '',
       c.attrs ? c.attrs.join(',') : '',
     ].join('|');

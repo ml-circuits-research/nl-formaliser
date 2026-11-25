@@ -17,6 +17,7 @@
   "refDet": 14,
   "sortDescFill": 15,
   "defaultNewIndef": 4,
+  "creationTypeEvidence": 4,
   "defaultExistingDef": 4,
   "directObjectProximity": 10,
   "constraintFamMatch": 12,
