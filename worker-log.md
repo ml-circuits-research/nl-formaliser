@@ -107,3 +107,5 @@
 - 2026-11-25 — Q-NL-059 scopes polite leads and bare chart benefits. Exact chart type and fields 110/110, preamble ownership 32/32, full suite 259/259. The dataset reference review is separate from reader acceptance and the historical benchmark.
 
 - 2026-11-25 — Q-NL-060 preserves the written benefit unread and binds first-person modal purposes to the prior request. Native targeted benefits/fields 110/110, modal purpose ownership 75/111, full suite 260/260. The 97 previously approved data proposals were rechecked.
+
+- 2026-11-25 — Frozen paired replay completed 22:07:46 CET with the common evaluator. Baseline 582/1,892, current 527/1,892, 46 gains and 101 losses (−2.91 pp). Report and matched grades saved. Operational gate missed; standby per owner.

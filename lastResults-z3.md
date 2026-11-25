@@ -1,31 +1,37 @@
 # Ultimul benchmark Z3 pe WebMeet
 
-**25 noiembrie 2026, 15:29:35 CET (UTC+01:00)** este ora măsurării consemnate în `1ec3400ff6833c29be2057cb809b508d81201f14`. Rezultatul este istoric față de reviziile ulterioare ale formalizatorului. Probele țintite ulterioare nu actualizează acest tabel.
+Rulare pereche pe aceleași **1.892 de texte**, WebMeet 1%, seed 42. Am verificat identitatea textului și a identificatorului pentru toate perechile.
 
-| Intrare | Valoare |
-| --- | --- |
-| Formalizator Z3 | `a6ed12b30f14ebfa4cf32ce5340582153c3ea113` |
-| Date WebMeet | `3d13d9bc6b85675882c99c34c64f93e45dce1f3a` |
-| Cunoștințe | `3b2deebd85aa6ca070b7dc2ce94ff775fc891658` |
-| Eșantion | WebMeet 1%, seed 42, **1.892 de texte** |
-| Evaluator și configurare | `eval/benchmark.mjs`, evaluare Z3, tab-agnostic, maximum 8 propuneri și 2 per tab, 10 workeri, ortografie și încredere dezactivate |
+| Intrare | Referință | Curent |
+| --- | --- | --- |
+| Formalizator | `a6ed12b30f14ebfa4cf32ce5340582153c3ea113` | `3b1469da730839a7c874ba281e75cccfe07a87db` |
+| Început (CET) | 2026-11-25T21:54:13+01:00 | 2026-11-25T21:54:13+01:00 |
+| Sfârșit (CET) | 2026-11-25T22:00:43+01:00 | 2026-11-25T22:07:46+01:00 |
 
-| Nivel | Cazuri | Procent | Semnificație |
-| --- | ---: | ---: | --- |
-| L0 | 46 | 2,4% | Formalizare inutilizabilă |
-| **L1** | **990** | **52,3%** | Sens greșit |
-| ↳ L1a | 143 | 7,6% | Intenție greșită |
-| ↳ L1b | 96 | 5,1% | Țintă greșită |
-| ↳ L1c | 603 | 31,9% | Rol, valoare sau detaliu greșit. 23 de ortografie și 580 din alte cauze |
-| ↳ L1d | 148 | 7,8% | Cerere sau detaliu inventat |
-| **L2** | **198** | **10,5%** | Sens parțial |
-| ↳ L2a | 30 | 1,6% | Cerere omisă |
-| ↳ L2b | 75 | 4,0% | Țintă, referință sau punct final incomplet |
-| ↳ L2c | 93 | 4,9% | Alt detaliu semantic omis |
-| L3 | 39 | 2,1% | Potrivire exactă cu referința |
-| L4 | 619 | 32,7% | Alternativă acceptabilă |
-| **L3 + L4** | **658** | **34,8%** | **Corecte sau acceptabile** |
+- Date `3d13d9bc6b85675882c99c34c64f93e45dce1f3a`
+- Cunoștințe `3b2deebd85aa6ca070b7dc2ce94ff775fc891658`
+- Evaluator comun Z3 `dc5e46d0ca2b0751249e02604f966e9e1029d45f`, Node.js 22.23.2 și z3-solver 5.4.1. Maximum opt propuneri pe text, câte zece workeri, cu ortografia și încrederea dezactivate.
+- Ambele cititoare au primit exclusiv textul curent, fără tab din dataset, istoric sau ceas. Referința folosește metoda istorică `formalise` cu `tab=null` și clasarea lexicală internă, cu maximum două propuneri pe subcatalog vechi. Revizia curentă folosește `formaliseCurrentText` cu catalogul unificat. Evaluatorul comun a primit circuitele, fără metadatele de tab din propunerile vechi.
 
-Pragul de peste 90% pe acest eșantion cere cel puțin 1.703 cazuri acceptate. La următoarea evaluare agregată, actualizați ora reală a măsurării, reviziile, configurarea și distribuția măsurată.
+| Nivel | Referință | Curent |
+| --- | ---: | ---: |
+| L0 | 33 (1,7%) | 52 (2,7%) |
+| L1 | 1.065 (56,3%) | 1.114 (58,9%) |
+| L1a | 108 (5,7%) | 127 (6,7%) |
+| L1b | 142 (7,5%) | 304 (16,1%) |
+| L1c | 599 (31,7%) | 484 (25,6%) |
+| L1d | 216 (11,4%) | 199 (10,5%) |
+| L2 | 212 (11,2%) | 199 (10,5%) |
+| L2a | 28 (1,5%) | 18 (1,0%) |
+| L2b | 113 (6,0%) | 118 (6,2%) |
+| L2c | 71 (3,8%) | 63 (3,3%) |
+| L3 | 38 (2,0%) | 36 (1,9%) |
+| L4 | 544 (28,8%) | 491 (26,0%) |
+| L3 + L4 | 582 (30,8%) | 527 (27,9%) |
 
-[Raportul rularii Q-NL-017](questions.md#measurement--webmeet-1-through-q-nl-017) · [Tabelul consemnat în planul L1](L1-Issues-plan.md#1-ultimul-benchmark-webmeet-de-1)
+**46** cazuri au intrat în L3/L4 și **101** au ieșit. Diferența netă este **-55 cazuri (-2,91 puncte procentuale)**.
+Pragul operațional de +5 puncte procentuale nu a fost atins. Lucrul de implementare intră în standby până la 26 noiembrie, 08:00 CET, sau până la reluarea explicită de către owner.
+
+Mecanismul ales pentru reluare este legarea rezultatului de ținta scrisă, pe fiecare cerere, folosind familiile compatibile și rolurile declarate. L1b a crescut de la 142 la 304 și apare în 66 dintre cele 101 pierderi de acceptare. În `drawing/scenes-13.csv:2712`, cititorul curent transformă materialul din cererea despre bancă într-o destinație de link. În `drawing/placement-02.csv:1433`, a doua cerere schimbă ținta într-un grup, deși prima a creat o floare. În 13 pierderi L1b, singura diferență semantică semnalată de evaluator este `lookup`. Aceste cazuri se auditează față de regula textului curent, cu păstrarea referințelor literale și fără a adăuga o origine din context.
+
+[Rezultatele pereche pe fiecare rând](eval/results/z3-paired-2026-11-25.json) · [Rezultatul istoric din Q-NL-017](questions.md#measurement--webmeet-1-through-q-nl-017)

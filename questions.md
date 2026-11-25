@@ -1338,3 +1338,9 @@ Focused groups 6/6 and final full serial suite 260/260. Please review the exact 
 ### Q-NL-060 reference correction — pending approval
 
 `Z3-GOLD-PEOPLE-08-0774` in `report-errors-z3.md` records “show me the eye shapes so I can select one”. The reference executes selection from the dependent purpose. The current reader preserves that purpose; the separately native-validated proposed cell makes the current request a list of written eye shapes. The main listing interpretation is still open in the reader itself.
+
+### Paired aggregate checkpoint — 25 November 2026, 22:07:46 CET
+
+Both replay jobs completed on the exact frozen 1,892-row WebMeet 1% cohort. The common evaluator `dc5e46d` grades `a6ed12b` at 582/1,892 accepted and `3b1469d` at 527/1,892. There are 46 gains and 101 losses, a net change of −55 rows (−2.91 percentage points). `lastResults-z3.md` records both actual run intervals, configuration, all levels and sublevels, and the per-row evidence.
+
+The selected broad follow-up is request-owned target binding from the written noun phrase and the licensed operand roles. L1b increased from 142 to 304 and accounts for 66 of the acceptance losses. Thirteen of those L1b losses have only a lookup difference under the evaluator; preserve the no-history contract when reviewing them. The +5-point gate was missed. The worker enters the requested standby until 26 November at 08:00 CET or explicit owner resume. The 97 approved dataset corrections remain separate from this frozen benchmark.
