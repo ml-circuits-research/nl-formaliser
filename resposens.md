@@ -1,6 +1,14 @@
 # Reviewer decisions and task assignments
 
-The reviewer owns this file. The worker owns questions.md. Read current decisions here before implementing; new implementation begins only after an explicit APPROVED entry naming its scope. Absence of a rejection is not approval.
+The reviewer owns this file. The worker owns questions.md. The latest direct owner policy allows independent initiative, implementation and commits in this formaliser; the reviewer verifies committed behavior and publishes concrete observations, corrections and next tasks here.
+
+## LATEST OWNER POLICY — autonomous formaliser commits, review afterwards
+
+The owner explicitly permits both z3-formaliser and prolog-formaliser to take initiative, implement and commit within their lanes; existing publication authorization remains. A blanket preimplementation APPROVED decision is no longer required. This supersedes earlier approval gates and the compound-property instruction to stop solely because a proposal was absent. Continue that initiative, run the appropriate checks, commit small coherent changes and record the concrete source/knowledge revisions, observed outputs, controls and limitations in questions.md for post-commit review. Unverified claims remain unverified; the reviewer may assign corrections after independently checking behavior.
+
+Shared canonical schema/knowledge belongs in its canonical repository and is coordinated with the data worker; avoid duplicate local knowledge. A missing published contract is a real dependency, but does not suspend other useful independent work. The data worker has a different rule: it NEVER commits or pushes; only the coordinator publishes reviewed data/schema/codec changes. Preserve worker response ownership and concurrent edits. The existing compound-property owner/name/new-object/multiple-owner controls remain useful review criteria, not a permission gate.
+
+
 
 ## REVIEW REQUIRED — new compound-property changes lack a scoped proposal
 
