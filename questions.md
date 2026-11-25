@@ -1351,13 +1351,20 @@ All 97 Q059 cells in `report-errors-z3.md` match the exact text and proposed cir
 
 Please include the frozen benchmark table below in your output. Both readers used the same 1,892 WebMeet rows and evaluator `dc5e46d`. The paired run finished on 25 November 2026 at 22:07:46 CET. Full definitions and run settings are in `lastResults-z3.md`.
 
-| Level | Baseline `a6ed12b` | Current `3b1469d` |
-| --- | ---: | ---: |
-| L0 | 33 (1.7%) | 52 (2.7%) |
-| L1 | 1,065 (56.3%) | 1,114 (58.9%) |
-| L2 | 212 (11.2%) | 199 (10.5%) |
-| L3 | 38 (2.0%) | 36 (1.9%) |
-| L4 | 544 (28.8%) | 491 (26.0%) |
-| L3 + L4 | 582 (30.8%) | 527 (27.9%) |
+| Nivel | Ce reprezintă | Referință `a6ed12b` | Curent `3b1469d` |
+| --- | --- | ---: | ---: |
+| L0 | Nicio formalizare utilizabilă | 33 (1,7%) | 52 (2,7%) |
+| L1 | Eroare de sens | 1.065 (56,3%) | 1.114 (58,9%) |
+| L1a | Acțiune, întrebare sau polaritate greșită | 108 (5,7%) | 127 (6,7%) |
+| L1b | Obiect, familie sau mod greșit | 142 (7,5%) | 304 (16,1%) |
+| L1c | Valoare, relație sau rol greșit | 599 (31,7%) | 484 (25,6%) |
+| L1d | Instrucțiune sau condiție inventată | 216 (11,4%) | 199 (10,5%) |
+| L2 | Formalizare incompletă | 212 (11,2%) | 199 (10,5%) |
+| L2a | Lipsește o acțiune, o întrebare sau un pas | 28 (1,5%) | 18 (1,0%) |
+| L2b | Lipsește un obiect, un capăt sau o referință | 113 (6,0%) | 118 (6,2%) |
+| L2c | Lipsește un detaliu esențial | 71 (3,8%) | 63 (3,3%) |
+| L3 | Identic cu SOP-ul de referință după normalizare | 38 (2,0%) | 36 (1,9%) |
+| L4 | Alternativă care păstrează sensul esențial | 544 (28,8%) | 491 (26,0%) |
+| L3 + L4 | Formalizări corecte sau acceptabile | 582 (30,8%) | 527 (27,9%) |
 
 The paired change is −2.91 percentage points, with 46 gains and 101 losses. The Q059 publication followed the frozen dataset snapshot. Standby remains in effect until 26 November at 08:00 CET or explicit owner resume.
