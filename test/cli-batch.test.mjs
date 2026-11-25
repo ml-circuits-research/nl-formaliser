@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createReader } from '../src/reader.mjs';
 
 const cli = fileURLToPath(new URL('../bin/formalise.mjs', import.meta.url));
-const run = (args, input) => spawnSync(process.execPath, [cli, ...args], { input, encoding: 'utf8', timeout: 30_000 });
+const cwd = fileURLToPath(new URL('../../', import.meta.url));
+const run = (args, input) => spawnSync(process.execPath, [cli, ...args], { cwd, input, encoding: 'utf8', timeout: 30_000 });
 const row = (text) => JSON.stringify({ text });
 
 test('the batch CLI preserves text-only alternatives, native diagnostics and input order', () => {
-  const result = run(['--batch', '--json', '--tab', 'auto', '--verify'], [
+  const result = run(['--batch'], [
     row('Make the house blue'),
     row('Move it next to them'),
     '',
@@ -25,10 +27,20 @@ test('the batch CLI preserves text-only alternatives, native diagnostics and inp
   assert.equal(result.stderr, '');
   const results = result.stdout.trimEnd().split('\n').map(JSON.parse);
   assert.equal(results.length, 9);
-  assert.match(results[0].sop, /value=blue/);
-  assert.equal(results[0].check.ok, true);
-  assert.ok(results[1].alternatives.length > 0);
-  const spatial = results[1].proposals.filter((proposal) => ['drawing', 'diagram'].includes(proposal.tab));
+  for (const result of results) {
+    assert.equal(result.engine, 'z3');
+    assert.ok(Array.isArray(result.candidates));
+    assert.ok(Array.isArray(result.unresolved));
+    assert.ok(result.error === null || typeof result.error === 'string');
+  }
+  assert.deepEqual(results.map((result) => result.text), [
+    'Make the house blue', 'Move it next to them', 'Do not delete it', null, 'Make it red', 'Make it red',
+    'Make it red', 'Do not delete it, and make the node blue', 'Make the tree green',
+  ]);
+  assert.match(results[0].candidates[0].sop, /value=blue/);
+  assert.equal(results[0].candidates[0].check.ok, true);
+  assert.ok(results[1].candidates.length > 1);
+  const spatial = results[1].candidates.filter((proposal) => ['drawing', 'diagram'].includes(proposal.tab));
   assert.ok(spatial.length >= 2);
   for (const proposal of spatial) {
     assert.match(proposal.sop, /target=\$\S+ key=thing from=any words=it/);
@@ -37,25 +49,26 @@ test('the batch CLI preserves text-only alternatives, native diagnostics and inp
     assert.ok(Array.isArray(proposal.check.warnings));
   }
   for (const result of results) {
-    for (const { sop } of result.proposals) assert.doesNotMatch(sop, /w\.request\.(?:previous|context|clock)\b|from=previous\b/);
+    for (const { sop } of result.candidates) assert.doesNotMatch(sop, /w\.request\.(?:previous|context|clock)\b|from=previous\b/);
   }
   assert.equal(results[2].status, 'unknown');
   assert.equal(results[2].ok, false);
-  assert.equal(results[2].sop, '');
+  assert.deepEqual(results[2].candidates, []);
+  assert.equal(results[2].error, null);
   assert.match(results[2].unresolved[0].text, /delete it/i);
-  assert.deepEqual(results.slice(3, 7).map((result) => [result.ok, result.status, result.line, result.sop]),
-    [5, 6, 7, 8].map((line) => [false, 'invalid-input', line, '']));
+  assert.deepEqual(results.slice(3, 7).map((result) => [result.ok, result.status, result.line, result.candidates]),
+    [5, 6, 7, 8].map((line) => [false, 'invalid-input', line, []]));
   assert.equal(results[7].status, 'partial');
-  assert.match(results[7].sop, /value=blue/);
+  assert.match(results[7].candidates[0].sop, /value=blue/);
   assert.match(results[7].unresolved[0].text, /delete it/i);
-  assert.match(results[8].sop, /value=green/);
+  assert.match(results[8].candidates[0].sop, /value=green/);
 });
 
-test('batch defaults to auto and rejects the turn option, while single text still defaults to drawing', () => {
-  const batch = run(['--batch'], row('Make it blue'));
+test('the explicit auto batch command and standalone text CLI still work', () => {
+  const batch = run(['--batch', '--json', '--tab', 'auto', '--verify'], row('Make it blue'));
   assert.ifError(batch.error);
   assert.equal(batch.status, 0, batch.stderr);
-  assert.ok(new Set(JSON.parse(batch.stdout).proposals.map((p) => p.tab)).size > 1);
+  assert.ok(new Set(JSON.parse(batch.stdout).candidates.map((p) => p.tab)).size > 1);
 
   const history = run(['--batch', '--previous', 'a boat'], row('Make it blue'));
   assert.ifError(history.error);
@@ -69,4 +82,33 @@ test('batch defaults to auto and rejects the turn option, while single text stil
   const proposal = JSON.parse(single.stdout);
   assert.equal(proposal.tab, 'drawing');
   assert.match(proposal.sop, /value=blue/);
+});
+
+test('one Z3 library reader serves multiple text-only proposals before closing', async () => {
+  const reader = await createReader();
+  try {
+    const text = '  Move it next to them ';
+    const proposals = reader.propose(text);
+    const relative = reader.propose('Set the time to after sunset');
+    const closing = reader.close();
+    const first = await proposals;
+    assert.equal(first.engine, 'z3');
+    assert.equal(first.text, text);
+    assert.equal(first.error, null);
+    assert.ok(new Set(first.candidates.map((candidate) => candidate.tab)).size > 1);
+    for (const candidate of first.candidates) {
+      assert.equal(candidate.check.ok, true);
+      assert.doesNotMatch(candidate.sop, /w\.request\.(?:previous|context|clock)\b|from=previous\b/);
+    }
+    const second = await relative;
+    const unread = second.unresolved.find((diagnostic) => /after sunset/.test(diagnostic.text));
+    assert.ok(unread);
+    assert.match(second.candidates[unread.candidate].sop, /w\.request\.unread/);
+    await closing;
+    const closed = await reader.propose('Make the house blue');
+    assert.deepEqual(closed.candidates, []);
+    assert.match(closed.error, /closed/i);
+  } finally {
+    await reader.close();
+  }
 });

@@ -28,18 +28,36 @@ node eval/benchmark.mjs --source keys --workers 10
 
 The result includes `unresolved` when the reader detects a directive prohibition that the current `w.request` contract cannot represent. Each entry carries its exact text and half-open character offsets in the original input. `status: "partial"` accompanies independently formalised clauses. When only the prohibition remains, the result has `status: "unknown"` and no SOP proposal. The text CLI prints this diagnostic to standard error.
 
-## Text-only batch with both readers
+## Text-only library and batch
 
-Run these commands from the workspace containing both checkouts and `inputs.jsonl`.
+Both checkouts expose `src/reader.mjs`. For Z3, import from `nl-formaliser`. The equivalent import from `pro-formaliser` opens the Prolog engine.
 
-```sh
-(cd nl-formaliser && node bin/formalise.mjs --batch --json --tab auto --verify < ../inputs.jsonl > ../z3-results.jsonl)
-(cd pro-formaliser && node bin/formalise.mjs --batch --json --worlds-only < ../inputs.jsonl > ../prolog-results.jsonl)
+```js
+import { createReader } from './nl-formaliser/src/reader.mjs';
+
+const reader = await createReader();
+try {
+  const result = await reader.propose('Move it to the left');
+  console.log(result.engine, result.candidates, result.unresolved);
+} finally {
+  await reader.close();
+}
 ```
 
-Each input line contains one JSON object with a nonempty `text` string, for example `{"text":"Move it to the left"}`. These commands give the readers only the written text and their loaded knowledge. Z3 batch mode defaults to `auto`, reuses one initialized formaliser, skips blank lines, and writes one JSON object per remaining line in input order. It accepts only the `text` field and rejects `--previous` in batch mode.
+The reader loads its resources once and reuses them for subsequent calls. `propose(text)` uses the original text and the loaded knowledge. Close the reader after its last call.
 
-Z3 results retain `ok`, `status`, `sop`, `tab`, `proposals`, `alternatives` and any `unresolved` evidence returned by the reader. Each proposal includes its tab and circuit. With `--verify`, `check` on each proposal and on the selected result has `ok`, `errors`, `warnings` and `uncoveredWords` from the native verifier. `unknown` can have an empty circuit, and `partial` can have a circuit alongside unresolved evidence. A malformed record yields `ok: false`, `status: "invalid-input"`, an `error` and the physical input `line`. A thrown engine error yields `status: "error"` with the same record fields. These record statuses leave the batch running and a completed stream exits successfully. The Prolog command returns its independent `candidates` array for each text, along with any `unread` evidence.
+The batch CLI takes the same inputs and returns the same common result from either checkout. Run it from any directory with the respective absolute path.
+
+```sh
+node /home/salboaie/work/sopworlds/pro-formaliser/bin/formalise.mjs --batch < texts.jsonl > prolog-results.jsonl
+node /home/salboaie/work/sopworlds/nl-formaliser/bin/formalise.mjs --batch < texts.jsonl > z3-results.jsonl
+```
+
+Each input line contains a JSON object such as `{"text":"Move it to the left"}`. Only a nonempty `text` string is accepted. Blank lines are skipped. Both commands write one compact JSON object per other input line, in input order. Z3 batch defaults to automatic world proposals and rejects records with history, clock, or context fields.
+
+The common fields are `engine` (`"z3"` or `"prolog"`), the original `text`, `candidates` (each with `sop`), `unresolved` (a diagnostic array), and `error` (a message or `null`). An unknown reading can return an empty candidate array. A partial reading can return candidates alongside unresolved evidence. A malformed row has an error and an empty candidate array. One row's failure does not stop the remaining rows.
+
+Z3 retains its ranked variants, status, and native verification on each candidate. Its `unresolved` array projects native `w.request.unread` wires with their candidate index and includes unresolved directives reported by the engine. Its `check` fields contain `ok`, `errors`, `warnings`, and `uncoveredWords`.
 
 ## Documentation
 

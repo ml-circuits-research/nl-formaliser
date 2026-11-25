@@ -618,7 +618,7 @@ export async function createSpellChecker({
   }
 
   const z3Mod = await loadZ3Module(explicitModule);
-  const { Context, Z3 } = await z3Mod.init();
+  const { Context, Z3, em } = await z3Mod.init();
   let ctx = new Context('nl_spell_l1');
   let solveCount = 0;
 
@@ -770,5 +770,10 @@ export async function createSpellChecker({
   return {
     vocab,
     normalise,
+    async close() {
+      if (!ctx) return;
+      ctx = null;
+      await z3Mod.killThreads?.(em);
+    },
   };
 }

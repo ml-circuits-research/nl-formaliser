@@ -713,5 +713,9 @@ export async function createFormaliser({
     };
   }
 
-  return { formalise, kb, runner, verifier };
+  async function close() {
+    await Promise.all([runner.close(), spellCheckerPromise?.then((spellChecker) => spellChecker.close())]);
+  }
+
+  return { formalise, kb, runner, verifier, close };
 }

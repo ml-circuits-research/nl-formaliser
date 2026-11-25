@@ -5,6 +5,7 @@
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
 import { createFormaliser } from '../src/index.mjs';
+import { createReader, readerError } from '../src/reader.mjs';
 
 const rawArgs = process.argv.slice(2);
 const opts = {
@@ -53,67 +54,60 @@ if (!opts.batch && !text) {
 }
 opts.tab ??= opts.batch ? 'auto' : 'drawing';
 
-const formaliser = await createFormaliser({
-  knowledgeDir: opts.knowledgeDir,
-  withVerifier: opts.verify || opts.spellcheck || opts.confidence,
-  spellcheck: opts.spellcheck,
-});
-
 if (opts.batch) {
-  if (opts.tab !== 'auto' && !Object.hasOwn(formaliser.kb.tabs, opts.tab)) {
-    console.error(`Unknown tab: ${opts.tab}`);
+  try {
+    const reader = await createReader(opts);
+    try {
+      await runBatch(reader);
+    } finally {
+      await reader.close();
+    }
+  } catch (error) {
+    console.error(error.message);
     process.exitCode = 2;
-  } else {
-    await runBatch();
   }
 } else {
-  await runSingle(text);
+  const formaliser = await createFormaliser({
+    knowledgeDir: opts.knowledgeDir,
+    withVerifier: opts.verify || opts.spellcheck || opts.confidence,
+    spellcheck: opts.spellcheck,
+  });
+  try {
+    await runSingle(formaliser, text);
+  } finally {
+    await formaliser.close();
+  }
 }
 
-function failedRecord(line, status, error) {
-  return { ok: false, status, error, line, sop: '', alternatives: [], proposals: [] };
-}
-
-async function formaliseLine(line, lineNumber) {
+async function formaliseLine(reader, line, lineNumber) {
+  const invalid = { status: 'invalid-input', line: lineNumber };
   let input;
   try {
     input = JSON.parse(line);
   } catch {
-    return failedRecord(lineNumber, 'invalid-input', 'Expected one JSON object per line.');
+    return readerError(null, 'Expected one JSON object per line.', invalid);
   }
   if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.text !== 'string' || !input.text.trim() ||
       Object.keys(input).some((key) => key !== 'text')) {
-    return failedRecord(lineNumber, 'invalid-input', 'Expected an object with only a nonempty text string.');
+    return readerError(input?.text, 'Expected an object with only a nonempty text string.', invalid);
   }
 
-  try {
-    const result = await formaliser.formalise(input.text, opts);
-    if (!opts.verify || !result.sop) return result;
-
-    const check = (sop, tab) => {
-      const { ok, errors, warnings, uncoveredWords } = formaliser.verifier.check(input.text, sop, tab);
-      return { ok, errors, warnings, uncoveredWords };
-    };
-    const proposals = result.proposals.map((p) => ({ ...p, check: check(p.sop, p.tab) }));
-    const first = proposals.find((p) => p.sop === result.sop && p.tab === result.tab);
-    return { ...result, proposals, check: first?.check ?? check(result.sop, result.tab) };
-  } catch (error) {
-    return failedRecord(lineNumber, 'error', error instanceof Error ? error.message : String(error));
-  }
+  const result = await reader.propose(input.text);
+  return result.status === 'error' ? { ...result, line: lineNumber } : result;
 }
 
-async function runBatch() {
+async function runBatch(reader) {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   let lineNumber = 0;
   for await (const line of input) {
     lineNumber++;
     if (!line.trim()) continue;
-    const result = await formaliseLine(line, lineNumber);
+    const result = await formaliseLine(reader, line, lineNumber);
     if (!process.stdout.write(`${JSON.stringify(result)}\n`)) await once(process.stdout, 'drain');
   }
 }
 
-async function runSingle(input) {
+async function runSingle(formaliser, input) {
   const res = await formaliser.formalise(input, opts);
 
   if (opts.json) {

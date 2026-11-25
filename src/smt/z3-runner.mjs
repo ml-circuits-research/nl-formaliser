@@ -122,7 +122,7 @@ export function parseSmtValues(output) {
 
 export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 } = {}) {
   const z3Mod = await loadZ3Module(explicitModule);
-  const { Context, Z3 } = await z3Mod.init();
+  const { Context, Z3, em } = await z3Mod.init();
   let ctx = new Context('nl_formaliser');
   let initialised = false;
   let solveCount = 0;
@@ -238,5 +238,14 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
     ].join('\n');
   }
 
-  return { solve, unsatCore, fullSmtDump };
+  let closing;
+  function close() {
+    closing ??= Promise.resolve().then(() => {
+      ctx = null;
+      return z3Mod.killThreads?.(em);
+    });
+    return closing;
+  }
+
+  return { solve, unsatCore, fullSmtDump, close };
 }
