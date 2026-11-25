@@ -187,6 +187,7 @@ function expandKeyWords(shortName, means, meansToWords) {
  */
 function buildTabs(parse, worldsDir, grammar) {
   const meansToWords = new Map();
+  const slotValueWords = new Map();
   const discoveredWorlds = [];
 
   if (existsSync(worldsDir)) {
@@ -201,8 +202,14 @@ function buildTabs(parse, worldsDir, grammar) {
         if (w.type !== 'core.word') continue;
         const m = one(w, 'means');
         if (!m) continue;
+        const slot = one(w, 'of');
         for (const t of many(w, 'text')) {
-          addToSetMap(meansToWords, m, t.toLowerCase());
+          const word = t.toLowerCase();
+          addToSetMap(meansToWords, m, word);
+          if (slot) {
+            if (!slotValueWords.has(slot)) slotValueWords.set(slot, new Map());
+            addToSetMap(slotValueWords.get(slot), m.toLowerCase(), word);
+          }
         }
       }
     }
@@ -381,6 +388,9 @@ function buildTabs(parse, worldsDir, grammar) {
           }
         };
         pushClosed(valLower, true);
+        for (const alias of slotValueWords.get(means)?.get(valLower) ?? []) {
+          if (alias !== valLower) pushClosed(alias, false);
+        }
         const spacedVal = valLower.replace(/_/g, ' ');
         const underscoredVal = valLower.replace(/\s+/g, '_');
         if (spacedVal !== valLower) pushClosed(spacedVal, false);
@@ -442,17 +452,8 @@ function buildTabs(parse, worldsDir, grammar) {
           pushClosed('surprise', false);
         }
         if (name === 'page.weather') {
-          const weatherAdjs = {
-            sun: ['sunny', 'bright sunny', 'bright sunny afternoon', 'sunny afternoon', 'sunny day'],
-            rain: ['rainy', 'raining', 'rainy day'],
-            snow: ['snowy', 'snowing', 'snowy day'],
-            clouds: ['cloudy', 'overcast', 'cloudy sky'],
-            cloud: ['cloudy', 'overcast'],
-            storm: ['stormy', 'thunderstorm'],
-            fog: ['foggy', 'misty', 'mist'],
-            wind: ['windy', 'breezy'],
-          };
-          for (const syn of weatherAdjs[valLower] ?? []) pushClosed(syn, false);
+          const legacyAliases = { rain: 'raining', snow: 'snowing', storm: 'thunderstorm' };
+          if (legacyAliases[valLower]) pushClosed(legacyAliases[valLower], false);
         }
       }
     }

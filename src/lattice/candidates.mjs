@@ -2968,10 +2968,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      if (TIME_OF_DAY_PHRASES.has(ph)) {
-        const tv = TIME_OF_DAY_PHRASES.get(ph);
-        if (tabKeys.has('meeting.time')) emitConstraint('meeting.time', tv, i, e, { cost: 1.5 });
-        if (tabKeys.has('page.time')) emitConstraint('page.time', tv, i, e, { cost: 2 });
+      const time = TIME_OF_DAY_PHRASES.get(ph);
+      if (time && tabKeys.has('meeting.time')) emitConstraint('meeting.time', time, i, e, { cost: 1.5 });
+      if (tabKeys.has('page.time')) {
+        const pageTime = time ?? vocabMatch(kb?.domain?.time?.partsOfDay, ph);
+        if (pageTime) emitConstraint('page.time', pageTime, i, e, { cost: 2 });
       }
     }
 

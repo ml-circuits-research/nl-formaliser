@@ -19,3 +19,5 @@
 - 2026-11-25 — Q-NL-013 binds complete compound measures and preserves a numeric change's unsupported duration as exact unread text. Named page/meeting durations, named chart and following count controls pass. `npm test` 119/119. Requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-014 keeps literal titles and labels across weak joiners with a distinct following command. Quoted values preserve their inner text, and explicit `then undo` remains separate. `npm test` 124/124. Requested review in `questions.md`.
+
+- 2026-11-25 — Q-NL-015 consumes canonical weather and time terms. Verified distinct weather values and separate rain/dusk results for the published nightfall row. `npm test` 135/135. The prior Q-NL-014 holdout measured 656/1892 L3+L4. Requested review and a reference audit in `questions.md`.

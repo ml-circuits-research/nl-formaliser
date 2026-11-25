@@ -1,20 +1,23 @@
 # L1-Issues-plan.md — Plan general de reducere a erorilor L1 (`nl-formaliser`)
 
-## 1. Situația curentă (holdout nevăzut 1%, `N = 1.892`, `seed = 42`, `spellcheck = false`)
+## 1. Ultimul benchmark WebMeet de 1%
 
-```text
- 7.5%  L1a - Intenție greșită        (141)
- 4.8%  L1b - Țintă greșită            (91)
-32.5%  L1c - Detaliu / rol greșit    (614)
- 1.2%        ↳ typo / spelling        (22)
-31.3%        ↳ alte cauze            (592)
- 7.7%  L1d - Detaliu inventat        (145)
-------------------------------------------
-52.5%  TOTAL L1                      (991)
-34.9%  L3 + L4 (Total rezonabile)    (661)
-```
+Formaliser `e122ad5`, date WebMeet `3d13d9b`, cunoștințe `3b2deebd`, `N = 1.892`, `seed = 42`, `spellcheck = false`. Evaluarea Z3 alege cea mai bună formalizare completă dintre propuneri.
 
-Peste jumătate din toate cazurile (`52.5%`) sunt în categoria **L1** (citire formal validă, dar cu intenție, țintă, detaliu/rol greșit sau instrucțiune inventată). Reducerea sistematică a L1 este pârghia principală pentru a împinge `L3 + L4` spre și peste 60–70%+.
+| Nivel | Cazuri | Procent | Semnificație |
+| --- | ---: | ---: | --- |
+| L0 | 47 | 2,5% | Formalizare inutilizabilă |
+| **L1** | **990** | **52,3%** | Formalizare cu o eroare de sens |
+| ↳ L1a | 144 | 7,6% | Intenție greșită |
+| ↳ L1b | 89 | 4,7% | Țintă greșită |
+| ↳ L1c | 610 | 32,2% | Detaliu, valoare sau rol greșit. 23 cazuri de ortografie și 587 din alte cauze |
+| ↳ L1d | 147 | 7,8% | Instrucțiune sau detaliu inventat |
+| L2 | 199 | 10,5% | Sens parțial, cu o componentă esențială lipsă |
+| L3 | 43 | 2,3% | SOP identic cu referința |
+| L4 | 613 | 32,4% | Formalizare alternativă acceptabilă |
+| **L3 + L4** | **656** | **34,7%** | **Formalizări corecte sau acceptabile** |
+
+Pragul de peste 90% cere cel puțin 1.703 cazuri la acest eșantion. Prioritatea este atașarea sistematică a rolurilor și a efectelor în L1c. Evaluatorul semnalează și 558 de cazuri cu diferențe atribuite unei adnotări de referință problematice. Aceste semnalări se verifică independent înainte de corectarea datelor.
 
 Principiu de lucru: **zero patch-uri pe propoziții individuale** — toate rezolvările sunt mecanisme generice, conduse de schemele `sop-knowledge-worlds` și formulate declarativ în Z3 MaxSMT.
 
@@ -22,9 +25,9 @@ Principiu de lucru: **zero patch-uri pe propoziții individuale** — toate rezo
 
 ## 2. Plan de atac pe subcategorii L1 (în `nl-formaliser/`)
 
-### P1. Atacarea `L1c (alte cauze)` — `31.3%` (cea mai mare sursă de pierdere)
+### P1. Atacarea `L1c (alte cauze)` — `31,0%` (cea mai mare sursă de pierdere)
 
-Progres validat pe circuite complete în Q-NL-010–014. Frame-urile păstrează proprietatea în cererea ei, reperul spațial participă la selectarea obiectului descris, iar măsurile compuse sunt citite ca o singură valoare. Un titlu literal poate traversa un `and` intern și rămâne separat de comanda următoare. Durata unei modificări temporare rămâne în textul `unread` al cererii. Aceste verificări acoperă cazurile descrise în `questions.md`. Elipsa predicatului comun și calificările cu rol propriu rămân de implementat.
+Progres validat pe circuite complete în Q-NL-010–015. Frame-urile păstrează proprietatea în cererea ei, reperul spațial participă la selectarea obiectului descris, iar măsurile compuse sunt citite ca o singură valoare. Un titlu literal poate traversa un `and` intern și rămâne separat de comanda următoare. Durata unei modificări temporare rămâne în textul `unread` al cererii. Vocabularul canonic distinge ceața, pâcla și vântul și poate furniza ora zilei separat de vreme. Benchmarkul de mai sus acoperă sursa până la Q-NL-014. Elipsa predicatului comun și calificările cu rol propriu rămân de implementat.
 
 1. **Extinderea compilatorului `w.lang.en.frame` → Z3 MaxSMT (`src/lattice/frames.mjs` + `src/smt/encode.mjs` §7b)**
    - **Problema**: Prepozițiile structurale (`on`, `of`, `at`, `with`, `to`, `from`, `by`, `in`) sunt încă deturnate ca relații spațiale (`node.anchor`, `node.position`, `node.relation`, `drawn.at`, `composition.with`) sau endpoint-uri (`link.to`) atunci când propoziția folosește un frame neacoperit sau cu roluri parțiale.
@@ -49,7 +52,7 @@ Progres validat pe circuite complete în Q-NL-010–014. Frame-urile păstrează
 
 ---
 
-### P2. Atacarea `L1d – Detaliu inventat` — `7.7%`
+### P2. Atacarea `L1d – Detaliu inventat` — `7,8%`
 
 1. **Reducerea suprasegmentării (`extra_req(2>1)`, `extra_req(3>1)`)**
    - **Problema**: Stage-1 (`src/smt/segment.mjs`) sau solver-ul multi-request sparge uneori o singură cerere cu clauze subordonate/modificatori (`"with each bar labelled, each one a percent of the grand total"`) în 2–3 cereri separate.
@@ -63,7 +66,7 @@ Progres validat pe circuite complete în Q-NL-010–014. Frame-urile păstrează
 
 ---
 
-### P3. Atacarea `L1a – Intenție greșită` — `7.5%`
+### P3. Atacarea `L1a – Intenție greșită` — `7,6%`
 
 1. **Dezambiguizarea verbelor polisemantice prin structură argumentală**
    - **Problema**: Verbe ca `set` (`change` vs `place`), `make` (`make` vs `change`), `turn` (`change` vs `place`), `open` (`load` vs `change` vs nume propriu `"Open Items"`), `keep` (`change` vs `remove` cu `want=no`), `send`/`save` (confundate în contexte conversaționale).
@@ -80,7 +83,7 @@ Progres validat pe circuite complete în Q-NL-010–014. Frame-urile păstrează
 
 ---
 
-### P4. Atacarea `L1b – Țintă greșită` — `4.8%`
+### P4. Atacarea `L1b – Țintă greșită` — `4,7%`
 
 1. **Dezambiguizarea familiilor `diagram` (`chart` vs `node` vs `diagram` vs `page` vs `link`)**
    - **Problema**: Peste 75% din erorile `L1b` sunt în `diagram`, în special `node/existing vs chart/existing` (ex. `"keep the font a middle size"`, `"turn bars over the target green"`, `"set the colours on Monthly sales to darker"`).
