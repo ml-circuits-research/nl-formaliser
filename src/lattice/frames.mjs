@@ -281,6 +281,9 @@ export function matchLegendPosition(tokens, start, limit, key) {
 }
 
 function chartClauseQualifier(tokens, separator, end, grammar) {
+  const purposeStart = tokens[separator]?.text === ',' ? separator + 1 : separator;
+  const purposeEnd = tokens[purposeStart]?.purposeEnd;
+  if (purposeEnd !== undefined && purposeEnd <= end) return { startTok: purposeStart, endTok: purposeEnd };
   const tail = tokens.slice(separator + 1, end + 1);
   if (!tail.some(({ isContent }) => isContent)) return null;
   const [joiner, subject] = tail;
@@ -310,7 +313,7 @@ export function chartFieldRole(token, kb) {
 export function chartFieldEnd(tokens, start, limit, kb) {
   if (tokens[start]?.kind === 'quote') return start + 1;
   let end = start;
-  while (end < limit && !tokens[end].isPunct) {
+  while (end < limit && !tokens[end].isPunct && tokens[end].purposeEnd === undefined) {
     const word = tokens[end].lower;
     if (['and', 'then', 'also'].includes(word)) {
       let next = end + 1;
@@ -337,7 +340,7 @@ export function matchChartFieldEdits(tokens, splitPoints, predicates, kb) {
       const predicate = predicates.find((candidate) => candidate.startTok === startTok && candidate.endTok === startTok);
       if (!predicate) continue;
       let limit = startTok + 1;
-      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      while (limit <= window.endTok && !tokens[limit].isPunct && tokens[limit].purposeEnd === undefined) limit++;
       const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
       if (qualifier === false) continue;
       while (limit > startTok + 1 && tokens[limit - 1].isFiller) limit--;
@@ -383,7 +386,7 @@ export function matchChartLegendEdits(tokens, splitPoints, predicates, kb) {
       const endTok = predicate?.endTok ?? startTok - 1;
       const fragment = !predicate;
       let limit = endTok + 1;
-      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      while (limit <= window.endTok && !tokens[limit].isPunct && tokens[limit].purposeEnd === undefined) limit++;
       const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
       if (qualifier === false) continue;
 
@@ -533,7 +536,7 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
       const verb = direct?.text.toLowerCase();
       const visibility = labels.values.has(verb);
       let limit = end + 1;
-      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      while (limit <= window.endTok && !tokens[limit].isPunct && tokens[limit].purposeEnd === undefined) limit++;
       const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
       if (qualifier === false) continue;
       while (limit > end + 1 && tokens[limit - 1].isFiller) limit--;
@@ -775,7 +778,13 @@ export function matchBlankArtifactCreation(tokens, splitPoints, predicates, cand
       [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(kind) &&
       documentFamilies.has(family) && startTok === descriptor + 1 &&
       ends.some(({ endTok }) => endTok >= startTok));
+    const withPurpose = (endTok) => {
+      let next = endTok + 1;
+      if (tokens[next]?.text === ',') next++;
+      return tokens[next]?.purposeEnd ?? endTok;
+    };
     const readings = bareHeads.flatMap((head) => [head.endTok, ...artifactNameEnds(tokens, candidates, head.endTok)]
+      .map(withPurpose)
       .filter((endTok) => ends.some((window) => endTok <= window.endTok &&
         tokens.slice(endTok + 1, window.endTok + 1).every((token) => token.isPunct || token.isFiller)))
       .map((endTok) => ({ head, endTok })));
@@ -876,10 +885,13 @@ export function matchArtifactOperands(tokens, splitPoints, predicates, candidate
     const loading = loads.includes(predicate);
     const formats = new Set((kb.markings.get(predicate.modalOutput ? 'download' : word) ?? [])
       .filter(({ role }) => role === 'format').map(({ marker }) => marker));
-    const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok >= start &&
+    const fullWindow = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok >= start &&
       tokens.slice(startTok, predicate.startTok).every((token) => token.isFiller || token.isGrammar))
       .sort((left, right) => left.endTok - right.endTok)[0];
-    if (!window) continue;
+    if (!fullWindow) continue;
+    let operandEnd = start;
+    while (operandEnd <= fullWindow.endTok && tokens[operandEnd].purposeEnd === undefined) operandEnd++;
+    const window = { ...fullWindow, endTok: operandEnd - 1 };
     const markers = [];
     for (let i = start + 1; !copies.includes(predicate) && i < window.endTok; i++) {
       const token = tokens[i];

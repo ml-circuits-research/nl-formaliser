@@ -103,8 +103,11 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
       chartScopes.push({ start, end });
     }
   }
-  const protectedScopes = [...chartScopes, ...(lattice.politeSpans ?? []).map(({ startTok, endTok, protectsComma }) =>
-    ({ start: startTok, end: endTok + Number(Boolean(protectsComma)) }))];
+  const protectedScopes = [...chartScopes, ...(lattice.politeSpans ?? []).map(({ startTok, endTok, protectsComma, nominalStart }) =>
+    ({ start: nominalStart ?? startTok, end: endTok + Number(Boolean(protectsComma)) }))];
+  for (const { purposePredicate, endTok } of lattice.purposeSpans ?? []) {
+    protectedScopes.push({ start: purposePredicate, end: endTok });
+  }
   const cutsProtectedScope = (start, end) => protectedScopes.some((scope) => start <= scope.end && end >= scope.start);
 
   // Collect atomic candidate split points (merging multi-token joins like ", and", ", then", "; then", "and then")

@@ -849,7 +849,8 @@ function politeFillerSpans(tokens, kb) {
     if (bare?.act !== 'make' || kb.grammar.determiners.get(tokens[following]?.lower)?.det !== 'indefinite') continue;
     let end = following + 1;
     while (end < tokens.length && !tokens[end].isPunct &&
-        !(['and', 'then'].includes(tokens[end].lower) && hasDirective(end + 1))) end++;
+        !(tokens[end].kind === 'word' && ((tokens[end].lower === 'then' && hasDirective(end + 1)) ||
+          (tokens[end].lower === 'and' && tokens[end + 1]?.lower === 'then' && hasDirective(end + 2))))) end++;
     const type = tokens.slice(following + 1, Math.min(end, following + 5)).find(({ kind, lower }) =>
       kind === 'word' && kb.catalog?.familyWords.get(lower)?.size);
     if (!type) continue;
@@ -860,6 +861,54 @@ function politeFillerSpans(tokens, kb) {
     spans.push({ startTok: benefit, endTok: end - 1, nominalStart: following });
   }
   return spans;
+}
+
+function modalPurposeSpans(tokens, kb, predicates) {
+  const grammar = kb?.grammar;
+  const modalWords = grammar?.phraseItems?.get('shape.can');
+  if (!grammar?.phraseItems?.get('connective')?.has('so') || !modalWords ||
+      !tokens.some(({ kind, lower }) => kind === 'word' && lower === 'so')) return [];
+  const imperative = new Set(predicates.filter(({ startTok, licensed }) =>
+    kb.verbs.has(tokens[startTok].lower) && licensed.some(({ act }) =>
+      !['ask', 'greet', 'thank', 'farewell'].includes(act))).map(({ startTok }) => startTok));
+  const directiveAt = (index) => [index, ...matchLeadAt(tokens, index, kb)].find((start) => imperative.has(start));
+  const joiner = (index) => tokens[index].kind === 'word' && ['then', 'and', 'next', 'but'].includes(tokens[index].lower);
+  const nextDirective = (index) => {
+    while (index < tokens.length && joiner(index)) index++;
+    return directiveAt(index);
+  };
+  const scopes = [];
+  for (let startTok = 1; startTok < tokens.length; startTok++) {
+    if (tokens[startTok].kind !== 'word' || tokens[startTok].lower !== 'so') continue;
+    const first = startTok + (tokens[startTok + 1]?.lower === 'that' ? 2 : 1);
+    const subject = grammar.pronouns.get(tokens[first]?.lower);
+    const modal = tokens[first + 1]?.lower;
+    if (tokens[first]?.kind !== 'word' || subject?.person !== '1' || !subject.cases.includes('subject') ||
+        tokens[first + 1]?.kind !== 'word' || !['can', 'could'].includes(modal) || !modalWords.has(modal)) continue;
+    let lead = startTok - 1;
+    if (tokens[lead]?.text === ',') lead--;
+    for (; lead >= 0; lead--) {
+      if (/^[.;!?]$/.test(tokens[lead].text) ||
+          ((tokens[lead].text === ',' || joiner(lead)) && nextDirective(lead + 1) !== undefined)) break;
+    }
+    let clauseStart = lead + 1;
+    while (tokens[clauseStart]?.isFiller && !imperative.has(clauseStart) && !tokens[clauseStart].isPunct) clauseStart++;
+    const predicate = nextDirective(clauseStart);
+    if (predicate === undefined || predicate >= startTok) continue;
+
+    let end = first + 2;
+    while (end < tokens.length && !tokens[end].isPunct) {
+      if (joiner(end) && ((['then', 'next', 'but'].includes(tokens[end].lower) &&
+          nextDirective(end + 1) !== undefined) ||
+          (tokens[end].lower === 'and' && (tokens[end + 1]?.lower === 'once' ||
+            (tokens[end + 1]?.lower === 'then' && nextDirective(end + 2) !== undefined))))) break;
+      end++;
+    }
+    if (end <= first + 2) continue;
+    scopes.push({ startTok, endTok: end - 1, first, purposePredicate: predicate });
+    startTok = end - 1;
+  }
+  return scopes;
 }
 
 function isPureGrammarOrVerbSpan(tokens, s, e, kb) {
@@ -920,9 +969,11 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const hasDocumentKeys = !catalog ? tab === 'document' : tabKeys.has('section.mark');
   const hasMeetingKeys = !catalog ? tab === 'calendar' : tabKeys.has('meeting.title');
   const politeSpans = politeFillerSpans(tokens, kb);
+  let purposeSpans = [];
   for (const { startTok, endTok } of politeSpans) {
     for (let tok = startTok; tok <= endTok; tok++) tokens[tok].isFiller = true;
   }
+  const nonDirectives = findNonDirectiveScopes(tokens, kb);
 
   const rawCandidates = [];
   const splitPoints = [];
@@ -942,7 +993,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   };
 
   const emit = (cand) => {
-    if (!cand.politeFiller && politeSpans.some(({ startTok, endTok }) =>
+    if (!cand.politeFiller && !cand.requestBenefit && politeSpans.some(({ startTok, endTok }) =>
+      cand.startTok <= endTok && startTok <= cand.endTok)) return;
+    if (cand.purposePredicate === undefined && purposeSpans.some(({ startTok, endTok }) =>
       cand.startTok <= endTok && startTok <= cand.endTok)) return;
     const start = tokens[cand.startTok].start;
     const end = tokens[cand.endTok].end;
@@ -954,7 +1007,11 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     });
   };
   for (const span of politeSpans) {
-    emit({ ...span, kind: HYP_KINDS.FILLER, politeFiller: true, cost: 0 });
+    if (span.nominalStart == null) {
+      emit({ ...span, kind: HYP_KINDS.FILLER, politeFiller: true, cost: 0 });
+    } else {
+      emit({ ...span, kind: HYP_KINDS.UNREAD, requestBenefit: true, note: 'request.benefit', cost: 0 });
+    }
   }
 
   const emitConstraint = (attr, value, startTok, endTok, extra = {}) => {
@@ -3693,7 +3750,27 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     }
   }
 
-  const writtenPredicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+  let writtenPredicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+  if (catalog) {
+    purposeSpans = modalPurposeSpans(tokens, kb, writtenPredicates);
+    purposeSpans = purposeSpans.filter(({ purposePredicate, startTok, endTok }) =>
+      !nonDirectives.some((scope) => purposePredicate <= scope.endTok && scope.startTok <= endTok) &&
+      !politeSpans.some((scope) => startTok <= scope.endTok && scope.startTok <= endTok));
+    if (purposeSpans.length) {
+      for (let i = rawCandidates.length - 1; i >= 0; i--) {
+        if (purposeSpans.some(({ startTok, endTok }) =>
+          rawCandidates[i].startTok <= endTok && startTok <= rawCandidates[i].endTok)) rawCandidates.splice(i, 1);
+      }
+      writtenPredicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+      for (const { first, startTok, endTok, purposePredicate } of purposeSpans) {
+        tokens[startTok].purposeEnd = endTok;
+        emit({
+          kind: HYP_KINDS.INTENT, role: 'purpose', startTok, endTok, purposePredicate,
+          rolePredicate: purposePredicate, value: src.slice(tokens[first].start, tokens[endTok].end), cost: 0,
+        });
+      }
+    }
+  }
   for (const span of wholeSelectionPredicates(tokens, kb.grammar, splitPoints, writtenPredicates)) {
     emit({
       ...span, kind: HYP_KINDS.PREDICATE, targetless: true,
@@ -4362,8 +4439,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     candidates,
     frameMatches,
     coordinatedChanges: pairResultativeFrames(rawFrameMatches),
-    nonDirectives: findNonDirectiveScopes(tokens, kb),
+    nonDirectives,
     politeSpans,
+    purposeSpans,
     splitPoints,
     hasQuestionMark: src.includes('?'),
   };

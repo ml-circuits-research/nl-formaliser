@@ -369,13 +369,16 @@ test('a polite nominal chart wish scopes its measure, dimension and written bene
   const reader = await createReader({ topK: 2 });
   try {
     const text = 'When you get a chance, a pie chart of the captains by rank would help the team a lot';
-    const best = (await reader.propose(text)).candidates[0];
+    const result = await reader.propose(text);
+    assert.equal(result.status, 'partial');
+    const best = result.candidates[0];
     assert.ok(best.check.ok, best.sop);
     assert.match(best.sop, /@r1 w\.request\.request act=make/);
     assert.match(best.sop, /family=chart mode=new/);
     assert.match(best.sop, /chart\.measure value=captains words="the captains"/);
     assert.match(best.sop, /chart\.dimension value=rank/);
-    assert.match(best.sop, /w\.request\.filler text="would help the team a lot"/);
+    assert.match(best.sop, /@r1\.u\d+ .*text="would help the team a lot" note=request\.benefit/);
+    assert.doesNotMatch(best.sop, /w\.request\.filler text="would help/);
     assert.doesNotMatch(best.sop, /chart\.measure value=(?:team|help|lot)|predicate=(?:get|rank|help)/);
 
     const typed = (await reader.propose('When you get a chance, a pie chart of the documents by type would help the team a lot')).candidates[0];
@@ -388,7 +391,55 @@ test('a polite nominal chart wish scopes its measure, dimension and written bene
     assert.match(sibling.sop, /w\.request\.filler text="If you can"/);
     assert.match(sibling.sop, /@r1\.c\d+ .*chart\.measure value="Net income"/);
     assert.match(sibling.sop, /@r1\.c\d+ .*chart\.dimension value=quarter/);
+    assert.match(sibling.sop, /@r1\.u\d+ .*text="would help our team" note=request\.benefit/);
     assert.match(sibling.sop, /@r2\.t .*sort=dog/);
+
+    const complex = await reader.propose('When you get a chance, a line chart of profit by month would help compare East and West');
+    assert.equal(complex.status, 'partial');
+    assert.ok(complex.candidates[0].check.ok, complex.candidates[0].sop);
+    assert.match(complex.candidates[0].sop, /@r1\.u\d+ .*text="would help compare East and West" note=request\.benefit/);
+    assert.doesNotMatch(complex.candidates[0].sop, /w\.request\.filler text="would help|chart\.measure value=(?:East|West)/);
+
+    const conditional = (await reader.propose('When the layout is ready, draw a cat')).candidates[0];
+    assert.ok(conditional.check.ok, conditional.sop);
+    assert.doesNotMatch(conditional.sop, /w\.request\.filler text="When the layout is ready"|note=request\.benefit/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('a first-person modal purpose belongs to its preceding request', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const mixed = (await reader.propose('Put the legend on the left of the Revenue chart so I can read and compare it, then draw a dog')).candidates[0];
+    assert.ok(mixed.check.ok, mixed.sop);
+    assert.match(mixed.sop, /@r1\.c\d+ .*attribute=chart\.legend value=left/);
+    assert.match(mixed.sop, /@r1\.i\d+ .*role=purpose value="I can read and compare it" words="so I can read and compare it"/);
+    assert.match(mixed.sop, /@r2\.t .*sort=dog/);
+    assert.doesNotMatch(mixed.sop, /act=load|predicate=(?:read|compare)/);
+
+    const page = (await reader.propose('Open a fresh page so that we can take notes')).candidates[0];
+    assert.ok(page.check.ok, page.sop);
+    assert.match(page.sop, /act=make .*predicate=Open/);
+    assert.match(page.sop, /role=purpose value="we can take notes" words="so that we can take notes"/);
+    assert.match(page.sop, /family=page mode=new/);
+
+    const save = (await reader.propose('Save it so I can reopen it tomorrow')).candidates[0];
+    assert.ok(save.check.ok, save.sop);
+    assert.match(save.sop, /act=save .*refers=thing/);
+    assert.match(save.sop, /from=any words=it/);
+    assert.match(save.sop, /role=purpose value="I can reopen it tomorrow"/);
+    assert.doesNotMatch(save.sop, /w\.request\.target|meeting\.day/);
+
+    const effect = (await reader.propose('Can you update the board room so it seats 16?')).candidates[0];
+    assert.ok(effect.check.ok, effect.sop);
+    assert.match(effect.sop, /attribute=room\.(?:capacity|seats) value="16"/);
+    assert.doesNotMatch(effect.sop, /role=purpose/);
+
+    const quoted = (await reader.propose('Put a heading called "so I can read it"')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /value="so I can read it"/);
+    assert.doesNotMatch(quoted.sop, /role=purpose/);
   } finally {
     await reader.close();
   }

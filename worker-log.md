@@ -105,3 +105,5 @@
 - 2026-11-25 — Q-NL-058 binds new artifact openings and existing artifact loads, preserves literal source spans, and checks intrinsic properties against the target family. Targeted 3/3, full 257/257, WebMeet new artifact 16/16 with native-valid leading proposals. The historical report is `lastResults-z3.md`.
 
 - 2026-11-25 — Q-NL-059 scopes polite leads and bare chart benefits. Exact chart type and fields 110/110, preamble ownership 32/32, full suite 259/259. The dataset reference review is separate from reader acceptance and the historical benchmark.
+
+- 2026-11-25 — Q-NL-060 preserves the written benefit unread and binds first-person modal purposes to the prior request. Native targeted benefits/fields 110/110, modal purpose ownership 75/111, full suite 260/260. The 97 previously approved data proposals were rechecked.

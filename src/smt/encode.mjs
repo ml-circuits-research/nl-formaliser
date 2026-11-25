@@ -74,7 +74,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
     if (c.kind !== HYP_KINDS.SEP && excluded(c)) return false;
     if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier &&
-        c.rolePredicate === undefined && c.chartEditPredicate === undefined && c.chartAxisPair == null) return false;
+        !c.requestBenefit && c.rolePredicate === undefined &&
+        c.chartEditPredicate === undefined && c.chartAxisPair == null) return false;
     return true;
   });
 
@@ -309,8 +310,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     } else {
       emit(`(assert (=> sel_${c.id} (>= own_${c.id} 1)))`);
+      if (c.requestBenefit) emit(`(assert sel_${c.id})`);
       for (let r = 1; r <= R; r++) {
         emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and active_${r} (span-in-req rstart_${r} rend_${r} ${c.startTok} ${c.endTok}))))`);
+        if (c.requestBenefit) emit(`(assert (=> (= own_${c.id} ${r}) (<= rstart_${r} ${c.nominalStart})))`);
       }
     }
   }
@@ -528,6 +531,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
   const outputPredicates = preds.filter(({ outputTargetEnd }) => outputTargetEnd !== undefined);
   const outputRoles = activeCandidates.filter(({ rolePredicate }) => rolePredicate !== undefined);
+  for (const intent of outputRoles.filter(({ purposePredicate }) => purposePredicate !== undefined)) {
+    for (let r = 1; r <= R; r++) {
+      emit(`(assert (=> (= own_${intent.id} ${r}) (= ppos_${r} ${intent.purposePredicate})))`);
+    }
+  }
   const outputHeads = [...tSorts, ...tFams, ...tRefs];
   for (const predicate of outputPredicates) {
     const roles = outputRoles.filter(({ rolePredicate }) => rolePredicate === predicate.startTok);
