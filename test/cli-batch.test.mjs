@@ -335,6 +335,65 @@ test('load preserves its written source separately from the artifact identity', 
   }
 });
 
+test('polite lead-ins preserve the actual directives and quoted text', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const [text, lead, predicate] of [
+      ['When you get a chance, draw a blue dog', 'When you get a chance', 'draw'],
+      ['When you have a minute, can you open a fresh page?', 'When you have a minute', 'open'],
+      ['Draw a cat; if you have a second, draw a dog', 'if you have a second', 'draw'],
+    ]) {
+      const { candidates } = await reader.propose(text);
+      const best = candidates[0];
+      assert.ok(best.check.ok, best.sop);
+      assert.ok(best.sop.includes(`w.request.filler text="${lead}"`), best.sop);
+      assert.match(best.sop, new RegExp(`w\\.request\\.request act=make[^\\n]+predicate=${predicate}\\b`));
+      assert.doesNotMatch(best.sop, /w\.request\.request [^\n]+predicate=(?:have|get)\b/);
+      assert.equal((best.sop.match(/w\.request\.request /g) ?? []).length, text.includes(';') ? 2 : 1);
+    }
+    const quoted = (await reader.propose('Add a heading called "When you have a minute, draw a cat"')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /value="When you have a minute, draw a cat"/);
+    assert.doesNotMatch(quoted.sop, /predicate=draw|w\.request\.filler/);
+
+    const forbidden = await reader.propose('When you have a minute, don’t remove the chart');
+    assert.equal(forbidden.status, 'partial');
+    assert.ok(forbidden.unresolved.some(({ kind }) => kind === 'directive-prohibition'));
+    assert.doesNotMatch(forbidden.candidates[0].sop, /w\.request\.request /);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('a polite nominal chart wish scopes its measure, dimension and written benefit separately', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const text = 'When you get a chance, a pie chart of the captains by rank would help the team a lot';
+    const best = (await reader.propose(text)).candidates[0];
+    assert.ok(best.check.ok, best.sop);
+    assert.match(best.sop, /@r1 w\.request\.request act=make/);
+    assert.match(best.sop, /family=chart mode=new/);
+    assert.match(best.sop, /chart\.measure value=captains words="the captains"/);
+    assert.match(best.sop, /chart\.dimension value=rank/);
+    assert.match(best.sop, /w\.request\.filler text="would help the team a lot"/);
+    assert.doesNotMatch(best.sop, /chart\.measure value=(?:team|help|lot)|predicate=(?:get|rank|help)/);
+
+    const typed = (await reader.propose('When you get a chance, a pie chart of the documents by type would help the team a lot')).candidates[0];
+    assert.ok(typed.check.ok, typed.sop);
+    assert.match(typed.sop, /family=chart mode=new[^\n]+sort=pie\b|attribute=chart\.type value=pie\b/);
+    assert.match(typed.sop, /attribute=chart\.dimension value=type\b/);
+
+    const sibling = (await reader.propose('If you can, a bar chart of "Net income" by quarter would help our team, then draw a dog')).candidates[0];
+    assert.ok(sibling.check.ok, sibling.sop);
+    assert.match(sibling.sop, /w\.request\.filler text="If you can"/);
+    assert.match(sibling.sop, /@r1\.c\d+ .*chart\.measure value="Net income"/);
+    assert.match(sibling.sop, /@r1\.c\d+ .*chart\.dimension value=quarter/);
+    assert.match(sibling.sop, /@r2\.t .*sort=dog/);
+  } finally {
+    await reader.close();
+  }
+});
+
 test('reported past actions stay distinct from current commands and literal references', async () => {
   const reader = await createReader({ topK: 2 });
   try {

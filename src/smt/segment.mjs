@@ -103,13 +103,15 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
       chartScopes.push({ start, end });
     }
   }
-  const cutsChartScope = (start, end) => chartScopes.some((scope) => start <= scope.end && end >= scope.start);
+  const protectedScopes = [...chartScopes, ...(lattice.politeSpans ?? []).map(({ startTok, endTok, protectsComma }) =>
+    ({ start: startTok, end: endTok + Number(Boolean(protectsComma)) }))];
+  const cutsProtectedScope = (start, end) => protectedScopes.some((scope) => start <= scope.end && end >= scope.start);
 
   // Collect atomic candidate split points (merging multi-token joins like ", and", ", then", "; then", "and then")
   const splitPoints = [];
   const usedTok = new Set();
   for (let i = 1; i < T - 1; i++) {
-    if (usedTok.has(i) || cutsChartScope(i, i)) continue;
+    if (usedTok.has(i) || cutsProtectedScope(i, i)) continue;
     const tok = tokens[i];
     const next = tokens[i + 1];
 
@@ -120,7 +122,7 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
     if (
       next &&
       i + 1 < T - 1 &&
-      !cutsChartScope(i, i + 1) &&
+      !cutsProtectedScope(i, i + 1) &&
       (((tok.text === ',' || tok.text === ';') && ['and', 'then', 'also', 'next', 'finally', 'plus', 'but'].includes(next.lower) && !(next.lower === 'next' && tokens[i + 2]?.lower === 'to')) ||
         (tok.lower === 'and' && ['then', 'also', 'next', 'finally'].includes(next.lower) && !(next.lower === 'next' && tokens[i + 2]?.lower === 'to')))
     ) {

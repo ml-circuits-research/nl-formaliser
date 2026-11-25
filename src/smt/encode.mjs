@@ -299,8 +299,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const isOuterOnly = c.kind === HYP_KINDS.FILLER || c.kind === HYP_KINDS.SEP;
     if (isOuterOnly) {
       emit(`(assert (= own_${c.id} 0))`);
+      if (c.politeFiller) emit(`(assert sel_${c.id})`);
       // Exact check.mjs filler purity enforcement: filler hiding content words MUST sit strictly outside every request!
-      if (c.kind === HYP_KINDS.FILLER && fillerHasHiddenContent(c.text, kb)) {
+      if (c.kind === HYP_KINDS.FILLER && (c.politeFiller || fillerHasHiddenContent(c.text, kb))) {
         outerFillerIds.add(c.id);
         for (let r = 1; r <= R; r++) {
           emit(`(assert (=> (and sel_${c.id} active_${r}) (span-outside-req rstart_${r} rend_${r} ${c.startTok} ${c.endTok})))`);
@@ -902,6 +903,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
 
     const roleOwner = c.predicateRoleFamily ? famToId.get(c.predicateRoleFamily) : cFamId;
+    const sourceHeadTypes = c.chartSourceHead ? [...tSorts, ...constraints].filter((candidate) =>
+      candidate.family === 'chart' && candidate.startTok === c.chartSourceHead[0] &&
+      candidate.endTok <= c.chartSourceHead[1] &&
+      (candidate.kind === HYP_KINDS.TARGET_SORT || candidate.attribute === 'chart.type')) : [];
     if (c.chartCreationPredicate != null) {
       emit(`(assert-soft sel_${c.id} :weight ${W.predicateRole})`);
     }
@@ -910,6 +915,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         const predicate = c.chartCreationPredicate < 0 ? '(- 1)' : c.chartCreationPredicate;
         emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= ppos_${r} ${predicate})
           (= fam_${r} ${famToId.get('chart')}) (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= ${phExpr} PH_RESULT))))`);
+      }
+      if (sourceHeadTypes.length) {
+        const typeEvidence = sourceHeadTypes.map(({ id }) => `(and sel_${id} (= own_${id} ${r}))`);
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) ${smtOr(typeEvidence)}))`);
       }
       if (lattice.catalog && c.predicateRole != null && roleOwner !== undefined) {
         const bindings = predicateRoles.get(c.predicateRole) ?? [];

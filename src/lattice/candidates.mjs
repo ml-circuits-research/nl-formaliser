@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { chartFieldAxisForms, chartFieldEnd, chartFieldRole, matchArtifactOperands, matchBlankArtifactCreation, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { chartFieldAxisForms, chartFieldEnd, chartFieldRole, matchArtifactOperands, matchBlankArtifactCreation, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLeadAt, matchLegendPosition, matchModalWants, matchOptionQuestions, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -819,6 +819,49 @@ function isCommandVerbToken(tok, kb) {
   return false;
 }
 
+function politeFillerSpans(tokens, kb) {
+  if (!kb?.grammar?.fillerPhrases) return [];
+  const spans = [];
+  const startsDirective = (index) => isCommandVerbToken(tokens[index], kb) ||
+    kb.grammar.negativeImperative?.leads.some((words) =>
+      words.every((word, offset) => tokens[index + offset]?.lower === word) &&
+      isCommandVerbToken(tokens[index + words.length], kb));
+  const hasDirective = (index) => [index, ...matchLeadAt(tokens, index, kb)].some(startsDirective);
+  for (let startTok = 0; startTok < tokens.length; startTok++) {
+    const marker = tokens[startTok];
+    if (marker.kind !== 'word' || !['when', 'if'].includes(marker.lower)) continue;
+    if (startTok > 0 && !/^[,.;!?]$/.test(tokens[startTok - 1].text)) continue;
+    const punctuation = tokens.slice(startTok + 1, startTok + 8).findIndex(({ isPunct }) => isPunct);
+    if (punctuation < 0) continue;
+    const comma = startTok + 1 + punctuation;
+    if (tokens[comma].text !== ',') continue;
+    const prefix = tokens.slice(startTok, comma);
+    if (prefix.some(({ kind }) => kind !== 'word')) continue;
+    const phrase = prefix.map(({ lower }) => lower).join(' ');
+    const timeToRespond = /^(?:when|if) you have a (?:minute|moment|second)$/.test(phrase);
+    if (!kb.grammar.fillerPhrases.has(phrase) && !timeToRespond) continue;
+    const following = comma + 1;
+    if (!tokens[following] || tokens[following].isPunct) continue;
+    spans.push({ startTok, endTok: comma - 1, protectsComma: true });
+    if (hasDirective(following)) continue;
+    // A declared bare creation can be phrased as a noun followed by its benefit.
+    const bare = kb.grammar.frames?.get('acts.more.make.bare.mods');
+    if (bare?.act !== 'make' || kb.grammar.determiners.get(tokens[following]?.lower)?.det !== 'indefinite') continue;
+    let end = following + 1;
+    while (end < tokens.length && !tokens[end].isPunct &&
+        !(['and', 'then'].includes(tokens[end].lower) && hasDirective(end + 1))) end++;
+    const type = tokens.slice(following + 1, Math.min(end, following + 5)).find(({ kind, lower }) =>
+      kind === 'word' && kb.catalog?.familyWords.get(lower)?.size);
+    if (!type) continue;
+    const benefit = tokens.findIndex((token, index) =>
+      type.end <= token.start && index + 1 < end && token.kind === 'word' && token.lower === 'would' &&
+      tokens[index + 1].kind === 'word' && tokens[index + 1].lower === 'help');
+    if (benefit < 0) continue;
+    spans.push({ startTok: benefit, endTok: end - 1, nominalStart: following });
+  }
+  return spans;
+}
+
 function isPureGrammarOrVerbSpan(tokens, s, e, kb) {
   let allGramOrVerb = true;
   for (let i = s; i <= e; i++) {
@@ -876,6 +919,10 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const hasDiagramKeys = !catalog ? tab === 'diagram' : tabKeys.has('node.position');
   const hasDocumentKeys = !catalog ? tab === 'document' : tabKeys.has('section.mark');
   const hasMeetingKeys = !catalog ? tab === 'calendar' : tabKeys.has('meeting.title');
+  const politeSpans = politeFillerSpans(tokens, kb);
+  for (const { startTok, endTok } of politeSpans) {
+    for (let tok = startTok; tok <= endTok; tok++) tokens[tok].isFiller = true;
+  }
 
   const rawCandidates = [];
   const splitPoints = [];
@@ -895,6 +942,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   };
 
   const emit = (cand) => {
+    if (!cand.politeFiller && politeSpans.some(({ startTok, endTok }) =>
+      cand.startTok <= endTok && startTok <= cand.endTok)) return;
     const start = tokens[cand.startTok].start;
     const end = tokens[cand.endTok].end;
     rawCandidates.push({
@@ -904,6 +953,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       text: src.slice(start, end),
     });
   };
+  for (const span of politeSpans) {
+    emit({ ...span, kind: HYP_KINDS.FILLER, politeFiller: true, cost: 0 });
+  }
 
   const emitConstraint = (attr, value, startTok, endTok, extra = {}) => {
     const spec = tabKeys.get(attr);
@@ -952,6 +1004,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       chartAxisPair: extra.chartAxisPair ?? null,
       chartAxisOrder: extra.chartAxisOrder ?? 0,
       chartAxisAssignment: extra.chartAxisAssignment ?? false,
+      chartSourceHead: extra.chartSourceHead ?? null,
       predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -3809,11 +3862,36 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         chartAxisPair: field.chartAxisPair,
         chartAxisOrder: field.chartAxisOrder,
         chartAxisAssignment: field.chartAxisAssignment,
+        chartSourceHead: field.chartSourceHead,
         words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
       });
     };
     const literalField = (startTok, endTok) => tokens[startTok].kind === 'quote' && startTok === endTok
       ? tokens[startTok].inner : src.slice(tokens[startTok].start, tokens[endTok].end);
+    if (tabKeys.has('chart.measure') && tabKeys.has('chart.dimension')) {
+      for (const { nominalStart, startTok: benefit } of politeSpans) {
+        if (nominalStart == null) continue;
+        const owner = chartHeads.find((head) => headStart(head) === nominalStart &&
+          head.endTok < benefit && tokens[head.endTok + 1]?.lower === 'of');
+        if (!owner) continue;
+        const first = owner.endTok + 2;
+        const grouping = tokens.slice(first, benefit).findIndex(({ kind, lower }) => kind === 'word' && lower === 'by') + first;
+        if (grouping <= first || grouping + 1 >= benefit ||
+            chartFieldRole(tokens[grouping - 1], kb) ||
+            tokens.slice(grouping + 1, benefit).some(({ kind, lower }) => kind === 'word' && lower === 'by') ||
+            tokens.slice(first, grouping).some(({ kind, lower }) =>
+              kind === 'word' && ['against', 'versus', 'vs'].includes(lower)) ||
+            tokens.slice(first, benefit).some(({ kind }) => kind !== 'word' && kind !== 'quote')) continue;
+        const measureStart = tokens[first].lower === 'the' && first + 1 < grouping ? first + 1 : first;
+        const creation = { startTok: -1, scopeStart: owner.startTok, scopeEnd: benefit - 1 };
+        const chartSourceHead = [owner.startTok, owner.endTok];
+        emitField({ attribute: 'chart.measure', value: literalField(measureStart, grouping - 1),
+          startTok: measureStart, endTok: grouping - 1, wordsStart: first, chartSourceHead }, creation);
+        emitField({ attribute: 'chart.dimension', value: literalField(grouping + 1, benefit - 1),
+          startTok: grouping + 1, endTok: benefit - 1, wordsStart: grouping + 1,
+          cueStart: grouping, cueEnd: grouping, chartSourceHead }, creation);
+      }
+    }
     for (let i = 0; i < T; i++) {
       const marker = tokens[i].lower;
       if (tokens[i].kind === 'word' && ['against', 'versus', 'vs'].includes(marker) &&
@@ -4246,6 +4324,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.chartAxisPair ?? '',
       c.chartAxisOrder ?? 0,
       c.chartAxisAssignment ? 1 : 0,
+      c.chartSourceHead?.join(':') ?? '',
       c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
       c.predicateTargetHeads ? 1 : 0,
@@ -4284,6 +4363,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     frameMatches,
     coordinatedChanges: pairResultativeFrames(rawFrameMatches),
     nonDirectives: findNonDirectiveScopes(tokens, kb),
+    politeSpans,
     splitPoints,
     hasQuestionMark: src.includes('?'),
   };

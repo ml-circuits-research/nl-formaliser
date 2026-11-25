@@ -103,3 +103,5 @@
 - 2026-11-25 — Q-NL-057 consumes literal axis assignments, removes duplicate proposals and retains paired readings across written clause breaks and grounded scatter labels. Focused 5/5, repeat 6/6, full serial 255/255, axis check 11/14. Review requested.
 
 - 2026-11-25 — Q-NL-058 binds new artifact openings and existing artifact loads, preserves literal source spans, and checks intrinsic properties against the target family. Targeted 3/3, full 257/257, WebMeet new artifact 16/16 with native-valid leading proposals. The historical report is `lastResults-z3.md`.
+
+- 2026-11-25 — Q-NL-059 scopes polite leads and bare chart benefits. Exact chart type and fields 110/110, preamble ownership 32/32, full suite 259/259. The dataset reference review is separate from reader acceptance and the historical benchmark.

@@ -1298,3 +1298,19 @@ In the final run, the leading proposals passed native validation and kept the ne
 ### READY Q-NL-058 — review request
 
 Focused groups 3/3, final full serial suite 257/257, and final exact WebMeet opening cohort 16/16 native-valid leading proposals with the intended new artifact. Please independently review and publish the creation and loading distinction, exact source evidence, physical opening control and emitter compatibility change. The previously accepted `lastResults-z3.md` remains the saved aggregate report. No new aggregate was run.
+
+## Q-NL-059 — Keep polite lead-ins and a stated benefit outside directives
+
+The reader scopes comma-delimited polite lead-ins at clause edges, using the loaded conditional filler phrases and the written “when/if you have a minute/moment/second” construction. It preserves the exact lead as an outer filler. “Get” or “have” in that lead cannot become a predicate, an attachment or a target. An explicit second command, a modal invitation and an existing unresolved prohibition keep their own semantics. Typed or quoted content elsewhere is outside this mask. A genuinely conditional “when the layout is ready” is not a recognized polite lead.
+
+An indefinite catalog noun followed by the literal “would help” benefit can request creation without a written imperative. For the typed chart construction “a CHART of MEASURE by DIMENSION would help …”, the exact measure and grouping field attach to one new chart. The separately selected chart type or typed sort stays on that same request. The benefit remains literal outer evidence; “help”, “team” and “lot” cannot become chart measures. A following independent creation stays separate through segmentation.
+
+A lexical scan at `d1c15c5` counts 242 texts beginning with the particular chance/minute/moment/second lead-ins. A component check of the actual reader covers all 110 of the simple nominal chart pattern and a separate sample of direct commands. This inventory is distinct from the historical 1% benchmark. The same failure is independently visible in published reference cells with preamble verbs or benefit words formalised as results.
+
+**Canonical follow-up.** The existing `lead.polite`/filler declarations can host shared clause-edge preamble forms and their optional response-time nouns. The roles should preserve reported conditions and quotes. Also consider a declared generic diagram callout kind with its existing node label, colour and typography roles. The current knowledge scan finds `node.label`, `node.colour` and `node.slant`, but no published callout vocabulary. A written callout need not imply a pre-existing control or a created calendar object. This is a proposal for shared integration.
+
+Final targeted run at `d1c15c5`: 110/110 nominal chart texts had native-valid leading proposals, with the intended new chart, literal type, measure and grouping field. The type is represented by the declared chart type constraint or the typed chart target sort. In the separate 32-text sample, 32/32 leading proposals passed native validation and kept the exact lead outside their requests. That count tests preamble ownership; it does not grade their other operands. The cohort includes chart titles, callouts, sizing, alignment, cropping and table requests, whose other defects remain open.
+
+### READY Q-NL-059 — review request
+
+Focused groups 5/5, final full serial suite 259/259, and final targeted run 110/110 nominal bindings plus 32/32 native-valid preamble scopes. Please independently review the typed source fields and exact outer filler across combined requests. There is no new aggregate. Q058 has been independently accepted in `74e0e15`.
