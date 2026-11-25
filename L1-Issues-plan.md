@@ -45,7 +45,8 @@ Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează
 
 3. **Atașare locală & `phase` (`selector` vs `result`) în scene multi-obiect**
    - **Livrat în Q-NL-020**. Un predicat explicit de selecție, descriere sau ștergere poate lega ținta de relația spațială și reperul ei. Într-o cerere separată de mutare, relația continuă să descrie rezultatul.
-   - **Livrat în Q-NL-027**. Pronumele scris rămâne explicit pe ținta, reperul spațial sau proprietatea tipizată care îl folosește, cu sursă neprecizată. Posesorii de părți și mai multe repere în scene imbricate rămân deschise.
+   - **Livrat în Q-NL-027**. Pronumele scris rămâne explicit pe ținta, reperul spațial sau proprietatea tipizată care îl folosește, cu sursă neprecizată.
+   - **Livrat în Q-NL-028**. Un posesor scris rămâne legat de partea pe care o identifică. În „set the color of roof of the house to teal and the rotation to 45”, `the house` selectează acoperișul, iar culoarea și rotația rămân rezultate distincte. Mai multe repere în scene imbricate rămân deschise.
    - **Problema**: În propoziții lungi cu 3–6 obiecte (`drawing`, `diagram`), atributele (`colour`, `size`, `relation`) pot fi atașate greșit cererii vecine sau cu `phase=result` în loc de `phase=selector`.
    - **Acțiune**:
      - Penalizare progresivă de distanță în Z3 între constrângere și ținta/verbul propriu (`|c.startTok - tpos_r|`), cu barieră pe separatori de clauză (`,`, `and`, `then`, `:`).

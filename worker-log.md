@@ -43,3 +43,5 @@
 - 2026-11-25 — `946e8f2` adds the text-only JSONL batch CLI. Six inputs produced six ordered Z3 results, with no history and preserved alternatives. The standalone CLI and the Prolog command were checked. Isolated serial suite 220/220. See `READY-CLI-BATCH` in `questions.md`.
 
 - 2026-11-25 — `4ad17ed` exposes the common text-only library and `--batch` contract. Real Prolog and Z3 commands returned seven ordered results each outside their checkouts, and both default libraries served four calls each. Isolated serial suite 221/221. See `READY-COMPAT-BATCH` in `questions.md`.
+
+- 2026-11-25 — Q-NL-028 binds written part owners, including possessives, coordinated components and keyed results on nested owners. Twelve published Drawing probes pass native validation with one warning, and ten lead in auto mode. Full serial suite 224/224. Review requested in `questions.md`.

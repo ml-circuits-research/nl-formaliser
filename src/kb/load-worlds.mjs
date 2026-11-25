@@ -1258,6 +1258,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
   const positions = new Map();
   const objects = new Map();
   const bodyParts = new Map();
+  const partNames = new Set();
   const wearables = new Map();
   const feelings = new Map();
   const scenes = new Map();
@@ -1602,6 +1603,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     if (kinds['k.body.part'] || kinds['k.wearables.wearable']) {
       if (!bodyParts.has(low)) bodyParts.set(low, low);
     }
+    if (kinds['k.parts.name']) partNames.add(low);
     if (kinds['k.scenes.scene']) {
       if (!scenes.has(low)) scenes.set(low, low);
     }
@@ -1652,6 +1654,7 @@ function loadDomain(parse, worldsDir, vocabKinds, grammar, tabs) {
     valueEquivGroups,
     objects,
     bodyParts,
+    partNames,
     wearables,
     feelings,
     scenes,

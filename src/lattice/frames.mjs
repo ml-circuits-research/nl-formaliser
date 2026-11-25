@@ -264,6 +264,11 @@ export function findOwnerSelectors(thing, tokens, heads, relations, anchors) {
     anchors.filter((anchor) => anchor.endTok === thing.endTok));
 }
 
+export function partOwnerInThing(owner, thing) {
+  return thing && owner.partHead && owner.partHead[0] >= thing.startTok && owner.partHead[1] <= thing.endTok &&
+    owner.startTok >= thing.startTok - 1 && owner.endTok <= thing.endTok;
+}
+
 function propertyAttributes(span, kb, tabSpec) {
   const forms = singularisePhrase(span.text.toLowerCase(), kb);
   return new Set(forms.flatMap((form) => [...(tabSpec?.keyWordIndex?.get(form) ?? [])]));
@@ -297,6 +302,41 @@ function hasExactNumericKey(keys, span) {
 function contextValues(candidates, keys, span) {
   return candidates.filter((c) => c.startTok === span.startTok && c.endTok === span.endTok &&
     keys.some((key) => key.name === c.attribute && isStructuredPropertyValue(c, key)));
+}
+
+function isGroundedPropertyValue(candidate, keys) {
+  return isIndependentValueCandidate(candidate) || isStructuredPropertyValue(candidate, keys.get(candidate.attribute));
+}
+
+function splitPartProperties(value, connector, attributes, families, tokens, candidates, kb, tabKeys) {
+  const values = candidates.filter((c) => families.has(c.family) && isGroundedPropertyValue(c, tabKeys));
+  const keywords = candidates.filter((c) => c.kind === HYP_KINDS.KEY_WORD && c.startTok > value.startTok);
+  const properties = [];
+  let endTok = value.endTok;
+  for (let cut = endTok - 1; cut > value.startTok; cut--) {
+    if (!kb.grammar.coordinators?.has(tokens[cut].lower)) continue;
+    const afterCut = cut + 1;
+    const first = kb.grammar.determiners?.get(tokens[afterCut].lower)?.det === 'definite' ? afterCut + 1 : afterCut;
+    for (const attrSpan of keywords.filter((c) => c.startTok === first)) {
+      const startTok = matchWordSeqAt(tokens, attrSpan.endTok + 1, connector);
+      const attrs = values.filter((c) => c.startTok === startTok && c.endTok === endTok &&
+        attrSpan.attrs.includes(c.attribute)).map((c) => c.attribute);
+      if (attrs.length === 0) continue;
+      properties.unshift({ attrSpan, valSpan: { startTok, endTok }, attrs: [...new Set(attrs)] });
+      endTok = cut - 1;
+      if (tokens[endTok].text === ',') endTok--;
+      break;
+    }
+  }
+  const typed = values.some((c) => c.startTok === value.startTok && c.endTok === endTok && attributes.includes(c.attribute));
+  const literal = attributes.some((attribute) => {
+    const key = tabKeys.get(attribute);
+    return key && families.has(key.family) && ['span', 'candidate'].includes(key.head) && !key.values?.size;
+  }) && tokens.slice(value.startTok, endTok + 1).some((token) => token.isContent || token.kind === 'quote');
+  if (!properties.length || (!typed && !literal)) {
+    return { endTok: value.endTok, properties: [] };
+  }
+  return { endTok, properties };
 }
 
 function relativeTimeOperand(keys, tokens, start, end, kb, candidates) {
@@ -334,6 +374,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
   const windows = frameWindows(tokens, splitPoints, predicates);
   const relations = candidates.filter((c) => c.needsAnchor);
   const anchors = candidates.filter((c) => c.isAnchor);
+  const partOwners = candidates.filter((c) => c.partHead);
   const heads = candidates.filter((c) =>
     [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_REF].includes(c.kind));
   const valueEnds = new Map();
@@ -409,6 +450,22 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             while (rem <= clEnd && (tokens[rem].isPunct || tokens[rem].isFiller)) rem++;
             let contextKeys;
             let relativeTime;
+            const thing = roles.get('thing');
+            const attribute = roles.get('attribute');
+            const value = roles.get('value');
+            if (mayHaveLiteralValue && thing && attribute && value && partOwners.length) {
+              if (partOwners.some((owner) => owner.partHead[0] >= thing.startTok && owner.partHead[1] <= thing.endTok &&
+                owner.endTok > thing.endTok && owner.endTok <= value.endTok)) return;
+              const families = new Set(partOwners.filter((owner) => partOwnerInThing(owner, thing)).map((owner) => owner.family));
+              if (families.size) {
+                const attrs = propertyAttributes(attribute, kb, tabSpec);
+                const swallowsDirective = splitPoints.some((cut) => cut.startTok > value.startTok && cut.endTok < value.endTok &&
+                  predicates.some((p) => p.startTok === cut.endTok + 1) && candidates.some((c) =>
+                    c.startTok === value.startTok && c.endTok === cut.startTok - 1 && families.has(c.family) &&
+                    attrs.has(c.attribute) && isGroundedPropertyValue(c, tabSpec.keys)));
+                if (swallowsDirective) return;
+              }
+            }
             if (frame.contextProperty) {
               const value = roles.get('value');
               const attribute = roles.get('attribute');
@@ -478,11 +535,16 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
           }
 
           if (part.is === 'word') {
+            let boundValueConnector = false;
             for (const seq of part.wordSeqs) {
               const nxt = matchWordSeqAt(tokens, tIdx, seq);
               if (nxt > 0 && nxt <= clEnd + 1) {
                 const nextPred = part.act ? { startTok: tIdx, endTok: nxt - 1 } : predSpan;
                 const nextPart = parts.slice(pIdx + 1).find((p) => p.is !== 'det');
+                if (mayHaveLiteralValue && parts[pIdx - 1]?.role === 'thing' && nextPart?.role === 'value' &&
+                    roles.has('attribute') && partOwners.some((owner) => partOwnerInThing(owner, roles.get('thing')))) {
+                  boundValueConnector = true;
+                }
                 const nextAnchors = [...wordAnchors, {
                   text: seq.join(' '), startTok: tIdx, endTok: nxt - 1,
                   partAt: part.at,
@@ -499,7 +561,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                   tokens, tIdx, clEnd, kb, candidates)) {
               dfs(pIdx + 1, tIdx, roles, wordAnchors, predSpan);
             }
-            if (part.optional) dfs(pIdx + 1, tIdx, roles, wordAnchors, predSpan);
+            if (part.optional && !boundValueConnector) dfs(pIdx + 1, tIdx, roles, wordAnchors, predSpan);
             return;
           }
 
@@ -553,13 +615,32 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
 
             // `takes === 'words'` (open role span, bounded by maxWords or 5 tokens, never crossing comma/punct)
             const maxW = part.maxWords ?? (pIdx === P - 1 ? 6 : 4);
-            const maxEnd = Math.min(clEnd, tIdx + maxW - 1);
+            let maxEnd = Math.min(clEnd, tIdx + maxW - 1);
+            if (part.role === 'thing' && mayHaveLiteralValue && roles.has('attribute')) {
+              for (const owner of partOwners) {
+                if (owner.partHead[0] >= tIdx && owner.partHead[1] <= maxEnd && owner.endTok <= clEnd) {
+                  maxEnd = Math.max(maxEnd, owner.endTok);
+                }
+              }
+            }
             // If this is the last required part, prefer longer spans; otherwise try shortest-first to hit next anchor cleanly
             const lengths = [];
             for (let end = tIdx; end <= maxEnd; end++) {
               if (tokens[end].isPunct && end > tIdx) break;
               if (tokens[end].isPunct && end === tIdx) break;
               lengths.push(end);
+            }
+            if (part.role === 'value' && mayHaveLiteralValue && roles.has('thing') && roles.has('attribute')) {
+              const connector = wordAnchors.find((word) => word.afterRole === 'thing' && word.beforeRole === 'value');
+              const families = new Set(partOwners.filter((owner) => partOwnerInThing(owner, roles.get('thing'))).map((owner) => owner.family));
+              let last = clEnd;
+              while (last > tIdx && (tokens[last].isPunct || tokens[last].isFiller)) last--;
+              if (connector && families.size && last > (lengths.at(-1) ?? tIdx)) {
+                const attributes = [...propertyAttributes(roles.get('attribute'), kb, tabSpec)];
+                const split = splitPartProperties({ startTok: tIdx, endTok: last }, connector.text.split(' '), attributes,
+                  families, tokens, candidates, kb, tabSpec.keys);
+                if (split.properties.length) lengths.push(last);
+              }
             }
             if (pIdx === P - 1) lengths.reverse();
             for (const end of lengths) {
@@ -662,6 +743,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const thingSpan = fm.roles.get('thing');
     const valSpan = fm.roles.get('value');
     let resultSpan = valSpan;
+    let additionalProperties = [];
     let unresolvedDuration = null;
     let contextProperty = null;
     const oldSpan = fm.roles.get('old');
@@ -723,6 +805,15 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
         return key && (!fm.clauseWindow?.internalJoiners || key.head === 'span');
       });
       if (valSpan && matchedAttrs.length > 0) {
+        const partFamilies = new Set(candidates.filter((c) => partOwnerInThing(c, thingSpan)).map((c) => c.family));
+        const connector = fm.wordAnchors.find((word) => word.afterRole === 'thing' && word.beforeRole === 'value');
+        if (propertyOwnerMarker && partFamilies.size && connector) {
+          const split = splitPartProperties(valSpan, connector.text.split(' '), matchedAttrs, partFamilies, tokens, candidates, kb, tabKeys);
+          additionalProperties = split.properties;
+          if (split.endTok !== valSpan.endTok) {
+            resultSpan = { ...valSpan, endTok: split.endTok, text: text.slice(tokens[valSpan.startTok].start, tokens[split.endTok].end) };
+          }
+        }
         const surface = attrSpan.text.toLowerCase();
         for (const attr of matchedAttrs) {
           const key = tabKeys.get(attr);
@@ -908,6 +999,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       endTok: fm.endTok,
       clauseWindow: fm.clauseWindow,
       propertyOwnerMarker,
+      additionalProperties,
       describedOwner,
       unresolvedDuration,
       contextProperty,

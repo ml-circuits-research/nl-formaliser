@@ -21,7 +21,7 @@ import {
   phaseToSmt,
   wantToSmt,
 } from '../contracts.mjs';
-import { findOwnerSelectors, findSpatialOwners, isStructuredPropertyValue } from '../lattice/frames.mjs';
+import { findOwnerSelectors, findSpatialOwners, isStructuredPropertyValue, partOwnerInThing } from '../lattice/frames.mjs';
 import { overlapsProhibition } from '../lattice/prohibitions.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -752,6 +752,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // -------------------------------------------------------------------------
   const placeConstraints = [];
   const attrOnlyConstraints = [];
+  const partOwners = new Map();
+  const makePredicates = preds.filter((p) => p.declaredMake);
 
   for (const c of constraints) {
     const cFam = c.attrFamily ?? c.family ?? (c.attribute ? c.attribute.split('.')[0] : null);
@@ -759,10 +761,17 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const compatFids = cFam ? compatTargetFamilyIds(tab, tabSpec, cFam) : [];
     const phExpr = phaseExprOf.get(c.id);
     const shortKey = c.attribute && c.attribute.includes('.') ? c.attribute.split('.').slice(1).join('.') : '';
+    const partHeads = c.partHead && [...tSorts, ...tFams].filter((h) => h.family === c.family &&
+      h.startTok === c.partHead[0] && h.endTok === c.partHead[1]);
+    if (partHeads) {
+      const key = `${c.partHead[0]}:${c.startTok}`;
+      if (!partOwners.has(key)) partOwners.set(key, []);
+      partOwners.get(key).push(`sel_${c.id}`);
+    }
 
     if (c.on === 'place' || PLACE_SHORT_KEYS.has(shortKey)) {
       placeConstraints.push(c);
-    } else if (shortKey !== 'id' && shortKey !== 'ids') {
+    } else if (shortKey !== 'id' && shortKey !== 'ids' && !c.partHead) {
       attrOnlyConstraints.push(c);
     }
 
@@ -774,6 +783,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         emit(`(assert-soft (=> (and sel_${c.id} (= own_${c.id} ${r})) (= fam_${r} ${cFamId})) :weight 12)`);
       }
       emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (phase-new-law tmode_${r} ${c.isAnchor ? 'true' : 'false'} ${phExpr})))`);
+      if (partHeads) {
+        const heads = smtOr(partHeads.map((h) => `(and sel_${h.id} (= own_${h.id} ${r}))`));
+        const partPhase = `(ite (= tmode_${r} TM_NEW) PH_RESULT PH_SELECTOR)`;
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and ${heads} (= fam_${r} ${cFamId}) (= ${phExpr} ${partPhase}))))`);
+        const creates = smtOr(makePredicates.filter((p) => p.endTok < c.partHead[0])
+          .map((p) => `(and sel_${p.id} (= own_${p.id} ${r}))`));
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r}) ${creates}) (= act_${r} ACT_MAKE)))`);
+      }
       if (c.creationOnly) {
         emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= fam_${r} ${cFamId}) (<= 0 ppos_${r}) (< ppos_${r} ${c.startTok}))))`);
       }
@@ -803,6 +820,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     if (kws.length > 0) {
       emit(`(assert-soft (=> sel_${c.id} (>= ${kwExprOf.get(c.id)} 0)) :weight 14)`);
     }
+  }
+
+  for (const readings of partOwners.values()) {
+    emit(`(assert-soft ${smtOr(readings)} :weight ${W.partOwner})`);
   }
 
   // Act–Constraint Alignment in Z3 (resolves ambiguous verbs like "set"/"put" AND verbless fragments like "stove, please" / "room for 6 called Birch"!)
@@ -1064,7 +1085,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const anchoredRelations = constraints.filter((c) => c.needsAnchor);
   const landmarkCandidates = constraints.filter((c) => c.isAnchor);
   const referenceLandmarks = new Map();
-  for (const anchor of landmarkCandidates.filter((c) => c.anchorReference)) {
+  for (const anchor of landmarkCandidates.filter((c) => c.lookupWords)) {
     const key = `${anchor.startTok}:${anchor.endTok}`;
     const bindings = anchoredRelations.filter((rel) => rel.family === anchor.family && rel.endTok + 1 === anchor.startTok)
       .map((rel) => `(and sel_${rel.id} sel_${anchor.id} (= own_${rel.id} own_${anchor.id}))`);
@@ -1230,6 +1251,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const ownerSelectors = ownerMarker || fm.describedOwner
       ? findOwnerSelectors(fm.thingSpan, tokens, ownerCands, anchoredRelations, landmarkCandidates)
       : [];
+    const partOwnerSelectors = ownerMarker ? constraints.filter((c) => partOwnerInThing(c, fm.thingSpan)).flatMap((owner) =>
+      ownerCands.filter((head) => head.family === owner.family && head.startTok === owner.partHead[0] &&
+        head.endTok === owner.partHead[1]).map((head) => ({ head, owner }))) : [];
+    const additionalResults = (fm.additionalProperties ?? []).map(({ attrSpan, valSpan, attrs }) => constraints
+      .filter((c) => sameSpan(c, valSpan) && attrs.includes(c.attribute) &&
+        (isIndependentValueCandidate(c) || isStructuredPropertyValue(c, tabSpec.keys.get(c.attribute))))
+      .flatMap((value) => (compatKwsOfConstraint.get(value.id) ?? []).filter((keyword) => sameSpan(keyword, attrSpan))
+        .map((keyword) => ({ value, keyword }))));
 
     const oldCands = fm.oldSpan
       ? constraints.filter(
@@ -1287,12 +1316,20 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
           `(and ${phaseInR(value, 'PH_RESULT')} (= ${kwExprOf.get(value.id)} ${keyword.id}))`;
         const selectors = ownerSelectors.map(({ heads, relation, anchor }) =>
           `(and ${smtOr(heads.map(headInR))} ${phaseInR(relation, 'PH_SELECTOR')} ${phaseInR(anchor, 'PH_SELECTOR')})`);
-        const owners = selectors.length || fm.describedOwner ? selectors : ownerCands.map(headInR);
+        const partSelectors = partOwnerSelectors.map(({ head, owner }) =>
+          `(and ${headInR(head)} ${phaseInR(owner, 'PH_SELECTOR')})`);
+        const owners = partSelectors.length ? partSelectors :
+          selectors.length || fm.describedOwner ? selectors : ownerCands.map(headInR);
+        const boundResults = partSelectors.length ? propertyResults.filter(({ value }) =>
+          partOwnerSelectors.some(({ owner }) => owner.family === value.family)) : propertyResults;
         const results = fm.describedOwner
           ? describedOwnerResults.map((c) => phaseInR(c, 'PH_RESULT'))
-          : propertyResults.map(binding);
+          : boundResults.map(binding);
         emit(`(assert (=> ${frInR} ${smtOr(owners)}))`);
         emit(`(assert (=> ${frInR} ${smtOr(results)}))`);
+        for (const options of additionalResults) {
+          emit(`(assert (=> ${frInR} ${smtOr(options.map(binding))}))`);
+        }
 
         if (fm.describedOwner) {
           const sameFamily = ownerSelectors.flatMap(({ relation }) => describedOwnerResults
@@ -1304,7 +1341,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         }
 
         // Resolve keyword aliases and spatial homonyms using the declared slots.
-        const directProperties = propertyResults.filter(({ value, keyword }) =>
+        const directProperties = boundResults.filter(({ value, keyword }) =>
           value.attribute.split('.').at(-1).toLowerCase() === keyword.text.toLowerCase());
         if (directProperties.length > 0) {
           emit(`(assert-soft (=> ${frInR} ${smtOr(directProperties.map(binding))}) :weight 10)`);

@@ -876,6 +876,16 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   const rawCandidates = [];
   const splitPoints = [];
   const splitSeen = new Set();
+  const hasPartOwners = tabKeys.has('part.owner');
+
+  const genitiveOwner = (index) => {
+    const token = tokens[index];
+    if (token?.kind !== 'word') return null;
+    const value = token.text.match(/^(.+)['’]s$/i)?.[1];
+    if (!value || pronounRefs.has(value.toLowerCase()) ||
+        (!token.isProperCandidate && !vocabMatch(kb?.domain?.objects, value.toLowerCase()))) return null;
+    return value;
+  };
 
   const emit = (cand) => {
     const start = tokens[cand.startTok].start;
@@ -930,7 +940,9 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       needsAnchor: Boolean(extra.needsAnchor),
       isAnchor: Boolean(extra.isAnchor),
-      anchorReference: Boolean(extra.anchorReference),
+      lookupWords: extra.lookupWords ?? null,
+      partHead: extra.partHead ?? null,
+      words: extra.words ?? null,
       pairedConstraints: extra.pairedConstraints ?? null,
       measure: extra.measure ?? null,
       unit: extra.unit ?? null,
@@ -1304,6 +1316,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
       }
 
+      const declaredMake = licensed.length > 0 && licensed.every((l) => l.act === 'make');
       // Placement & feature-addition verbs ("place", "put", "give") also license act=make;
       // "add" / "draw" / "include" / "show" also license act=change (adding a feature/legend/gridlines to an existing chart/object!).
       if (len === 1 && verbLemmas.some((l) => PLACE_OR_MAKE_VERBS.has(l))) {
@@ -1397,6 +1410,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             startTok: i,
             endTok: e,
             licensed: actionLicensed,
+            declaredMake,
             isKeepingVerb: isKeeping,
             intrinsicConstraints: intrinsic,
             cost: isMidSentCapProper ? 12 : isSpecKeyAfterSemi ? 10 : isInflectedNonImperative ? 14 : (len === 1 ? 2 : 1),
@@ -1777,6 +1791,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         if (tab === 'drawing') {
           const bp = vocabMatch(kb?.domain?.bodyParts, f);
           if (bp) addSort(bp, 'part');
+          if (hasPartOwners && kb?.domain?.partNames?.has(f) && (checkDetBefore(i).det === 'possessive' ||
+              genitiveOwner(i - 1) || rolePreps.get(tokens[e + 1]?.lower) === 'part')) {
+            addSort(f, 'part');
+          }
           const obj = vocabMatch(kb?.domain?.objects, f);
           if (obj) addSort(obj, 'drawn');
           const ppl = vocabMatch(kb?.domain?.people, f);
@@ -3294,6 +3312,38 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // -------------------------------------------------------------------------
   // 10j. Preposition / Cue / Key-Word-Anchored Open Spans
   // -------------------------------------------------------------------------
+  if (hasPartOwners) {
+    const heads = rawCandidates.filter((c) => c.kind === HYP_KINDS.TARGET_SORT || c.kind === HYP_KINDS.TARGET_FAMILY);
+    const writtenNames = rawCandidates.filter((c) => c.kind === HYP_KINDS.TARGET_REF && c.name);
+    for (const head of heads.filter((c) => c.family === 'part')) {
+      const partHead = [head.startTok, head.endTok];
+      const emitOwner = (value, start, end, options = {}) => emitConstraint('part.owner', value, start, end, {
+        phase: 'selector', cost: 2, partHead, ...options,
+      });
+      if (head.det === 'possessive' && head.detTok >= 0) {
+        const owner = tokens[head.detTok].text;
+        emitOwner(owner, head.detTok, head.detTok, { lookupWords: owner });
+      }
+      const genitiveTok = head.startTok - 1;
+      const genitive = genitiveOwner(genitiveTok);
+      if (genitive) emitOwner(genitive, genitiveTok, genitiveTok, { words: tokens[genitiveTok].text });
+
+      const prep = head.endTok + 1;
+      if (rolePreps.get(tokens[prep]?.lower) !== 'part' || prep + 1 >= T) continue;
+      const ownerStart = prep + 1;
+      const reference = referenceAt(ownerStart);
+      if (reference) {
+        const words = src.slice(tokens[ownerStart].start, tokens[reference.end].end);
+        emitOwner(words, ownerStart, reference.end, { lookupWords: words });
+      } else {
+        const owners = [...heads, ...writtenNames].filter((c) => c.startTok === ownerStart || c.detTok === ownerStart);
+        for (const owner of owners) {
+          emitOwner(src.slice(tokens[ownerStart].start, tokens[owner.endTok].end), ownerStart, owner.endTok);
+        }
+      }
+    }
+  }
+
   // Collect KeyWord triggers (index -> attrs) so open spans right after KEY_WORD get emitted
   const kwTriggerAtEndTok = new Map();
   for (const c of rawCandidates) {
@@ -3413,13 +3463,14 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           });
           const reference = referenceAt(i + 1);
           if (reference) {
+            const words = src.slice(tokens[i + 1].start, tokens[reference.end].end);
             for (const ak of anchorKeys) {
               if (tabKeys.has(ak)) {
-                emitConstraint(ak, src.slice(tokens[i + 1].start, tokens[reference.end].end), i + 1, reference.end, {
+                emitConstraint(ak, words, i + 1, reference.end, {
                   phase: 'selector',
                   operator: 'relation',
                   isAnchor: true,
-                  anchorReference: true,
+                  lookupWords: words,
                   cost: 2.0,
                 });
               }
@@ -3484,7 +3535,6 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           const isOwnerFamily = ['diagram', 'chart', 'graph', 'page', 'node', 'group'].includes(tokens[nextStart]?.lower ?? '');
           emitOpenSpansStartingAt(nextStart, isOwnerFamily ? ['chart.measure'] : ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
         }
-        if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['part.owner'], { phase: 'selector', cost: 5 });
       } else if (tok.lower === 'for') {
         if (tab === 'diagram') {
           emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
@@ -3675,6 +3725,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       c.step ?? '',
       c.phase ?? '',
       c.isAnchor ? 1 : 0,
+      c.partHead?.join(':') ?? '',
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.creationOnly ? 1 : 0,

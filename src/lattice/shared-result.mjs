@@ -5,7 +5,8 @@ const isWrittenName = (c) => c.kind === HYP_KINDS.TARGET_REF && c.name && (c.isC
 const isUncounted = (c) => c.count == null && !c.quantifier && !c.ordinal && c.det !== 'indefinite';
 
 function ownerAt(candidates, from, to) {
-  const startsAt = (c) => Math.min(c.startTok, c.detTok >= 0 ? c.detTok : c.startTok) === from;
+  const nounStart = (c) => Math.min(c.startTok, c.detTok >= 0 ? c.detTok : c.startTok);
+  const startsAt = (c) => nounStart(c) === from;
   const typed = candidates.filter((c) => isTypedHead(c) && isUncounted(c) && startsAt(c) && c.endTok <= to);
   const names = candidates.filter((c) => isWrittenName(c) && isUncounted(c) && c.endTok === to);
   const owners = typed.filter((head) => head.endTok === to);
@@ -16,10 +17,16 @@ function ownerAt(candidates, from, to) {
       if (head.endTok + 1 === name.startTok || intro) owners.push({ ...head, name: name.name });
     }
   }
-  return owners;
+  const partOwners = candidates.filter((c) => c.partHead && c.startTok >= from && c.endTok <= to);
+  const ownedParts = partOwners.flatMap((partOwner) => candidates.filter((head) =>
+    isTypedHead(head) && isUncounted(head) && head.family === 'part' &&
+    head.startTok === partOwner.partHead[0] && head.endTok === partOwner.partHead[1] &&
+    Math.min(nounStart(head), partOwner.startTok) === from && Math.max(head.endTok, partOwner.endTok) === to)
+    .map((head) => ({ ...head, partOwner })));
+  return ownedParts.length ? ownedParts : owners;
 }
 
-export function sharedResultReadings(lattice, grammar, keys, maxRequests) {
+export function sharedResultReadings(lattice, grammar, keys, maxRequests, partNames) {
   if (maxRequests < 2 || !grammar.constructions.has('coord.shared-suffix')) return [];
   const { text, tokens, candidates, splitPoints } = lattice;
   const separators = splitPoints.filter((cut) => !cut.isStrong && grammar.coordinators.has(cut.text.toLowerCase()));
@@ -52,14 +59,27 @@ export function sharedResultReadings(lattice, grammar, keys, maxRequests) {
     for (const predicate of predicates) {
       const starts = [predicate.endTok + 1, ...cuts.map((cut) => cut.endTok + 1)];
       const ends = [...cuts.map((cut) => cut.startTok - 1), from - 1];
+      const firstOwners = ownerAt(candidates, starts[0], ends[0]);
+      const possessive = firstOwners.find((c) => c.det === 'possessive' && c.partOwner?.startTok === starts[0] &&
+        c.partOwner.endTok === starts[0])?.partOwner;
       const heads = starts.map((start, index) => {
         const end = ends[index];
         if (start > end) return null;
-        const owners = ownerAt(candidates, start, end);
+        let owners = index === 0 ? firstOwners : ownerAt(candidates, start, end);
         if (!owners.length) return null;
-        const head = text.slice(tokens[start].start, tokens[end].end);
+        let head = text.slice(tokens[start].start, tokens[end].end);
+        let scopeStart = tokens[start].start;
+        if (index > 0 && possessive && !owners.some((c) => c.partOwner)) {
+          const parts = owners.filter((c) => c.sort && c.det === 'none' &&
+            (c.family === 'part' || partNames?.has(c.text.toLowerCase())));
+          if (parts.length) {
+            owners = parts.map((c) => ({ ...c, family: 'part', partOwner: possessive }));
+            head = `${possessive.lookupWords} ${head}`;
+            scopeStart = possessive.start;
+          }
+        }
         const prefix = text.slice(0, tokens[predicate.endTok].end);
-        return { owners, start: tokens[start].start, projectedText: `${prefix} ${head} ${text.slice(suffixStart)}` };
+        return { owners, start: scopeStart, projectedText: `${prefix} ${head} ${text.slice(suffixStart)}` };
       });
       if (heads.every(Boolean)) readings.push({ heads, predicate, values: values.filter((v) => v.startTok === from) });
     }
@@ -73,19 +93,27 @@ export function independentChange(wires, { owners, predicate, values, keys }) {
   const constraints = wires.filter((w) => w.type === 'w.request.constraint');
   const [request] = requests;
   const [target] = targets;
-  const [result] = constraints;
   const attr = (wire, key) => unquoteSop(wire.attrs[key]?.[0] ?? '');
-  if (requests.length !== 1 || targets.length !== 1 || constraints.length !== 1 ||
+  const results = constraints.filter((wire) => attr(wire, 'phase') === 'result');
+  const [result] = results;
+  const selectors = constraints.filter((wire) => attr(wire, 'phase') === 'selector' && attr(wire, 'attribute') === 'part.owner');
+  const [selector] = selectors;
+  if (requests.length !== 1 || targets.length !== 1 || results.length !== 1 ||
+      selectors.length > 1 || constraints.length !== results.length + selectors.length ||
       wires.some((w) => w.type === 'w.request.unread') ||
       attr(request, 'act') !== 'change' || attr(request, 'mood') !== 'do' ||
-      attr(request, 'predicate') !== predicate.text || attr(target, 'mode') !== 'existing' ||
-      attr(result, 'phase') !== 'result') return null;
+      attr(request, 'predicate') !== predicate.text || attr(target, 'mode') !== 'existing') return null;
 
   const family = attr(target, 'family');
   const sort = attr(target, 'sort');
   const name = attr(target, 'name');
+  const partOwner = selector ? attr(selector, 'value') : '';
+  const lookup = selector ? wires.find((wire) => wire.type === 'w.request.lookup' &&
+    attr(wire, 'constraint') === `$${selector.id}` && attr(wire, 'key') === 'thing') : null;
   if (!owners.some((owner) => (!owner.family || family === owner.family) &&
-      (!owner.sort || sort === owner.sort) && (owner.name ?? '') === name)) return null;
+      (!owner.sort || sort === owner.sort) && (owner.name ?? '') === name &&
+      (owner.partOwner?.value ?? '') === partOwner &&
+      (owner.partOwner?.lookupWords ?? '') === (lookup ? attr(lookup, 'words') : ''))) return null;
 
   const key = keys.get(attr(result, 'attribute'));
   const value = attr(result, 'value');
@@ -95,7 +123,7 @@ export function independentChange(wires, { owners, predicate, values, keys }) {
   if (!writtenValue) return null;
 
   return {
-    target: JSON.stringify(name ? ['name', name.toLowerCase()] : [family, sort]),
+    target: JSON.stringify(name ? ['name', name.toLowerCase()] : [family, sort, partOwner]),
     property: key,
     resultEnd: writtenValue.end,
     effect: JSON.stringify([operator, value, attr(result, 'measure'), attr(result, 'unit')]),

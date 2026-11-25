@@ -27,6 +27,10 @@ function unresolvedProhibitions(scopes, rawText, alignment) {
   });
 }
 
+function partOwnerDomainEvidence(check) {
+  return check.wires?.some((wire) => wire.type === 'w.request.constraint' && wire.attrs.attribute?.[0] === 'part.owner') ? 20 : 0;
+}
+
 /**
  * Join separately solved circuits. Ordinary clauses keep their own spans;
  * clauses with a shared result use their source hulls.
@@ -164,7 +168,7 @@ export async function createFormaliser({
   async function solveSharedResult(lattice, { tab, previous, clock, maxRequests, timeout, effWeights }) {
     if (!verifier || lattice.prohibitions.length) return null;
     const keys = kb.tabs[tab].keys;
-    for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests)) {
+    for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests, kb.domain.partNames)) {
       const results = [];
       const targets = new Set();
       let first;
@@ -176,8 +180,9 @@ export async function createFormaliser({
         if (!check.ok || check.warnings.length) break;
         const change = independentChange(verifier.parse(sop), { owners, predicate, values, keys });
         if (!change || targets.has(change.target)) break;
+        const propertyName = (key) => key.means?.split('.').at(-1) ?? key.shortName;
         if (first && (first.effect !== change.effect || (first.property.shortName !== change.property.shortName &&
-            !(first.property.means && first.property.means === change.property.means)))) break;
+            propertyName(first.property) !== propertyName(change.property)))) break;
         targets.add(change.target);
         first ??= change;
         const hullStart = results.length === 0 ? predicate.start : start;
@@ -353,7 +358,7 @@ export async function createFormaliser({
       const perTabTimeout = Math.max(1800, Math.floor(timeout * 0.6));
 
       for (let ti = 0; ti < selectedTabs.length; ti++) {
-        const { tab: candTab, score: domainScore } = selectedTabs[ti];
+        const { tab: candTab, score: latticeScore } = selectedTabs[ti];
         const kForTab = ti < 3 || selectedTabs[ti].exclusiveHits > 0 ? Math.max(1, perTabTopK) : 1;
         const sub = await formalise(rawText, {
           tab: candTab,
@@ -386,6 +391,7 @@ export async function createFormaliser({
 
           const chk = verifier ? verifier.check(rawText, cSop, candTab) : { ok: true, warnings: [] };
           if (!chk.ok) continue;
+          const domainScore = latticeScore + partOwnerDomainEvidence(chk);
           const warnCount = chk.warnings?.length ?? 0;
           const normKey = cSop.replace(/\r\n/g, '\n').trim();
           const existing = proposalMap.get(normKey);
@@ -429,7 +435,7 @@ export async function createFormaliser({
                   tab: candTab,
                   objective: typeof rawSub.objectives?.[0] === 'number' ? rawSub.objectives[0] : null,
                   warnings: rawChk.warnings?.length ?? 0,
-                  domainScore,
+                  domainScore: latticeScore + partOwnerDomainEvidence(rawChk),
                   rankInTab: 1,
                 });
               }

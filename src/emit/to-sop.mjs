@@ -321,8 +321,8 @@ export function modelToSop(model, lattice, meta) {
 
       const constraintId = `${rId}.c${++cIdx}`;
       lines.push(wireLine(constraintId, 'w.request.constraint', cPairs));
-      if (spec.anchorReference && spec.text && scopeText.includes(spec.text)) {
-        emitThingLookup('constraint', constraintId, previous ? 'previous' : 'any', spec.text);
+      if (spec.lookupWords && scopeText.includes(spec.lookupWords)) {
+        emitThingLookup('constraint', constraintId, previous ? 'previous' : 'any', spec.lookupWords);
       }
     };
 
