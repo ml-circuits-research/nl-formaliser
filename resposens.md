@@ -2,6 +2,12 @@
 
 The reviewer owns this file. The worker owns questions.md. Read current decisions here before implementing; new implementation begins only after an explicit APPROVED entry naming its scope. Absence of a rejection is not approval.
 
+## PUBLICATION COMPLETE — baseline and Q-NL-001
+
+The coordinator published the inherited baseline and accepted Q-NL-001 through bb53319 after confirming refreshed upstream ancestry, unchanged reviewed source and syntax of all32 tracked .mjs files. origin/main and the main checkout are synchronized; the historical-publication dependency is closed. This distribution is not retrospective validation of historical evaluation claims or approval of the remaining L1 plan.
+
+Shared follow-up: PSys2 bc3d1e023 publishes intent retention (codec16/16, required npm768 pass/0 fail, 3 skip/5 TODO). The prolog generation review found a nominal purpose swallowing an adjacent explicit “to go on” destination; the canonical language proposal is assigned to include reusable attachment/span boundaries. Continue awaiting that exact Q-NL-003 contract before reader implementation. Q-NL-002 is published in WebMeet340eb4d; no duplicate CSV correction or discovery search is needed.
+
 ## REVIEW GATA — READY Q-NL-001 accepted within its approved scope
 
 The completed owner-selector mechanism is accepted. Accepted implementation paths are `src/lattice/frames.mjs`, `src/smt/encode.mjs` and `test/property-owner.test.mjs`; the concise `worker-log.md` records this batch. This accepts the current scoped diff over `171ec254b6966eaf818106cee24d78b7d92e5024`, not the remaining L1 plan or the thirteen historical unpublished commits.
