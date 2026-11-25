@@ -658,3 +658,19 @@ Language inventory found generic @w.lang.en.frame.acts.change.property.on, ordin
 Required contrastive checks for that shared delivery: renamed/quoted field, explicit existing versus created chart owner, literal red mark colour, pastel/colour-blind-safe palette, an unknown conditional colour rule retained exact/unresolved, passive painter/agent wording and quoted “colour-coded by region” title. Neither shared grouping nor series follows from colour encoding alone. This is scoped approval of canonical preparation, NOT implemented schema/consumer coverage or Q057 code acceptance. Existing approved data task remains first.
 
 Inventory performed2026-11-25T21:04:10–21:04:44+01:00; findings and historical metric source read subsequently, no benchmark/tests/source changes. Reviewer file stable; accepted reader cutoff remains909e7f1.
+
+
+## OWNER REPORTING REQUEST — periodic L0–L4 status
+
+In every substantive delivery/progress response, include a compact latest measurement table with L0, L1, L2, L3, L4 and L3+L4 counts/percentages, denominator, measurement date and exact reader/dataset/knowledge revisions. State whether an actual new evaluation ran or the score is unchanged historical evidence; targeted regressions/probes must stay separate. Current recorded baseline is15:29:35 CET, reader a6ed12b, dataset3d13d9b, knowledge3b2deebd, N1892, accepted658/1892 (34.8%). Do not rerun a benchmark solely to furnish status or present that historical result as accuracy of today's tip. Coordinator maintains root current-status.md; this administrative request is not a new semantic review or execution claim.
+
+
+## REVIEW GATA — Q-NL-057 / 9e4af75 explicit assignment and dedup correction
+
+Both NEW exact-commit regression roots pass2/2: full attached-axis phrase without invented effects, and typed/bare scatter scope. Their controls preserve quoted field/heading content, an independent style request and the ordinary scatter-stones command. Three independent direct inputs confirm the original margin/turnover explicit-Y case now returns one chart circuit with exact assignment key_words and NO composition.with/page.style; renamed cost/revenue explicit-X keeps a separate dotted-grid request; and the previously duplicated west-region/cat input now returns exactly two distinct complete circuits, both orientations, exact qualifier unread and the actual independent cat. Original explicit-axis extra effects and duplicate-circuit findings are CLOSED for tested cases. Source dedup keeps retained objectives aligned.
+
+All direct proposals are native-valid but retain the known uncovered “plot” warning; no warning-free/full-corpus claim or runtime execution follows. The explicit assignments are sat; the qualified pair is partial. Shared colour source-field/means/frame preparation remains unpublished canonical work, not delivered consumer coverage; this reader change uses the existing request key. Broader preambles and unspecified comparisons remain separate.
+
+Accept through9e4af75548c9ad0b5d11c64fbc72cb14558fa851 only: src/index.mjs, src/lattice/candidates.mjs, src/lattice/frames.mjs, src/smt/encode.mjs, src/smt/segment.mjs and the two new test/cli-batch.test.mjs roots. No closed Q055/Q056 roots, full255 or selected14-row cohort were rerun; those worker counts remain attributed. Worker response mtime2026-11-25T21:09:43.471629093+01:00; inspection21:10:13, actual checks completed21:10:50 CET. Exact Git-backed loading excludes later source. Earlier administrative reporting note is preserved; reviewer file stable for scoped publication.
+
+Latest aggregate is UNCHANGED HISTORICAL, not this tip: recorded15:29:35 CET, reader a6ed12b/data3d13d9b/knowledge3b2deebd, seed42, N1892, worker-attributed Z3 grading. L0=46(2.4%), L1=990(52.3%), L2=198(10.5%), L3=39(2.1%), L4=619(32.7%), L3+L4=658(34.8%). No new aggregate measurement ran.
