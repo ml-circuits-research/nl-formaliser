@@ -1,10 +1,10 @@
 # WebMeet reference errors found by the Z3 worker
 
-The 97 Q059 entries were reviewed and approved for data integration. Later entries have their own review status. The 94 nominal chart cases have the exact benefit amendment below, and the three page-creation cases were approved as proposed. The recorded snapshot preserves the original reference evidence. [Reviewer decision](resposens.md#data-decision--report4a63877-97-exact-cells-approved-individual-report-route)
+All 97 Q059 reference corrections were published in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888`. The published cells match the exact proposed circuits recorded below. Ninety-four chart entries include the approved benefit amendment and three page entries were published as proposed. Each entry retains its original source evidence. [Publication review](resposens.md#data-publication--approved-report-corrections-closed)
 
 ## Z3-GOLD-CHARTS-01-0552 — diagram/charts-01.csv, record 552, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -46,7 +46,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0572 — diagram/charts-01.csv, record 572, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -88,7 +88,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0614 — diagram/charts-01.csv, record 614, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -129,7 +129,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0636 — diagram/charts-01.csv, record 636, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -170,7 +170,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0657 — diagram/charts-01.csv, record 657, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -211,7 +211,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0681 — diagram/charts-01.csv, record 681, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -252,7 +252,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0702 — diagram/charts-01.csv, record 702, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -293,7 +293,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0723 — diagram/charts-01.csv, record 723, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -334,7 +334,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0741 — diagram/charts-01.csv, record 741, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -375,7 +375,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0762 — diagram/charts-01.csv, record 762, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -416,7 +416,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0781 — diagram/charts-01.csv, record 781, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -457,7 +457,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0803 — diagram/charts-01.csv, record 803, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -498,7 +498,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0822 — diagram/charts-01.csv, record 822, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -539,7 +539,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0841 — diagram/charts-01.csv, record 841, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -581,7 +581,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0863 — diagram/charts-01.csv, record 863, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -623,7 +623,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0883 — diagram/charts-01.csv, record 883, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -665,7 +665,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0907 — diagram/charts-01.csv, record 907, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -707,7 +707,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0926 — diagram/charts-01.csv, record 926, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -749,7 +749,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0947 — diagram/charts-01.csv, record 947, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -791,7 +791,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-0989 — diagram/charts-01.csv, record 989, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -833,7 +833,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1010 — diagram/charts-01.csv, record 1010, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -875,7 +875,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1030 — diagram/charts-01.csv, record 1030, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -917,7 +917,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1050 — diagram/charts-01.csv, record 1050, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -959,7 +959,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1073 — diagram/charts-01.csv, record 1073, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1001,7 +1001,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1097 — diagram/charts-01.csv, record 1097, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1043,7 +1043,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1119 — diagram/charts-01.csv, record 1119, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1085,7 +1085,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1142 — diagram/charts-01.csv, record 1142, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1127,7 +1127,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1180 — diagram/charts-01.csv, record 1180, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1169,7 +1169,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1199 — diagram/charts-01.csv, record 1199, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1211,7 +1211,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1221 — diagram/charts-01.csv, record 1221, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1253,7 +1253,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1263 — diagram/charts-01.csv, record 1263, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1295,7 +1295,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1284 — diagram/charts-01.csv, record 1284, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1337,7 +1337,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1300 — diagram/charts-01.csv, record 1300, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1379,7 +1379,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1321 — diagram/charts-01.csv, record 1321, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1421,7 +1421,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1341 — diagram/charts-01.csv, record 1341, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1463,7 +1463,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1362 — diagram/charts-01.csv, record 1362, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1505,7 +1505,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1385 — diagram/charts-01.csv, record 1385, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1547,7 +1547,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1404 — diagram/charts-01.csv, record 1404, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1590,7 +1590,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1426 — diagram/charts-01.csv, record 1426, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1633,7 +1633,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1447 — diagram/charts-01.csv, record 1447, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1675,7 +1675,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1468 — diagram/charts-01.csv, record 1468, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1717,7 +1717,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1490 — diagram/charts-01.csv, record 1490, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1760,7 +1760,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1532 — diagram/charts-01.csv, record 1532, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1802,7 +1802,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1554 — diagram/charts-01.csv, record 1554, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1844,7 +1844,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1572 — diagram/charts-01.csv, record 1572, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1886,7 +1886,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1616 — diagram/charts-01.csv, record 1616, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1928,7 +1928,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1638 — diagram/charts-01.csv, record 1638, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1970,7 +1970,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1658 — diagram/charts-01.csv, record 1658, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2012,7 +2012,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1679 — diagram/charts-01.csv, record 1679, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2054,7 +2054,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1718 — diagram/charts-01.csv, record 1718, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2096,7 +2096,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1741 — diagram/charts-01.csv, record 1741, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2138,7 +2138,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1762 — diagram/charts-01.csv, record 1762, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2180,7 +2180,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1798 — diagram/charts-01.csv, record 1798, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2222,7 +2222,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1842 — diagram/charts-01.csv, record 1842, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2265,7 +2265,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1863 — diagram/charts-01.csv, record 1863, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2307,7 +2307,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1905 — diagram/charts-01.csv, record 1905, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2349,7 +2349,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1925 — diagram/charts-01.csv, record 1925, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2391,7 +2391,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1970 — diagram/charts-01.csv, record 1970, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2433,7 +2433,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-1991 — diagram/charts-01.csv, record 1991, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2475,7 +2475,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2011 — diagram/charts-01.csv, record 2011, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2517,7 +2517,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2033 — diagram/charts-01.csv, record 2033, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2559,7 +2559,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2054 — diagram/charts-01.csv, record 2054, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2601,7 +2601,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2076 — diagram/charts-01.csv, record 2076, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2643,7 +2643,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2099 — diagram/charts-01.csv, record 2099, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2685,7 +2685,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2120 — diagram/charts-01.csv, record 2120, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2726,7 +2726,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2142 — diagram/charts-01.csv, record 2142, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2767,7 +2767,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2182 — diagram/charts-01.csv, record 2182, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2809,7 +2809,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2224 — diagram/charts-01.csv, record 2224, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2851,7 +2851,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2246 — diagram/charts-01.csv, record 2246, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2893,7 +2893,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2269 — diagram/charts-01.csv, record 2269, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2935,7 +2935,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2310 — diagram/charts-01.csv, record 2310, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2977,7 +2977,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2334 — diagram/charts-01.csv, record 2334, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3019,7 +3019,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2356 — diagram/charts-01.csv, record 2356, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3061,7 +3061,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2377 — diagram/charts-01.csv, record 2377, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3103,7 +3103,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2397 — diagram/charts-01.csv, record 2397, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3145,7 +3145,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2416 — diagram/charts-01.csv, record 2416, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3187,7 +3187,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2440 — diagram/charts-01.csv, record 2440, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3229,7 +3229,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2462 — diagram/charts-01.csv, record 2462, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3271,7 +3271,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2481 — diagram/charts-01.csv, record 2481, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3313,7 +3313,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2499 — diagram/charts-01.csv, record 2499, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3355,7 +3355,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2523 — diagram/charts-01.csv, record 2523, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3397,7 +3397,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2545 — diagram/charts-01.csv, record 2545, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3439,7 +3439,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2567 — diagram/charts-01.csv, record 2567, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3481,7 +3481,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2588 — diagram/charts-01.csv, record 2588, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3523,7 +3523,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2608 — diagram/charts-01.csv, record 2608, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3565,7 +3565,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2628 — diagram/charts-01.csv, record 2628, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3607,7 +3607,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2650 — diagram/charts-01.csv, record 2650, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3649,7 +3649,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2672 — diagram/charts-01.csv, record 2672, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3691,7 +3691,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2709 — diagram/charts-01.csv, record 2709, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3733,7 +3733,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2727 — diagram/charts-01.csv, record 2727, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3775,7 +3775,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2748 — diagram/charts-01.csv, record 2748, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3816,7 +3816,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2770 — diagram/charts-01.csv, record 2770, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3857,7 +3857,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2811 — diagram/charts-01.csv, record 2811, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3899,7 +3899,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-01-2832 — diagram/charts-01.csv, record 2832, column sop
 
-Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888` with the approved benefit amendment. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3941,7 +3941,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and
 
 ## Z3-GOLD-CHARTS-03-0063 — diagram/charts-03.csv, record 63, column sop
 
-Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed as proposed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888`. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3998,7 +3998,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 
 ## Z3-GOLD-CHARTS-03-0082 — diagram/charts-03.csv, record 82, column sop
 
-Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed as proposed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888`. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -4049,7 +4049,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 
 ## Z3-GOLD-CHARTS-03-0087 — diagram/charts-03.csv, record 87, column sop
 
-Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Fixed as proposed in WebMeet `70673ae6dfc9965d18a58fcccfa5fe9aa1289888`. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -4102,7 +4102,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 
 ## Z3-GOLD-PEOPLE-08-0774 — drawing/people-08.csv, record 774, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `1be6fb60e632e18e61da90d3eec600d64baa388e`.
+Approved for this SOP cell. Publication is pending. CSV record numbers include the header. Dataset `1be6fb60e632e18e61da90d3eec600d64baa388e`.
 
 Exact input
 
