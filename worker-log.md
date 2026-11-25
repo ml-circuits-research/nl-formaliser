@@ -59,3 +59,5 @@
 - 2026-11-25 — Q-NL-034 keeps dictated text on declared block/node properties and preserves a named parent separately. Three exact WebMeet probes recover the intended literal; remaining details are recorded in `questions.md`. Full serial suite 231/231. Q-NL-035 proposes shared UI bindings with actual native schema checks.
 
 - 2026-11-25 — Q-NL-036 reads canonical selection-wide commands without fabricated objects, keeps scoped deselection and ordinary removal distinct, and reports the remaining declarative-past error. Full serial suite 232/232. Q-NL-035 adds exact diagram-topic verifier probes. See `questions.md`.
+
+- 2026-11-25 — Q-NL-037 separates past reports from current commands and keeps exact reported evidence in diagnostics. Three exact WebMeet probes drop the spurious pick/time request. Two still need the shared selection particle variant. Full serial suite 233/233. See `questions.md`.

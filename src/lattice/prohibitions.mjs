@@ -22,7 +22,7 @@ function directiveAt(tokens, index, kb, requireBaseForm) {
   });
 }
 
-export function findDirectiveProhibitions(tokens, kb) {
+function findDirectiveProhibitions(tokens, kb) {
   const grammar = kb?.grammar;
   const leads = grammar?.negativeImperative?.leads ?? [];
   if (!leads.some(([first]) => tokens.some((token) => token.lower === first))) return [];
@@ -65,11 +65,68 @@ export function findDirectiveProhibitions(tokens, kb) {
     const endTok = cut ? cut.before - 1 : tokens.length - 1;
     const start = tokens[startTok].start;
     const end = tokens[endTok].end;
-    spans.push({ startTok, endTok, start, end });
+    spans.push({ kind: 'directive-prohibition', startTok, endTok, start, end });
   }
   return spans;
 }
 
-export function overlapsProhibition(candidate, scopes) {
+export function overlapsScope(candidate, scopes) {
   return scopes.some((scope) => candidate.startTok <= scope.endTok && scope.startTok <= candidate.endTok);
+}
+
+function reportedEvents(tokens, kb) {
+  const grammar = kb?.grammar;
+  if (!grammar?.pronouns || !kb.verbs) return [];
+  const spans = [];
+  const subject = (word) => grammar.pronouns.get(word)?.cases.includes('subject');
+  const recognisedAction = (token) => token?.kind === 'word' && token.lemmas.some((lemma) =>
+    kb.verbs.get(lemma)?.some(({ act }) => !['ask', 'greet', 'thank', 'farewell'].includes(act)));
+  const imperativeAfter = (index) => {
+    while (tokens[index] && (INDEPENDENT_JOINERS.has(grammar.joiners?.get(tokens[index].lower)?.kind) ||
+        grammar.coordinators?.has(tokens[index].lower) || tokens[index].text === ',')) index++;
+    return directiveAt(tokens, index, kb, true) ||
+      [afterFiller(tokens, index), ...matchLeadAt(tokens, index, kb)].some((start) =>
+        kb.verbs.get(tokens[start]?.lower)?.some(({ act }) => ['undo', 'redo'].includes(act)));
+  };
+
+  for (let startTok = 0; startTok < tokens.length; startTok++) {
+    const previous = tokens[startTok - 1];
+    if (previous && !SENTENCE_END.has(previous.text) && previous.text !== ',') continue;
+    const token = tokens[startTok];
+    const [root, contraction] = token.lower.replace(/’/g, "'").split("'");
+    if (token.kind !== 'word' || !subject(root) || (contraction && contraction !== 've')) continue;
+    let index = startTok + 1;
+    const auxiliary = tokens[index]?.lower;
+    const perfect = contraction === 've' || ['have', 'has', 'had'].includes(auxiliary);
+    if (!contraction && perfect) index++;
+    const verb = tokens[index];
+    if (!recognisedAction(verb)) continue;
+    const regularPast = verb.lower.endsWith('ed') && verb.lemmas.some((lemma) =>
+      lemma !== verb.lower && kb.verbs.has(lemma));
+    const past = regularPast || (grammar.pastForms?.has(verb.lower) && !kb.verbs.has(verb.lower));
+    const participle = regularPast || grammar.participles?.has(verb.lower);
+    if (!(perfect ? participle : past)) continue;
+
+    let stop = index + 1;
+    for (; stop < tokens.length; stop++) {
+      const word = tokens[stop];
+      if (SENTENCE_END.has(word.text)) break;
+      const kind = grammar.joiners?.get(word.lower)?.kind;
+      if ((word.text === ',' || kind === 'coordination' || INDEPENDENT_JOINERS.has(kind)) && imperativeAfter(stop + 1)) break;
+    }
+    const question = tokens[stop]?.text === '?';
+    const endTok = question ? stop : stop - 1;
+    spans.push({
+      kind: question ? 'reported-event-question' : 'reported-event',
+      startTok, endTok, start: token.start, end: tokens[endTok].end,
+    });
+    startTok = endTok;
+  }
+  return spans;
+}
+
+export function findNonDirectiveScopes(tokens, kb) {
+  const prohibitions = findDirectiveProhibitions(tokens, kb);
+  const reports = reportedEvents(tokens, kb).filter((span) => !overlapsScope(span, prohibitions));
+  return [...prohibitions, ...reports].sort((left, right) => left.startTok - right.startTok);
 }

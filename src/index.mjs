@@ -6,7 +6,7 @@ import { loadKnowledge } from './kb/load-worlds.mjs';
 import { buildLattice } from './lattice/candidates.mjs';
 import { independentChange, sharedResultReadings } from './lattice/shared-result.mjs';
 import { sharedCreationReadings } from './lattice/shared-creation.mjs';
-import { findDirectiveProhibitions, overlapsProhibition } from './lattice/prohibitions.mjs';
+import { findNonDirectiveScopes, overlapsScope } from './lattice/prohibitions.mjs';
 import { tokenize } from './lattice/tokenize.mjs';
 import { encodeProblem } from './smt/encode.mjs';
 import { createZ3Runner } from './smt/z3-runner.mjs';
@@ -17,14 +17,14 @@ import { buildCleanToRawAlignment, regroundSopToRaw } from './pipeline.mjs';
 import { estimateConfidence } from './confidence.mjs';
 import { fmtSopValue, unquoteSop } from './contracts.mjs';
 
-function unresolvedProhibitions(scopes, rawText, alignment) {
-  return scopes.map(({ start, end }) => {
+function scopeDiagnostics(scopes, rawText, alignment) {
+  return scopes.map(({ kind, start, end }) => {
     if (alignment) {
       const aligned = alignment.filter((token) => token.cleanStart < end && start < token.cleanEnd);
       start = aligned[0]?.rawStart ?? 0;
       end = aligned.at(-1)?.rawEnd ?? rawText.length;
     }
-    return { kind: 'directive-prohibition', start, end, text: rawText.slice(start, end) };
+    return { kind, start, end, text: rawText.slice(start, end) };
   });
 }
 
@@ -192,7 +192,7 @@ export async function createFormaliser({
   }
 
   async function solveSharedResult(lattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights }) {
-    if (!verifier || lattice.prohibitions.length) return null;
+    if (!verifier || lattice.nonDirectives.length) return null;
     const keys = (catalog ?? kb.tabs[tab]).keys;
     for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests, kb.domain.partNames)) {
       const results = [];
@@ -230,7 +230,7 @@ export async function createFormaliser({
     const exclusiveToks = new Set();
 
     for (const c of lattice.candidates) {
-      if (overlapsProhibition(c, lattice.prohibitions)) continue;
+      if (overlapsScope(c, lattice.nonDirectives)) continue;
       if (c.kind === 'TARGET_SORT') {
         for (let t = c.startTok; t <= c.endTok; t++) sortToks.add(t);
       } else if (c.kind === 'TARGET_FAMILY') {
@@ -274,7 +274,7 @@ export async function createFormaliser({
   }
 
   async function solveHierarchical(text, lattice, { tab, catalog, previous, clock, timeout, effWeights }) {
-    if (lattice.prohibitions.length) return null;
+    if (lattice.nonDirectives.length) return null;
     const segRes = await segmentClausesZ3(lattice, { kb, runner, timeout: Math.min(1500, timeout) });
     if (!segRes.ok || segRes.segments.length <= 1) return null;
 
@@ -340,23 +340,24 @@ export async function createFormaliser({
     const rawText = String(text ?? '');
     const effWeights = callWeights ?? weights;
     const rawTokens = tokenize(rawText, kb);
-    const prohibitions = findDirectiveProhibitions(rawTokens, kb);
-    let unresolved = unresolvedProhibitions(prohibitions, rawText);
+    const nonDirectives = findNonDirectiveScopes(rawTokens, kb);
+    let unresolved = scopeDiagnostics(nonDirectives, rawText);
     const unresolvedFields = () => unresolved.length ? { unresolved } : {};
     const isAutoTab = !catalog && (tab === null || tab === 'auto');
     const unresolvedOnly = () => ({
-      ok: false, status: 'unknown', error: 'Unresolved directive prohibition',
+      ok: false, status: 'unknown', error: unresolved.some(({ kind }) => kind === 'directive-prohibition')
+        ? 'Unresolved directive prohibition' : 'No current directive in a reported event',
       ...(!catalog ? { tab: isAutoTab ? null : tab } : {}),
       sop: '', alternatives: [], proposals: [], objectives: [], elapsedMs: performance.now() - t0,
       ...unresolvedFields(),
     });
-    const entirelyProhibited = (tokens, scopes) => scopes.length && tokens.every((token, index) =>
-      !token.isContent || token.isFiller || overlapsProhibition({ startTok: index, endTok: index }, scopes));
-    if (entirelyProhibited(rawTokens, prohibitions)) {
+    const entirelyOutsideDirectives = (tokens, scopes) => scopes.length && tokens.every((token, index) =>
+      !token.isContent || token.isFiller || overlapsScope({ startTok: index, endTok: index }, scopes));
+    if (entirelyOutsideDirectives(rawTokens, nonDirectives)) {
       return unresolvedOnly();
     }
-    // Treat the raw prohibition as a scope boundary before any spelling rewrite.
-    const allowSpell = useSpell && prohibitions.length === 0;
+    // Treat raw non-directive clauses as scope boundaries before any spelling rewrite.
+    const allowSpell = useSpell && nonDirectives.length === 0;
 
     // Tab-agnostic multi-proposal mode (tab === null || tab === 'auto'):
     // Discovers all tabs dynamically from kb.tabs, ranks compatible worlds by lexical evidence,
@@ -525,7 +526,7 @@ export async function createFormaliser({
     const useSemanticBlock = arguments[1]?._useSemanticBlock === true || topK > 1;
 
     // Optional Layer 1: Standalone Z3 Spellchecker (0.04 ms fast-path on clean inputs!)
-    let spellRes = prohibitions.length ? null : (arguments[1]?._preSpellRes ?? null);
+    let spellRes = nonDirectives.length ? null : (arguments[1]?._preSpellRes ?? null);
     let workingText = rawText;
     if (spellRes) {
       if (spellRes.ok && spellRes.changed && spellRes.cleanText) {
@@ -543,10 +544,10 @@ export async function createFormaliser({
     const effTopK = computeConf && topK < 2 && workingText.length <= 160 ? 2 : topK;
 
     const initialLattice = buildLattice(workingText, { tab, catalog, kb, previous, clock });
-    if (workingText !== rawText && initialLattice.prohibitions.length) {
+    if (workingText !== rawText && initialLattice.nonDirectives.length) {
       const alignment = buildCleanToRawAlignment(workingText, spellRes.tokens);
-      unresolved = unresolvedProhibitions(initialLattice.prohibitions, rawText, alignment);
-      if (!alignment.length || !verifier || entirelyProhibited(initialLattice.tokens, initialLattice.prohibitions)) {
+      unresolved = scopeDiagnostics(initialLattice.nonDirectives, rawText, alignment);
+      if (!alignment.length || !verifier || entirelyOutsideDirectives(initialLattice.tokens, initialLattice.nonDirectives)) {
         return unresolvedOnly();
       }
     }

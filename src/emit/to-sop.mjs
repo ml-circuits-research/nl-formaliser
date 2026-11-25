@@ -114,7 +114,7 @@ export function modelToSop(model, lattice, meta) {
     // (never repeat full text; ensures check.mjs sees outer fillers like "That would help" strictly outside the request!)
     const hasOuterContentFiller = fillers.some((f) => meta.outerFillerIds?.has(f.id));
     let reqWords = null;
-    if ((multiReq || hasOuterContentFiller || meta.prohibitions?.length) && mine.length > 0 && tokens.length > 0) {
+    if ((multiReq || hasOuterContentFiller || meta.nonDirectives?.length) && mine.length > 0 && tokens.length > 0) {
       const requestStart = model.get(`rstart_${r}`);
       const ownerDeterminers = [tSort, tFam, tRef].map((head) => head?.detTok)
         .filter((tok) => Number.isInteger(tok) && tok >= 0 && tok >= requestStart);

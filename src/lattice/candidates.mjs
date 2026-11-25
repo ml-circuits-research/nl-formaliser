@@ -15,7 +15,7 @@ import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from
 import { tokenize } from './tokenize.mjs';
 import { matchFrames, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
-import { findDirectiveProhibitions } from './prohibitions.mjs';
+import { findNonDirectiveScopes } from './prohibitions.mjs';
 
 // ---------------------------------------------------------------------------
 // Polymorphic KB accessors (compatible with Map, Set, Array, or plain Object)
@@ -3873,7 +3873,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     candidates,
     frameMatches,
     coordinatedChanges: pairResultativeFrames(rawFrameMatches),
-    prohibitions: findDirectiveProhibitions(tokens, kb),
+    nonDirectives: findNonDirectiveScopes(tokens, kb),
     splitPoints,
     hasQuestionMark: src.includes('?'),
   };

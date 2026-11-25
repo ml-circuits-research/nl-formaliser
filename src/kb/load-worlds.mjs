@@ -785,6 +785,8 @@ function loadGrammar(parse, worldsDir) {
   const quantifiers = new Map(Object.entries(QUANTIFIER_SPECS));
   const irregularPlurals = new Map();
   const irregularVerbs = new Map();
+  const pastForms = new Set();
+  const participles = new Set();
   const arrangements = new Map();
   const lexicons = new Map(); // name -> Set<string>
   const phraseGroups = new Map(); // group -> Set<string>
@@ -1126,6 +1128,9 @@ function loadGrammar(parse, worldsDir) {
         const form = one(w, 'form').toLowerCase();
         if (w.attrs.vform) {
           if (!irregularVerbs.has(form)) irregularVerbs.set(form, lemma);
+          const formKind = one(w, 'vform');
+          if (formKind === 'past') pastForms.add(form);
+          if (formKind === 'past_participle') participles.add(form);
         } else if (one(w, 'num') === 'pl') {
           if (!irregularPlurals.has(form)) irregularPlurals.set(form, lemma);
         }
@@ -1210,6 +1215,8 @@ function loadGrammar(parse, worldsDir) {
     quantifiers,
     irregularPlurals,
     irregularVerbs,
+    pastForms,
+    participles,
     arrangements,
     lexicons,
     phraseGroups,

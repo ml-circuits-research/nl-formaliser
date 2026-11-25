@@ -2,8 +2,8 @@ import { HYP_KINDS } from '../contracts.mjs';
 
 export function sharedCreationReadings(lattice, grammar, maxRequests) {
   if (maxRequests < 2 || !grammar.constructions.has('ellipsis.verb')) return [];
-  const { text, tokens, candidates, splitPoints, prohibitions } = lattice;
-  if (prohibitions.length || splitPoints.some(({ isStrong, endTok }) => isStrong && endTok < tokens.length - 1)) return [];
+  const { text, tokens, candidates, splitPoints, nonDirectives } = lattice;
+  if (nonDirectives.length || splitPoints.some(({ isStrong, endTok }) => isStrong && endTok < tokens.length - 1)) return [];
 
   const isCoordinator = ({ text: word }) => word !== ',' && grammar.coordinators.has(word.toLowerCase());
   const coordinators = splitPoints.filter(isCoordinator);

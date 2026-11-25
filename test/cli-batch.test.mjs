@@ -266,3 +266,43 @@ test('declared selection commands preserve deselection scope and distinguish act
     await reader.close();
   }
 });
+
+test('reported past actions stay distinct from current commands and literal references', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const examples = [
+      ['I selected the wrong thing earlier, just remove the selection', 'I selected the wrong thing earlier', 'deselect'],
+      ['We made a chart yesterday; add a heading.', 'We made a chart yesterday', 'make'],
+      ["I've selected the chart; make it blue.", "I've selected the chart", 'change'],
+      ['I have deleted it, undo that.', 'I have deleted it', 'undo'],
+    ];
+    for (const [text, report, act] of examples) {
+      const result = await reader.propose(text);
+      assert.equal(result.status, 'partial', text);
+      assert.deepEqual(result.unresolved[0], { kind: 'reported-event', start: 0, end: report.length, text: report });
+      assert.equal(result.candidates[0].check.ok, true);
+      for (const { sop } of result.candidates) {
+        assert.deepEqual([...sop.matchAll(/w\.request\.request act=(\S+)/g)].map((match) => match[1]), [act]);
+        assert.doesNotMatch(sop, /from=previous|w\.request\.previous/);
+      }
+      if (act === 'change') assert.match(result.candidates[0].sop, /from=any words=it\b/);
+    }
+
+    for (const [text, kind] of [
+      ['You deleted the left box and moved the right one.', 'reported-event'],
+      ['You deleted the chart?', 'reported-event-question'],
+    ]) {
+      const result = await reader.propose(text);
+      assert.equal(result.status, 'unknown');
+      assert.equal(result.error, null);
+      assert.equal(result.unresolved[0].kind, kind);
+      assert.deepEqual(result.candidates, []);
+    }
+
+    const desire = await reader.propose('I hope you can add a chart.');
+    assert.ok(desire.candidates.some(({ sop }) => /act=make\b/.test(sop)));
+    assert.ok(desire.unresolved.every(({ kind }) => kind !== 'reported-event'));
+  } finally {
+    await reader.close();
+  }
+});
