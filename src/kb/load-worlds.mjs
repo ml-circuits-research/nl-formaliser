@@ -161,7 +161,12 @@ function expandKeyWords(shortName, means, meansToWords) {
   const joined = spaced.replace(/\s+/g, '');
 
   words.add(rawLower);
-  if (spaced) words.add(spaced);
+  const literalKeyWords = new Set();
+  if (spaced) {
+    literalKeyWords.add(spaced);
+    addSpellingVariants(literalKeyWords, spaced);
+    words.add(spaced);
+  }
   if (joined && joined !== rawLower) words.add(joined);
   if (/^[xy] /.test(spaced)) words.add(spaced.replace(/^([xy]) /, '$1 axis '));
 
@@ -172,7 +177,7 @@ function expandKeyWords(shortName, means, meansToWords) {
   for (const phrase of [...words]) {
     addSpellingVariants(words, phrase);
   }
-  return words;
+  return { keyWords: words, literalKeyWords };
 }
 
 /**
@@ -264,7 +269,7 @@ function buildTabs(parse, worldsDir, grammar) {
         recordMeansVote(`w.${family}.${family}`, family);
       }
 
-      const keyWords = expandKeyWords(shortName, means, meansToWords);
+      const { keyWords, literalKeyWords } = expandKeyWords(shortName, means, meansToWords);
       for (const kw of [...keyWords]) {
         if (BAD_SINGLE_KW.has(kw)) {
           keyWords.delete(kw);
@@ -349,6 +354,7 @@ function buildTabs(parse, worldsDir, grammar) {
         about,
         means,
         keyWords,
+        literalKeyWords,
         onDefault: defaultOnFor(name),
       };
 

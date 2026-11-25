@@ -156,6 +156,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const tRefs = byKind[HYP_KINDS.TARGET_REF];
   const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
   const propertyFrames = frameMatches.filter((fm) => fm.propertyOwnerMarker);
+  const grammarBetween = (left, right) => tokens.slice(left.endTok + 1, right.startTok)
+    .every((token) => token.isGrammar && !token.isPunct);
 
   // Index KEY_WORDs by attrName (only attrs that actually have a KEY_WORD in this sentence can be `asked_r`!)
   const kwByAttr = new Map();
@@ -847,9 +849,37 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   // Every selected KEY_WORD must serve a purpose
   for (const k of keywords) {
-    const boundUsers = (constraintsUsingKw.get(k.id) ?? []).map((c) => `(= ${kwExprOf.get(c.id)} ${k.id})`);
+    const users = constraintsUsingKw.get(k.id) ?? [];
+    const boundToKeyword = (c) => `(= ${kwExprOf.get(c.id)} ${k.id})`;
+    const boundUsers = users.map(boundToKeyword);
     const amoUsers = atMostOne(boundUsers);
     if (amoUsers) emit(`(assert ${amoUsers})`);
+
+    // A complete property name with a nearby value and edit predicate competes with
+    // readings that split the name into a target noun and a shorter keyword.
+    if (k.startTok < k.endTok && W.compoundKeyBinding > 0) {
+      const surface = tokens.slice(k.startTok, k.endTok + 1).map((token) => token.lower).join(' ');
+      const exactUsers = users.filter((c) => c.requiresKeyWord && c.startTok > k.endTok &&
+        c.startTok - k.endTok <= 3 && tabSpec.keys.get(c.attribute)?.literalKeyWords?.has(surface) &&
+        grammarBetween(k, c));
+      if (exactUsers.length > 0) {
+        const editPredicates = preds.filter((p) => p.endTok < k.startTok &&
+          p.licensed?.some((licence) => licence.act === 'change') && grammarBetween(p, k));
+        const det = kb.grammar?.determiners?.get(tokens[k.startTok - 1]?.lower)?.det;
+        const groundedEdits = [];
+        for (let r = 1; r <= R && editPredicates.length > 0; r++) {
+          const boundResult = exactUsers.map((c) =>
+            `(and ${boundToKeyword(c)} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`);
+          const editPredicate = editPredicates.map((p) => `(and sel_${p.id} (= own_${p.id} ${r}))`);
+          const groundedEdit = `(and ${smtOr(boundResult)} ${smtOr(editPredicate)})`;
+          groundedEdits.push(groundedEdit);
+          if (det === 'definite' || det === 'possessive') {
+            emit(`(assert-soft (=> ${groundedEdit} (and (= act_${r} ACT_CHANGE) (= tmode_${r} TM_EXISTING))) :weight ${W.resultativeMakeToChange})`);
+          }
+        }
+        if (groundedEdits.length > 0) emit(`(assert-soft ${smtOr(groundedEdits)} :weight ${W.compoundKeyBinding})`);
+      }
+    }
 
     const kAttrIds = (k.attrs ?? []).map((a) => tabSpec.attrToId.get(a)).filter((id) => id !== undefined);
     for (let r = 1; r <= R; r++) {
