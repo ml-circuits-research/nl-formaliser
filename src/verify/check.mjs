@@ -1,9 +1,10 @@
-// SOP Lang verifier faithfully reproducing webmeet-dataset/tools/check.mjs
-// over sop-knowledge-worlds (sopworld + w.request + k.actions + w.lang.en + keys.sop).
+// Native SOP schema validation and grounding against the text and request key declarations.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { acceptsPropertyFamily } from '../contracts.mjs';
+import { indexRequestKeyDeclarations, readRequestKeyWires } from '../kb/request-keys.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_KNOWLEDGE = resolve(HERE, '..', '..', '..', 'sop-knowledge-worlds');
@@ -131,17 +132,9 @@ export async function createVerifier({ knowledgeDir } = {}) {
     return LEX.grammar.has(x) || (i > 0 && LEX.grammar.has(x.slice(0, i)) && LEX.endings.has(x.slice(i)));
   };
 
-  // Load reader keys and families per tab from w.request/shards/keys.sop.
-  const KEYS = new Map();
-  const FAMILIES = new Set();
-  for (const w of parse(readFileSync(join(KNOWLEDGE, 'docs', 'worlds', 'w.request', 'shards', 'keys.sop'), 'utf8'))) {
-    if (w.type !== 'w.request.key') continue;
-    const tab = one(w, 'tab');
-    const values = (w.attrs.value ?? []).map((v) => tok(v).toLowerCase());
-    KEYS.set(`${tab} ${one(w, 'name')}`, { head: one(w, 'head'), values: values.length ? new Set(values) : null });
-    FAMILIES.add(`${tab} ${one(w, 'family')}`);
-  }
-  if (!KEYS.size) throw new Error('no reader keys in w.request/shards/keys.sop');
+  const { keys: KEYS, families: FAMILIES } = indexRequestKeyDeclarations(
+    readRequestKeyWires(parse, join(KNOWLEDGE, 'docs', 'worlds')),
+  );
 
   // Load verb -> acts mapping from k.actions.
   const VERB_ACTS = new Map();
@@ -182,17 +175,19 @@ export async function createVerifier({ knowledgeDir } = {}) {
     return null;
   };
 
-  function grounding(text, wires, tab) {
+  function grounding(text, wires) {
     const out = [];
+    const targetFamilies = new Map(wires.filter((wire) => wire.type === 'w.request.target')
+      .map((target) => [one(target, 'request'), one(target, 'family')]));
     for (const w of wires) {
       if (w.type === 'w.request.context') out.push({ type: w.type, key: '', why: 'page object: not said by the text (write what the text says on the target)' });
       if (w.attrs.thing) out.push({ type: w.type, key: 'thing', why: 'link to a page object: not said by the text' });
       if (w.type === 'w.request.request') {
-        if (w.attrs.goes_to) out.push({ type: w.type, key: 'goes_to', why: 'not said in the text (the tab is the folder)' });
+        if (w.attrs.goes_to) out.push({ type: w.type, key: 'goes_to', why: 'routing is outside request formalisation' });
         if (one(w, 'words') === text) out.push({ type: w.type, key: 'words', why: 'repeats the whole text (leave it out)' });
       }
-      if (w.type === 'w.request.target' && w.attrs.family && !FAMILIES.has(`${tab} ${one(w, 'family')}`)) {
-        out.push({ type: w.type, key: 'family', why: `not a family of the ${tab} tab (w.request keys)` });
+      if (w.type === 'w.request.target' && w.attrs.family && !FAMILIES.has(one(w, 'family'))) {
+        out.push({ type: w.type, key: 'family', why: 'not a declared request family' });
       }
       if (w.type === 'w.request.constraint' && !w.attrs.on) {
         out.push({ type: w.type, key: 'on', why: 'no on= (required by w.request: attribute, place, size, count ...)' });
@@ -201,14 +196,17 @@ export async function createVerifier({ knowledgeDir } = {}) {
         out.push({ type: w.type, key: 'attribute', why: 'no reader key (a meaning without a key is an unread wire with a note)' });
       }
       if (w.type === 'w.request.constraint' && w.attrs.attribute) {
-        const key = KEYS.get(`${tab} ${one(w, 'attribute')}`);
-        if (!key) {
-          out.push({ type: w.type, key: 'attribute', why: `not a key of the ${tab} tab (w.request keys)` });
-        } else if (key.values && !w.attrs.open_value) {
-          for (const v of w.attrs.value ?? []) {
-            if (!key.values.has(tok(v).toLowerCase())) {
-              out.push({ type: w.type, key: 'value', why: 'not a value of the key (w.request keys), and not marked open_value' });
-            }
+        const declarations = KEYS.get(one(w, 'attribute')) ?? [];
+        const ownerFamily = targetFamilies.get(one(w, 'request'));
+        const compatible = declarations.filter((key) => !ownerFamily || acceptsPropertyFamily(ownerFamily, key.family));
+        if (!declarations.length) {
+          out.push({ type: w.type, key: 'attribute', why: 'not a declared request property' });
+        } else if (!compatible.length) {
+          out.push({ type: w.type, key: 'attribute', why: `property is incompatible with its request target family ${ownerFamily}` });
+        } else if (one(w, 'open_value') !== 'true') {
+          const values = (w.attrs.value ?? []).map((value) => tok(value).toLowerCase());
+          if (!compatible.some((key) => !key.values || values.every((value) => key.values.has(value)))) {
+            out.push({ type: w.type, key: 'value', why: 'values match no compatible declaration and are not marked open_value' });
           }
         }
       }
@@ -393,7 +391,7 @@ export async function createVerifier({ knowledgeDir } = {}) {
     return { warnings, uncoveredWords: looseWords };
   }
 
-  function check(text, sopText, tab) {
+  function check(text, sopText) {
     const rawText = String(text ?? '');
     if (typeof sopText !== 'string') {
       return {
@@ -435,7 +433,7 @@ export async function createVerifier({ knowledgeDir } = {}) {
       }
     }
 
-    rawErrors.push(...grounding(rawText, wires, tab));
+    rawErrors.push(...grounding(rawText, wires));
     const { warnings, uncoveredWords } = warningsOf(rawText, wires);
 
     if (!rawText.trim()) {

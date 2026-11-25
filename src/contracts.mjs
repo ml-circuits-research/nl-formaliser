@@ -108,46 +108,35 @@ export const DEFAULT_TAB_FAMILY = Object.freeze({
   calendar: 'meeting',
 });
 
-// Allowed cross-family constraint compatibility per tab:
-// A request with target family F can hold constraints from COMPAT_FAMILIES[tab][F] (plus F itself).
-export const COMPAT_FAMILIES = Object.freeze({
-  drawing: {
-    drawn: ['drawn', 'page', 'part', 'group', 'composition', 'preference'],
-    part: ['part', 'drawn', 'page'],
-    page: ['page', 'drawn', 'composition', 'preference'],
-    group: ['group', 'drawn'],
-    composition: ['composition', 'drawn', 'page'],
-    preference: ['preference', 'page', 'drawn'],
-    step: ['step'],
-  },
-  diagram: {
-    chart: ['chart', 'group', 'series', 'point', 'page', 'diagram', 'composition', 'preference'],
-    node: ['node', 'link', 'group', 'diagram', 'page', 'sketch', 'preference'],
-    link: ['link', 'node', 'diagram', 'page'],
-    diagram: ['diagram', 'node', 'link', 'group', 'chart', 'page', 'composition', 'preference'],
-    group: ['group', 'node', 'chart', 'diagram', 'page'],
-    page: ['page', 'diagram', 'chart', 'node', 'preference'],
-    series: ['series', 'chart', 'point'],
-    point: ['point', 'chart', 'series'],
-    sketch: ['sketch', 'node', 'link', 'diagram'],
-    composition: ['composition', 'diagram', 'chart', 'node'],
-    preference: ['preference', 'page', 'diagram', 'chart'],
-    step: ['step'],
-  },
-  document: {
-    section: ['section', 'block', 'text', 'document', 'inline'],
-    block: ['block', 'section', 'inline', 'text', 'document'],
-    text: ['text', 'document', 'section', 'block', 'inline'],
-    document: ['document', 'text', 'section', 'block'],
-    inline: ['inline', 'block', 'section', 'text'],
-  },
-  calendar: {
-    meeting: ['meeting', 'calendar', 'room', 'person'],
-    calendar: ['calendar', 'meeting'],
-    room: ['room', 'meeting'],
-    person: ['person', 'meeting'],
-  },
-});
+// Existing reader relationships between a target and related property families.
+const RELATED_PROPERTY_FAMILIES = new Map([
+  ['drawn', ['page', 'part', 'group', 'composition', 'preference']],
+  ['part', ['drawn', 'page']],
+  ['page', ['drawn', 'composition', 'preference', 'diagram', 'chart', 'node']],
+  ['group', ['drawn', 'node', 'chart', 'diagram', 'page']],
+  ['composition', ['drawn', 'page', 'diagram', 'chart', 'node']],
+  ['preference', ['page', 'drawn', 'diagram', 'chart']],
+  ['chart', ['group', 'series', 'point', 'page', 'diagram', 'composition', 'preference']],
+  ['node', ['link', 'group', 'diagram', 'page', 'sketch', 'preference']],
+  ['link', ['node', 'diagram', 'page']],
+  ['diagram', ['node', 'link', 'group', 'chart', 'page', 'composition', 'preference']],
+  ['series', ['chart', 'point']],
+  ['point', ['chart', 'series']],
+  ['sketch', ['node', 'link', 'diagram']],
+  ['section', ['block', 'text', 'document', 'inline']],
+  ['block', ['section', 'inline', 'text', 'document']],
+  ['text', ['section', 'block', 'inline', 'document']],
+  ['document', ['section', 'block', 'inline', 'text']],
+  ['inline', ['section', 'block', 'text', 'document']],
+  ['meeting', ['calendar', 'room', 'person']],
+  ['calendar', ['meeting', 'room', 'person']],
+  ['room', ['meeting']],
+  ['person', ['meeting']],
+]);
+
+export function acceptsPropertyFamily(targetFamily, propertyFamily) {
+  return targetFamily === propertyFamily || Boolean(RELATED_PROPERTY_FAMILIES.get(targetFamily)?.includes(propertyFamily));
+}
 
 // Equivalent key aliases across keys.sop (used ONLY in eval/compare.mjs for fair alias-aware metrics).
 export const KEY_ALIASES = Object.freeze({

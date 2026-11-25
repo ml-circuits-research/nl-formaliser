@@ -101,7 +101,7 @@ export function describeAmbiguity(top1Sop, top2Sop, parse) {
  * @param {string} params.sop - Top-1 SOP Lang circuit
  * @param {string[]} [params.alternatives] - Top-2..K SOP circuits
  * @param {number[]} [params.objectives] - Exact Z3 MaxSMT penalty objectives [obj1, obj2, ...]
- * @param {object} [params.checkResult] - Output of `verifier.check(text, sop, tab)`
+ * @param {object} [params.checkResult] - Output of `verifier.check(text, sop)`
  * @param {number} [params.contentTokens] - Number of content tokens in utterance
  * @param {object|null} [params.spell] - Optional Layer 1 spellchecker result
  * @param {function} [params.parse] - SOP parser function

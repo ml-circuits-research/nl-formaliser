@@ -10,6 +10,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defaultOnFor, unquoteSop } from '../contracts.mjs';
+import { indexRequestKeyDeclarations, readRequestKeyWires } from './request-keys.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -185,7 +186,7 @@ function expandKeyWords(shortName, means, meansToWords) {
  * read every `w.*\/shards/words.sop`, and build `tabs` + automatic `means -> (tab, family)`
  * mappings directly from `w.request/shards/keys.sop` (zero hardcoded world/tab lists!).
  */
-function buildTabs(parse, worldsDir, grammar) {
+function buildTabs(parse, worldsDir, grammar, keyWires) {
   const meansToWords = new Map();
   const slotValueWords = new Map();
   const discoveredWorlds = [];
@@ -212,15 +213,6 @@ function buildTabs(parse, worldsDir, grammar) {
           }
         }
       }
-    }
-  }
-
-  // Also scan any additional `*.sop` shards in `w.request/shards/` dynamically for `w.request.key` wires.
-  const reqDir = join(worldsDir, 'w.request', 'shards');
-  const keyWires = [];
-  for (const fp of listSopShards(reqDir)) {
-    for (const w of parseShard(parse, fp)) {
-      if (w.type === 'w.request.key') keyWires.push(w);
     }
   }
 
@@ -1692,7 +1684,8 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
 
   // Order: grammar first (gives lexicons/frames/prepositions to tabs & actions!), then tabs, actions, domain!
   const grammar = loadGrammar(parse, worldsDir);
-  const { tabs, discoveredWorlds, meansToWords } = buildTabs(parse, worldsDir, grammar);
+  const keyWires = readRequestKeyWires(parse, worldsDir);
+  const { tabs, discoveredWorlds, meansToWords } = buildTabs(parse, worldsDir, grammar, keyWires);
   const { acts, actRoles, verbs, markings, markingsByActMarker, actionSpecs } = loadActions(parse, worldsDir, grammar);
   const domain = loadDomain(parse, worldsDir, vocabKinds, grammar, tabs);
 
@@ -1703,6 +1696,7 @@ export async function loadKnowledge({ knowledgeDir } = {}) {
     knowledgeDir: kDir,
     sopworldPath,
     tabs,
+    requestKeys: indexRequestKeyDeclarations(keyWires),
     acts,
     actRoles,
     verbs,

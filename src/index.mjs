@@ -176,7 +176,7 @@ export async function createFormaliser({
         const part = await solveSinglePass(projectedText, { tab, previous, clock, maxRequests: 1, topK: 1, timeout, effWeights });
         if (!part.solved.ok) break;
         const sop = modelToSop(part.solved.solutions[0], part.lattice, part.encoded.meta);
-        const check = verifier.check(projectedText, sop, tab);
+        const check = verifier.check(projectedText, sop);
         if (!check.ok || check.warnings.length) break;
         const change = independentChange(verifier.parse(sop), { owners, predicate, values, keys });
         if (!change || targets.has(change.target)) break;
@@ -190,7 +190,7 @@ export async function createFormaliser({
       }
       if (results.length !== heads.length) continue;
       const sop = stitchClauseCircuits(results, { fullText: lattice.text, previous, clock, parse: verifier.parse, sharedHull: true });
-      const check = verifier.check(lattice.text, sop, tab);
+      const check = verifier.check(lattice.text, sop);
       if (check.ok && !check.warnings.length) return { sop, requestCount: results.length };
     }
     return null;
@@ -283,7 +283,7 @@ export async function createFormaliser({
       clock,
       parse: verifier.parse,
     });
-    const chk = verifier.check(text, stitched, tab);
+    const chk = verifier.check(text, stitched);
     if (!chk.ok) return null;
 
     return {
@@ -389,7 +389,7 @@ export async function createFormaliser({
           // Filter out wildly degraded secondary proposals within the same tab
           if (ci > 0 && bestObj !== null && obj !== null && (obj - bestObj) > 45) continue;
 
-          const chk = verifier ? verifier.check(rawText, cSop, candTab) : { ok: true, warnings: [] };
+          const chk = verifier ? verifier.check(rawText, cSop) : { ok: true, warnings: [] };
           if (!chk.ok) continue;
           const domainScore = latticeScore + partOwnerDomainEvidence(chk);
           const warnCount = chk.warnings?.length ?? 0;
@@ -426,7 +426,7 @@ export async function createFormaliser({
             timeout: Math.min(1000, perTabTimeout),
           });
           if (rawSub.ok && rawSub.sop) {
-            const rawChk = verifier ? verifier.check(rawText, rawSub.sop, candTab) : { ok: true, warnings: [] };
+            const rawChk = verifier ? verifier.check(rawText, rawSub.sop) : { ok: true, warnings: [] };
             if (rawChk.ok) {
               const rawKey = rawSub.sop.replace(/\r\n/g, '\n').trim();
               if (!proposalMap.has(rawKey)) {
@@ -631,7 +631,7 @@ export async function createFormaliser({
         spellTokens: spellRes.tokens,
         parse: verifier.parse,
       });
-      const chkRaw = verifier.check(rawText, regrounded, tab);
+      const chkRaw = verifier.check(rawText, regrounded);
       if (chkRaw.ok) {
         sop = regrounded;
         alternatives = alternatives.map((alt) =>
@@ -675,7 +675,7 @@ export async function createFormaliser({
 
     const elapsedMs = performance.now() - t0;
     const needCheck = verify || computeConf;
-    const checkResult = needCheck && verifier ? verifier.check(rawText, sop, tab) : undefined;
+    const checkResult = needCheck && verifier ? verifier.check(rawText, sop) : undefined;
 
     const contentTokens = initialLattice.tokens.filter((tok) => tok.isContent && !tok.isFiller).length;
     const confidence = computeConf && !unresolved.length

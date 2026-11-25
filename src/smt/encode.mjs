@@ -12,7 +12,7 @@ import {
   HYP_KINDS,
   isIndependentValueCandidate,
   DEFAULT_TAB_FAMILY,
-  COMPAT_FAMILIES,
+  acceptsPropertyFamily,
   actToSmt,
   modeToSmt,
   moodToSmt,
@@ -44,24 +44,6 @@ function atMostOne(vars) {
   if (vars.length <= 1) return null;
   if (vars.length === 2) return `(not (and ${vars[0]} ${vars[1]}))`;
   return `((_ at-most 1) ${vars.join(' ')})`;
-}
-
-function compatTargetFamilyIds(tab, tabSpec, attrFamily) {
-  const table = COMPAT_FAMILIES[tab];
-  // Zero-JS new-world fallback: if a future tab isn't in COMPAT_FAMILIES, allow all families on that tab!
-  if (!table) return tabSpec.families.map((_, i) => i);
-  const ids = [];
-  for (let fid = 0; fid < tabSpec.families.length; fid++) {
-    const tf = tabSpec.families[fid];
-    if (tf === attrFamily || (table[tf] && table[tf].includes(attrFamily))) {
-      ids.push(fid);
-    }
-  }
-  if (ids.length === 0) {
-    const idx = tabSpec.families.indexOf(attrFamily);
-    if (idx >= 0) ids.push(idx);
-  }
-  return ids;
 }
 
 // Check filler purity with the exact same rule as webmeet-dataset/tools/check.mjs line 164-166.
@@ -758,7 +740,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const c of constraints) {
     const cFam = c.attrFamily ?? c.family ?? (c.attribute ? c.attribute.split('.')[0] : null);
     const cFamId = cFam ? famToId.get(cFam) : undefined;
-    const compatFids = cFam ? compatTargetFamilyIds(tab, tabSpec, cFam) : [];
+    const compatFids = cFam ? tabSpec.families.flatMap((family, id) =>
+      acceptsPropertyFamily(family, cFam) ? [id] : []) : [];
     const phExpr = phaseExprOf.get(c.id);
     const shortKey = c.attribute && c.attribute.includes('.') ? c.attribute.split('.').slice(1).join('.') : '';
     const partHeads = c.partHead && [...tSorts, ...tFams].filter((h) => h.family === c.family &&

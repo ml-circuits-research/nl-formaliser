@@ -363,9 +363,9 @@ function detectInputTypo({ text, goldReqs, predSummary, verifier, knownVocab }) 
   return false;
 }
 
-export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVocab = null }) {
-  const goldCheck = verifier.check(text, goldSop, tab);
-  const predCheck = verifier.check(text, predSop, tab);
+export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab = null }) {
+  const goldCheck = verifier.check(text, goldSop);
+  const predCheck = verifier.check(text, predSop);
 
   const goldSummary = summarizeWires(goldCheck.wires);
   const predSummary = summarizeWires(predCheck.wires);
@@ -456,8 +456,8 @@ export function compareCircuits({ text, tab, goldSop, predSop, verifier, knownVo
   const predStructuredConstraintTokens = new Set();
   for (const r of predReqs) {
     for (const c of r.constraints) {
-      const keySpec = verifier.KEYS?.get(`${tab} ${c.attribute}`);
-      const isStructured = Boolean(keySpec?.values || (c.key_words && c.key_words.length > 0));
+      const declarations = verifier.KEYS?.get(c.attribute);
+      const isStructured = Boolean(declarations?.some((key) => key.values) || (c.key_words && c.key_words.length > 0));
       for (const s of [c.words, ...(c.key_words ?? []), ...(c.values ?? [])]) {
         for (const tok of contentTokensOf(s, verifier)) {
           predConstraintTokens.add(tok);
@@ -714,16 +714,12 @@ export function compareProposals({ text, tab, goldSop, proposals, verifier, know
 
     const cmp = compareCircuits({
       text,
-      tab,
       goldSop,
       predSop: pSop,
       verifier,
       knownVocab,
     });
 
-    // If proposal was generated for a different tab, verify it is still formally valid in its own tab
-    // (compareCircuits validates against gold's tab, so cross-tab keys would look invalid on gold's tab).
-    // Note: if pTab !== tab, it can never earn L3/L4 on gold's tab unless its wires are valid on gold's tab too!
     const rank = LEGEND_GRADE_RANK[cmp.legendGrade] ?? 0;
     const isBetter =
       !bestCmp ||

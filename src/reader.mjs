@@ -24,7 +24,7 @@ export async function createReader({ knowledgeDir, tab = 'auto', timeout, topK, 
       const result = await formaliser.formalise(text, { tab, timeout, topK, spellcheck, confidence: useConfidence });
       const unresolved = [...(result.unresolved ?? [])];
       const candidates = (result.proposals ?? []).map((proposal, candidate) => {
-        const { ok, errors, warnings, uncoveredWords, wires } = formaliser.verifier.check(text, proposal.sop, proposal.tab);
+        const { ok, errors, warnings, uncoveredWords, wires } = formaliser.verifier.check(text, proposal.sop);
         for (const wire of wires ?? []) {
           if (wire.type !== 'w.request.unread') continue;
           unresolved.push({

@@ -45,3 +45,5 @@
 - 2026-11-25 — `4ad17ed` exposes the common text-only library and `--batch` contract. Real Prolog and Z3 commands returned seven ordered results each outside their checkouts, and both default libraries served four calls each. Isolated serial suite 221/221. See `READY-COMPAT-BATCH` in `questions.md`.
 
 - 2026-11-25 — Q-NL-028 binds written part owners, including possessives, coordinated components and keyed results on nested owners. Twelve published Drawing probes pass native validation with one warning, and ten lead in auto mode. Full serial suite 224/224. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-029 validates global native request properties by each circuit's target family. The mixed-family validation case passes and exposes that the current generation still cannot produce both requested families. Full serial suite 226/226. Review requested in `questions.md`.

@@ -13,7 +13,7 @@ const WEBMEET_DIR = resolve(HERE, '..', '..', 'webmeet-dataset');
 
 const verifier = await createVerifier();
 
-test('createVerifier accepts valid w.request circuits across tabs', () => {
+test('createVerifier accepts a grounded drawing circuit', () => {
   const text = 'make the house blue';
   const sop = [
     '@r1 w.request.request act=change mood=do predicate=make',
@@ -21,11 +21,43 @@ test('createVerifier accepts valid w.request circuits across tabs', () => {
     '@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.colour value=blue operator=eq phase=result',
   ].join('\n');
 
-  const res = verifier.check(text, sop, 'drawing');
+  const res = verifier.check(text, sop);
   assert.equal(res.ok, true, JSON.stringify(res.errors));
   assert.equal(res.errors.length, 0);
   assert.equal(res.warnings.length, 0);
   assert.deepEqual(res.uncoveredWords, []);
+});
+
+test('native properties use each request target as owner in a mixed circuit', () => {
+  const text = 'make the house blue and book Ops review';
+  const sop = [
+    '@r1 w.request.request act=change mood=do words="make the house blue" predicate=make',
+    '@r1.t w.request.target request=$r1 family=drawn mode=existing sort=house',
+    '@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.colour value=blue',
+    '@r2 w.request.request act=make mood=do words="book Ops review" predicate=book',
+    '@r2.t w.request.target request=$r2 family=meeting mode=new',
+    '@r2.c1 w.request.constraint request=$r2 on=attribute attribute=meeting.title value="Ops review"',
+  ].join('\n');
+  const result = verifier.check(text, sop);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+
+  const swapped = sop.replace('attribute=meeting.title', 'attribute=drawn.label');
+  assert.ok(verifier.check(text, swapped).errors.some((error) =>
+    error.key === 'attribute' && error.why.includes('request target family meeting')));
+  const unknown = sop.replace('attribute=meeting.title', 'attribute=meeting.unknown');
+  assert.ok(verifier.check(text, unknown).errors.some((error) => error.why === 'not a declared request property'));
+});
+
+test('the property catalog retains separate meanings and enforces closed values', () => {
+  const groupNames = verifier.KEYS.get('group.name');
+  assert.ok(groupNames.some((key) => key.means === 'w.drawing.group.label' && key.head === 'span'));
+  assert.ok(groupNames.some((key) => key.means === 'w.diagram.group.label' && key.head === 'candidate'));
+  const sop = [
+    '@r1 w.request.request act=make mood=do predicate=make',
+    '@r1.t w.request.target request=$r1 family=chart mode=new',
+    '@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=imaginary open_value=false',
+  ].join('\n');
+  assert.ok(verifier.check('make an imaginary chart', sop).errors.some((error) => error.key === 'value'));
 });
 
 test('createVerifier validates real clean rows from webmeet-dataset when present', () => {
@@ -60,7 +92,7 @@ test('createVerifier rejects invalid acts, moods, keys, lookups, phrases, and ba
   assert.ok(badActKeys.has('act'));
   assert.ok(badActKeys.has('mood'));
 
-  // 3. Bad key for tab (chart.type in drawing tab)
+  // 3. Property from an incompatible family (chart.type on a drawn target)
   const badKeyRes = verifier.check(
     'make a bar chart',
     [
@@ -71,7 +103,7 @@ test('createVerifier rejects invalid acts, moods, keys, lookups, phrases, and ba
     'drawing',
   );
   assert.equal(badKeyRes.ok, false);
-  assert.ok(badKeyRes.errors.some((e) => e.key === 'attribute' && e.why.includes('drawing tab')));
+  assert.ok(badKeyRes.errors.some((e) => e.key === 'attribute' && e.why.includes('target family drawn')));
 
   // 4. Missing lookup on unidentified existing target
   const missingLookupRes = verifier.check(
