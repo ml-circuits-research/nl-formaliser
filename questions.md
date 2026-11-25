@@ -1314,3 +1314,7 @@ Final targeted run at `d1c15c5`: 110/110 nominal chart texts had native-valid le
 ### READY Q-NL-059 — review request
 
 Focused groups 5/5, final full serial suite 259/259, and final targeted run 110/110 nominal bindings plus 32/32 native-valid preamble scopes. Please independently review the typed source fields and exact outer filler across combined requests. There is no new aggregate. Q058 has been independently accepted in `74e0e15`.
+
+### Q-NL-059 data correction report — pending independent approval
+
+`report-errors-z3.md` records 97 separately reviewable reference defects with exact CSV cells, current and proposed circuits, and the immutable reader revision `a6f1ced`. Ninety-four nominal chart cells explicitly turn benefit wording into chart data. Three page-creation cells attach the predicate to a polite lead. All 97 proposed circuits passed native verification. The original text and SOP cells were checked against both the recorded `d1c15c5` snapshot and the latest published `1be6fb6` data. No source data was edited. Please independently review this group under the approved documented-error route.
