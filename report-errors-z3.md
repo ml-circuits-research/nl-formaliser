@@ -1,10 +1,10 @@
 # WebMeet reference errors found by the Z3 worker
 
-Each of the 97 entries awaits independent coordinator review. The cited snapshot remains the source for all exact texts and reference cells. Entries for nominal chart requests require a directly visible benefit word used as a measure or an explicit grouping value that includes “would help”. Each proposed chart circuit was emitted by the recorded reader and checked against the literal chart type, measure and grouping field.
+All 97 entries were reviewed and approved for data integration. The 94 nominal chart cases have the exact benefit amendment below, and the three page-creation cases were approved as proposed. The recorded snapshot preserves the original reference evidence. [Reviewer decision](resposens.md#data-decision--report4a63877-97-exact-cells-approved-individual-report-route)
 
 ## Z3-GOLD-CHARTS-01-0552 — diagram/charts-01.csv, record 552, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -32,21 +32,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the captains by rank"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=captains words="the captains" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=rank operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0572 — diagram/charts-01.csv, record 572, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -74,21 +74,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the classes by department"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=classes words="the classes" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=department operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0614 — diagram/charts-01.csv, record 614, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -116,20 +116,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the expenses by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=expenses words="the expenses" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0636 — diagram/charts-01.csv, record 636, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -157,20 +157,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the documents by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=documents words="the documents" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0657 — diagram/charts-01.csv, record 657, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -198,20 +198,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a bar chart of the documents by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=documents words="the documents" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0681 — diagram/charts-01.csv, record 681, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -239,20 +239,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the policies by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=policies words="the policies" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0702 — diagram/charts-01.csv, record 702, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -280,20 +280,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a bar chart of the policies by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=policies words="the policies" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0723 — diagram/charts-01.csv, record 723, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -321,20 +321,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the premises by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=premises words="the premises" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0741 — diagram/charts-01.csv, record 741, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -362,20 +362,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the premises by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=premises words="the premises" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0762 — diagram/charts-01.csv, record 762, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -403,20 +403,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the transactions by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=transactions words="the transactions" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0781 — diagram/charts-01.csv, record 781, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -444,20 +444,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a bar chart of the transactions by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=transactions words="the transactions" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0803 — diagram/charts-01.csv, record 803, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -485,20 +485,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the allergies by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=allergies words="the allergies" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0822 — diagram/charts-01.csv, record 822, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -526,20 +526,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the allergies by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=allergies words="the allergies" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0841 — diagram/charts-01.csv, record 841, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -567,21 +567,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the employees by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=employees words="the employees" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0863 — diagram/charts-01.csv, record 863, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -609,21 +609,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the employees by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=employees words="the employees" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0883 — diagram/charts-01.csv, record 883, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -651,21 +651,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the companies by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=companies words="the companies" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0907 — diagram/charts-01.csv, record 907, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -693,21 +693,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the companies by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=companies words="the companies" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0926 — diagram/charts-01.csv, record 926, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -735,21 +735,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the stores by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=stores words="the stores" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0947 — diagram/charts-01.csv, record 947, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -777,21 +777,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the stores by city"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=stores words="the stores" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=city operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-0989 — diagram/charts-01.csv, record 989, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -819,21 +819,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the transactions by card"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=transactions words="the transactions" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=card operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1010 — diagram/charts-01.csv, record 1010, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -861,21 +861,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the products by name"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=products words="the products" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=name operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1030 — diagram/charts-01.csv, record 1030, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -903,21 +903,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the products by name"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=products words="the products" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=name operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1050 — diagram/charts-01.csv, record 1050, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -945,21 +945,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the books by category"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=books words="the books" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=category operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1073 — diagram/charts-01.csv, record 1073, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -987,21 +987,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the books by category"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=books words="the books" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=category operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1097 — diagram/charts-01.csv, record 1097, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1029,21 +1029,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the campaigns by category"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=campaigns words="the campaigns" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=category operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1119 — diagram/charts-01.csv, record 1119, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1071,21 +1071,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the campaigns by category"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=campaigns words="the campaigns" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=category operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1142 — diagram/charts-01.csv, record 1142, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1113,21 +1113,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="scatter plot of the customers by gender"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=scatter operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=customers words="the customers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=gender operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1180 — diagram/charts-01.csv, record 1180, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1155,21 +1155,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the dorms by gender"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=dorms words="the dorms" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=gender operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1199 — diagram/charts-01.csv, record 1199, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1197,21 +1197,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the customers by status"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=customers words="the customers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=status operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1221 — diagram/charts-01.csv, record 1221, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1239,21 +1239,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the customers by status"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=customers words="the customers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=status operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1263 — diagram/charts-01.csv, record 1263, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1281,21 +1281,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the flights by origin"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=flights words="the flights" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=origin operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1284 — diagram/charts-01.csv, record 1284, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1323,21 +1323,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the trains by origin"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=trains words="the trains" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=origin operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1300 — diagram/charts-01.csv, record 1300, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1365,21 +1365,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the medications by brand"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=medications words="the medications" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=brand operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1321 — diagram/charts-01.csv, record 1321, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1407,21 +1407,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the medications by brand"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=medications words="the medications" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=brand operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1341 — diagram/charts-01.csv, record 1341, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1449,21 +1449,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the reservations by room"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=reservations words="the reservations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=room operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1362 — diagram/charts-01.csv, record 1362, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1491,21 +1491,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the classes by room"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=classes words="the classes" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=room operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1385 — diagram/charts-01.csv, record 1385, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1533,21 +1533,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the classes by room"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=classes words="the classes" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=room operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1404 — diagram/charts-01.csv, record 1404, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1576,21 +1576,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the rooms by bed type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=rooms words="the rooms" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="bed type" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1426 — diagram/charts-01.csv, record 1426, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1619,21 +1619,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the rooms by bed type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=rooms words="the rooms" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="bed type" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1447 — diagram/charts-01.csv, record 1447, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1661,21 +1661,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the files by format"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=files words="the files" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=format operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1468 — diagram/charts-01.csv, record 1468, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1703,21 +1703,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the files by format"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=files words="the files" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=format operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1490 — diagram/charts-01.csv, record 1490, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1746,21 +1746,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the broadcasts by time of day"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=broadcasts words="the broadcasts" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="time of day" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1532 — diagram/charts-01.csv, record 1532, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1788,21 +1788,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the addresses by state"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=addresses words="the addresses" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=state operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1554 — diagram/charts-01.csv, record 1554, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1830,21 +1830,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the schools by county"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=schools words="the schools" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=county operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1572 — diagram/charts-01.csv, record 1572, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1872,21 +1872,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the schools by county"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=schools words="the schools" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=county operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1616 — diagram/charts-01.csv, record 1616, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1914,21 +1914,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the films by director"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=films words="the films" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=director operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1638 — diagram/charts-01.csv, record 1638, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1956,21 +1956,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the staff by building"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=staff words="the staff" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=building operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1658 — diagram/charts-01.csv, record 1658, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -1998,21 +1998,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the staff by building"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=staff words="the staff" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=building operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1679 — diagram/charts-01.csv, record 1679, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2040,21 +2040,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the matches by competition"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=matches words="the matches" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=competition operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1718 — diagram/charts-01.csv, record 1718, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2082,21 +2082,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the departments by school"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=departments words="the departments" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=school operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1741 — diagram/charts-01.csv, record 1741, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2124,21 +2124,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the departments by school"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=departments words="the departments" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=school operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1762 — diagram/charts-01.csv, record 1762, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2166,21 +2166,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the participations by activity"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=participations words="the participations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=activity operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1798 — diagram/charts-01.csv, record 1798, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2208,21 +2208,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the asset parts by part name"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="asset parts" words="the asset parts" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="part name" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1842 — diagram/charts-01.csv, record 1842, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2251,21 +2251,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the accelerators by operating system"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=accelerators words="the accelerators" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="operating system" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1863 — diagram/charts-01.csv, record 1863, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2293,21 +2293,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="scatter plot of the car models by maker"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=scatter operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="car models" words="the car models" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=maker operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1905 — diagram/charts-01.csv, record 1905, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2335,21 +2335,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the cinemas by location"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=cinemas words="the cinemas" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=location operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1925 — diagram/charts-01.csv, record 1925, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2377,21 +2377,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the members by address"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=members words="the members" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=address operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1970 — diagram/charts-01.csv, record 1970, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2419,21 +2419,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the classes by course"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=classes words="the classes" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=course operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-1991 — diagram/charts-01.csv, record 1991, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2461,21 +2461,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the concerts by theme"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=concerts words="the concerts" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=theme operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2011 — diagram/charts-01.csv, record 2011, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2503,21 +2503,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the paragraphs by document"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=paragraphs words="the paragraphs" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=document operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2033 — diagram/charts-01.csv, record 2033, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2545,21 +2545,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the documents by location"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=documents words="the documents" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=location operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2054 — diagram/charts-01.csv, record 2054, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2587,21 +2587,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="scatter plot of the transactions by account"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=scatter operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=transactions words="the transactions" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=account operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2076 — diagram/charts-01.csv, record 2076, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2629,21 +2629,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the accounts by last name"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=accounts words="the accounts" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value="last name" operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2099 — diagram/charts-01.csv, record 2099, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2671,21 +2671,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the customers by outcome"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=customers words="the customers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=outcome operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2120 — diagram/charts-01.csv, record 2120, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2713,20 +2713,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the cards by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=cards words="the cards" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2142 — diagram/charts-01.csv, record 2142, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2754,20 +2754,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a bar chart of the cards by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=cards words="the cards" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2182 — diagram/charts-01.csv, record 2182, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2795,21 +2795,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the students by dorm"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=students words="the students" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=dorm operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2224 — diagram/charts-01.csv, record 2224, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2837,21 +2837,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the payments by method"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=payments words="the payments" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=method operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2246 — diagram/charts-01.csv, record 2246, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2879,21 +2879,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the reviews by user"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=reviews words="the reviews" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=user operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2269 — diagram/charts-01.csv, record 2269, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2921,21 +2921,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the flights by destination"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=flights words="the flights" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=destination operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2310 — diagram/charts-01.csv, record 2310, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -2963,21 +2963,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the stations by company"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=stations words="the stations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=company operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2334 — diagram/charts-01.csv, record 2334, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3005,21 +3005,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the stations by company"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=stations words="the stations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=company operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2356 — diagram/charts-01.csv, record 2356, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3047,21 +3047,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the furniture by manufacturer"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=furniture words="the furniture" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=manufacturer operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2377 — diagram/charts-01.csv, record 2377, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3089,21 +3089,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the furniture by manufacturer"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=furniture words="the furniture" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=manufacturer operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2397 — diagram/charts-01.csv, record 2397, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3131,21 +3131,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the party events by party"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="party events" words="the party events" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=party operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2416 — diagram/charts-01.csv, record 2416, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3173,21 +3173,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the drivers by party"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=drivers words="the drivers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=party operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2440 — diagram/charts-01.csv, record 2440, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3215,21 +3215,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the drivers by party"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=drivers words="the drivers" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=party operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2462 — diagram/charts-01.csv, record 2462, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3257,21 +3257,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the ships by flag"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=ships words="the ships" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=flag operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2481 — diagram/charts-01.csv, record 2481, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3299,21 +3299,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the ships by flag"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=ships words="the ships" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=flag operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2499 — diagram/charts-01.csv, record 2499, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3341,21 +3341,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the registrations by branch"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=registrations words="the registrations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=branch operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2523 — diagram/charts-01.csv, record 2523, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3383,21 +3383,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the stations by network"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=stations words="the stations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=network operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2545 — diagram/charts-01.csv, record 2545, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3425,21 +3425,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the regions by storm"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=regions words="the regions" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=storm operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2567 — diagram/charts-01.csv, record 2567, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3467,21 +3467,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the registrations by course"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=registrations words="the registrations" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=course operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2588 — diagram/charts-01.csv, record 2588, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3509,21 +3509,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the exhibitions by artist"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=exhibitions words="the exhibitions" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=artist operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2608 — diagram/charts-01.csv, record 2608, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3551,21 +3551,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the exhibitions by artist"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=exhibitions words="the exhibitions" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=artist operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2628 — diagram/charts-01.csv, record 2628, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3593,21 +3593,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the orders by customer"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=orders words="the orders" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=customer operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2650 — diagram/charts-01.csv, record 2650, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3635,21 +3635,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the channels by language"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=channels words="the channels" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=language operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2672 — diagram/charts-01.csv, record 2672, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3677,21 +3677,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the channels by language"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=channels words="the channels" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=language operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2709 — diagram/charts-01.csv, record 2709, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3719,21 +3719,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the races by class"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=races words="the races" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=class operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2727 — diagram/charts-01.csv, record 2727, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3761,21 +3761,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the races by class"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=races words="the races" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=class operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2748 — diagram/charts-01.csv, record 2748, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3803,20 +3803,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a pie chart of the buses by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=pie sort_words="pie chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=buses words="the buses" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2770 — diagram/charts-01.csv, record 2770, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3844,20 +3844,20 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="a bar chart of the buses by type"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite sort=bar sort_words="bar chart"
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=buses words="the buses" operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=type operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 0 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2811 — diagram/charts-01.csv, record 2811, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3885,21 +3885,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="pie chart of the players by hand"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=pie operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=players words="the players" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=hand operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-01-2832 — diagram/charts-01.csv, record 2832, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved with the benefit amendment below. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3927,21 +3927,21 @@ Proposed circuit
 
 ```sop
 @f1 w.request.filler text="when you get a chance"
-@f2 w.request.filler text="would help the team a lot"
 @r1 w.request.request act=make mood=do words="bar chart of the players by hand"
 @r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
 @r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar operator=eq phase=result
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=players words="the players" operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=hand operator=eq phase=result key_words=by
+@r1.u1 w.request.unread request=$r1 text="would help the team a lot" note=request.benefit
 ```
 
 Evidence
 
-Reader `a6f1cedabffc5883789bb893a140fc697743591a` emitted the proposed circuit above as its leading native-valid proposal. The proposed circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+Reader `a6f1cedabffc5883789bb893a140fc697743591a` produced the chart request and fields. The reviewer amended its benefit filler to the request-owned unread wire above. The amended circuit passed native verification with 1 warnings. Run `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` at the recorded revision on the exact input. Verify the proposed cell with `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
 
 ## Z3-GOLD-CHARTS-03-0063 — diagram/charts-03.csv, record 63, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -3998,7 +3998,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 
 ## Z3-GOLD-CHARTS-03-0082 — diagram/charts-03.csv, record 82, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
@@ -4049,7 +4049,7 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 
 ## Z3-GOLD-CHARTS-03-0087 — diagram/charts-03.csv, record 87, column sop
 
-Pending coordinator approval. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
+Approved as proposed. CSV record numbers include the header. Dataset `d1c15c5857365a82358b4a324f2611088026cc9b`.
 
 Exact input
 
