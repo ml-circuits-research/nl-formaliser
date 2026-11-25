@@ -12,6 +12,7 @@ import {
   SMT_TO_DET,
   SMT_TO_PHASE,
   SMT_TO_WANT,
+  acceptsPropertyFamily,
   defaultOnFor,
   fmtSopValue,
 } from '../contracts.mjs';
@@ -355,7 +356,8 @@ export function modelToSop(model, lattice, meta) {
           .map((a) => (a.includes('.') ? a.split('.').slice(1).join('.') : a))
       );
       const validIntrinsics = pred.intrinsicConstraints.filter((ic) => {
-        if (!ic?.attribute || !tabSpec.keys.has(ic.attribute)) return false;
+        const key = ic?.attribute ? tabSpec.keys.get(ic.attribute) : null;
+        if (!key || !acceptsPropertyFamily(family, key.family)) return false;
         if (!ic.value && ic.operator !== 'delta') return false;
         const sk = ic.attribute.includes('.') ? ic.attribute.split('.').slice(1).join('.') : ic.attribute;
         if (explicitShorts.has(sk)) return false;

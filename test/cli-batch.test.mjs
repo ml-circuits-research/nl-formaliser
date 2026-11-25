@@ -268,6 +268,73 @@ test('declared selection commands preserve deselection scope and distinguish act
   }
 });
 
+test('artifact creation, existing documents and physical opening use their written scopes', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const [text, family] of [
+      ['Open a fresh page; then draw a cat', 'page'],
+      ['Could you open a blank document?', 'document'],
+      ['Open a new chapter', 'section'],
+    ]) {
+      const best = (await reader.propose(text)).candidates[0];
+      assert.ok(best.check.ok, best.sop);
+      assert.match(best.sop, /@r1 w\.request\.request act=make .*predicate=[Oo]pen/);
+      assert.ok(best.sop.includes(`@r1.t w.request.target request=$r1 family=${family} mode=new`), best.sop);
+      assert.doesNotMatch(best.sop, /@r1\.l\d+ w\.request\.lookup/);
+      if (text.includes('draw')) assert.match(best.sop, /@r2\.t .*sort=cat/);
+    }
+
+    const report = (await reader.propose('Open the report called "From Archive"')).candidates[0];
+    assert.ok(report.check.ok, report.sop);
+    assert.match(report.sop, /act=load .*predicate=Open/);
+    assert.match(report.sop, /mode=existing [^\n]+sort=report name="From Archive"/);
+    assert.doesNotMatch(report.sop, /load\.source_or_qualifier/);
+
+    const physical = (await reader.propose('Open the door')).candidates[0];
+    assert.ok(physical.check.ok, physical.sop);
+    assert.match(physical.sop, /act=change .*predicate=Open/);
+    assert.match(physical.sop, /family=drawn mode=existing .*sort=door/);
+
+    const literal = (await reader.propose('Add a heading called "Open a fresh page"')).candidates[0];
+    assert.ok(literal.check.ok, literal.sop);
+    assert.match(literal.sop, /value="Open a fresh page"/);
+    assert.doesNotMatch(literal.sop, /predicate=Open|family=page mode=new/);
+
+    const qualified = await reader.propose('Open a fresh page with Notes centred as its title; then draw a dog');
+    assert.equal(qualified.status, 'partial');
+    assert.ok(qualified.candidates[0].check.ok, qualified.candidates[0].sop);
+    assert.match(qualified.candidates[0].sop, /family=page mode=new/);
+    assert.match(qualified.candidates[0].sop, /text="with Notes centred as its title" note=create\.artifact_detail/);
+    assert.match(qualified.candidates[0].sop, /@r2\.t .*sort=dog/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('load preserves its written source separately from the artifact identity', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const result = await reader.propose('Load the report from Archive; then draw a dog');
+    assert.equal(result.status, 'partial');
+    const best = result.candidates[0];
+    assert.ok(best.check.ok, best.sop);
+    assert.match(best.sop, /@r1 w\.request\.request act=load/);
+    assert.match(best.sop, /@r1\.t .*mode=existing .*sort=report/);
+    assert.match(best.sop, /@r1\.u\d+ .*text="from Archive" note=load\.source_or_qualifier/);
+    assert.match(best.sop, /@r2\.t .*sort=dog/);
+    assert.doesNotMatch(best.sop, /name=Archive|act=save/);
+
+    const bare = (await reader.propose('Load it from "Board Pack"')).candidates[0];
+    assert.ok(bare.check.ok, bare.sop);
+    assert.match(bare.sop, /act=load .*refers=thing/);
+    assert.match(bare.sop, /from=any words=it/);
+    assert.match(bare.sop, /note=load\.source_or_qualifier/);
+    assert.doesNotMatch(bare.sop, /w\.request\.target/);
+  } finally {
+    await reader.close();
+  }
+});
+
 test('reported past actions stay distinct from current commands and literal references', async () => {
   const reader = await createReader({ topK: 2 });
   try {

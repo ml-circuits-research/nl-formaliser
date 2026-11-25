@@ -1282,3 +1282,19 @@ The reviewer confirmed that the earlier draft's `colour_by` slot reference was e
 ### READY Q-NL-057 — review request
 
 Focused groups 5/5, repeated compound checks 6/6, final full serial suite 255/255, and final selected WebMeet run 14/14 native-valid with 11/14 expected axis bindings. Please independently review and publish the exact X/Y evidence, deduplication, preservation of independent requests, and typed scatter-label scope. For the owner output, keep the targeted counts separate from the dated Q045 table.
+
+## Q-NL-058 — Distinguish blank artifact creation, loading and physical opening
+
+The reader consumes the published `acts.text.make.blank` words on an explicit new, blank, empty or fresh document/page/chapter head. “Open a fresh page” yields a new page, and nearby independent directives retain their own requests. A written creation name remains on the artifact. Unresolved attached wording from the published text-opening construction remains exact unread rather than becoming a synthetic composition. A temporal phrase introduced by “while” and its written subject is kept as an exact adjunct.
+
+The existing opening/load senses now keep a definite typed document or diagram and its literal name. “Open the report called ‘From Archive’” uses the quoted name. “Load the report from Archive” keeps the typed report and the separate exact `from Archive` span as `load.source_or_qualifier`. “Load it from ‘Board Pack’” retains the untyped literal reference, with no emitted target family or history. The existing physical action declaration is used for “Open the door”. Quoted imperatives remain content. The native intent role enum still has no general source role. A future canonical source binding should keep repository origin distinct from a date/other selector and from artifact identity.
+
+The selected page-creation cohort exposed an emitter defect on following typography requests. The emitter could append verb-intrinsic `inline.format` to an unrelated request owner, producing a native error. It now uses the same declared property-family compatibility relation as the native verifier before emitting any intrinsic. This checks the emitted property; full interpretation of the follow-up callout, caption and font clauses remains open.
+
+The historical report requested by the owner is now in `lastResults-z3.md`, committed as `a4d766b`. It records the actual saved measurement timestamp and source snapshot. Please publish it with the review and use that report for the coordinator's status table. The latest aggregate still comes from Q-NL-017, and Q057 is independently accepted through reviewer commit `00bd55a`.
+
+In the final run, the leading proposals passed native validation and kept the new artifact request in all 16 exact `23f19aa` texts found with these written blank/new opening forms. The selected rows are `diagram/charts-03.csv:2,3,17,27,36,54,63,75,82,86,87`, `diagram/diagrams-02.csv:171`, `diagram/diagrams-03.csv:1027,1412`, `diagram/nodes-01.csv:4907`, and `document/text-06.csv:456`. The named document keeps “Sprint 14 Retro”. The measures here verify the opening operation, its target, and native validity. They do not grade every following clause. The unregistered meaning of named UI controls remains with the shared canonical task.
+
+### READY Q-NL-058 — review request
+
+Focused groups 3/3, final full serial suite 257/257, and final exact WebMeet opening cohort 16/16 native-valid leading proposals with the intended new artifact. Please independently review and publish the creation and loading distinction, exact source evidence, physical opening control and emitter compatibility change. The previously accepted `lastResults-z3.md` remains the saved aggregate report. No new aggregate was run.

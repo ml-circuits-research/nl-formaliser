@@ -630,6 +630,7 @@ function loadActions(parse, worldsDir, grammar) {
           name,
           group,
           holds,
+          objects: new Set((w.attrs.object ?? []).map((value) => unquoteSop(value).toLowerCase())),
           opposite: one(w, 'opposite') ?? '',
           undoneBy: one(w, 'undone_by') ?? '',
         });

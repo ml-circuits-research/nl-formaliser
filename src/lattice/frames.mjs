@@ -741,9 +741,69 @@ export function matchModalWants(tokens, splitPoints, predicates, candidates, kb)
   return [...found.values()];
 }
 
-// The published saving and export frames put the artifact before the
-// destination/name/format operand. The latter must never identify the artifact.
-export function matchOutputOperands(tokens, splitPoints, predicates, candidates, kb) {
+const documentFamilies = new Set(['page', 'document', 'text', 'section', 'block']);
+const artifactFamilies = new Set([...documentFamilies, 'diagram', 'chart', 'sketch']);
+
+function artifactNameEnds(tokens, heads, headEnd) {
+  if (!['called', 'named', 'titled'].includes(tokens[headEnd + 1]?.lower)) return [];
+  return heads.filter((head) => head.kind === HYP_KINDS.TARGET_REF && head.name &&
+    head.startTok === headEnd + 2).map(({ endTok }) => endTok);
+}
+
+export function matchBlankArtifactCreation(tokens, splitPoints, predicates, candidates, kb) {
+  const frame = kb.grammar.frames?.get('acts.text.make.blank');
+  if (frame?.act !== 'make' || !frame.roles.includes('thing')) return [];
+  const lead = frame.parts.find(({ words }) => words.includes('open'));
+  const modifiers = frame.parts.find(({ words }) => words.includes('new') && words.includes('blank'));
+  if (!lead || !modifiers) return [];
+  const attachedCues = kb.grammar.frames.get('acts.text.make.begin')?.parts
+    .find(({ words }) => words.includes('with') && words.includes('using'))?.words ?? [];
+  const open = predicates.filter((predicate) => predicate.text.toLowerCase() === 'open' &&
+    predicate.licensed?.some(({ act }) => act === 'load'));
+  if (!open.length) return [];
+  const windows = frameWindows(tokens, splitPoints, predicates).filter(({ internalJoiners }) => !internalJoiners);
+  return open.flatMap((predicate) => {
+    const first = predicate.endTok + 1;
+    const determiner = kb.grammar.determiners.get(tokens[first]?.lower)?.det;
+    if (determiner && determiner !== 'indefinite') return [];
+    const descriptor = first + Number(Boolean(determiner));
+    const modifier = tokens[descriptor];
+    if (modifier?.kind !== 'word' || modifier.lower === 'next' || !modifiers.words.includes(modifier.lower)) return [];
+    const ends = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok > descriptor &&
+      tokens.slice(startTok, predicate.startTok).every((token) => !token.isContent || token.isFiller));
+    const bareHeads = candidates.filter(({ kind, family, startTok }) =>
+      [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(kind) &&
+      documentFamilies.has(family) && startTok === descriptor + 1 &&
+      ends.some(({ endTok }) => endTok >= startTok));
+    const readings = bareHeads.flatMap((head) => [head.endTok, ...artifactNameEnds(tokens, candidates, head.endTok)]
+      .filter((endTok) => ends.some((window) => endTok <= window.endTok &&
+        tokens.slice(endTok + 1, window.endTok + 1).every((token) => token.isPunct || token.isFiller)))
+      .map((endTok) => ({ head, endTok })));
+    if (readings.length) {
+      const endTok = Math.max(...readings.map((reading) => reading.endTok));
+      return [{ predicate, descriptor, endTok, heads: readings.filter((reading) => reading.endTok === endTok)
+        .map(({ head }) => head) }];
+    }
+    const qualifiedHeads = bareHeads.filter(({ endTok }) => {
+      const marker = tokens[endTok + 1]?.lower;
+      return attachedCues.includes(marker) || (marker === 'while' && kb.grammar.pronouns.has(tokens[endTok + 2]?.lower));
+    });
+    if (!qualifiedHeads.length) return [];
+    const targetEnd = Math.max(...qualifiedHeads.map(({ endTok }) => endTok));
+    const windowsAfter = ends.filter(({ endTok }) => endTok > targetEnd + 1);
+    if (!windowsAfter.length) return [];
+    let endTok = Math.min(...windowsAfter.map((window) => window.endTok));
+    while (endTok > targetEnd + 1 && (tokens[endTok].isPunct || tokens[endTok].isFiller)) endTok--;
+    if (endTok <= targetEnd + 1) return [];
+    return [{
+      predicate, descriptor, endTok, heads: qualifiedHeads.filter((head) => head.endTok === targetEnd),
+      qualifier: { startTok: targetEnd + 1, endTok },
+    }];
+  });
+}
+
+// Artifact names belong before the published output and source markers.
+export function matchArtifactOperands(tokens, splitPoints, predicates, candidates, kb) {
   const frames = kb.grammar.frames;
   const cuesFor = (name, role) => {
     const parts = frames?.get(name)?.parts ?? [];
@@ -762,12 +822,14 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
   });
   const copies = frames?.get('acts.copy')?.act === 'copy' ? predicates.filter((predicate) =>
     predicate.licensed?.some(({ act }) => act === 'copy')) : [];
+  const loads = origins.size ? predicates.filter((predicate) =>
+    predicate.licensed?.some(({ act }) => act === 'load')) : [];
   const isHead = ({ kind }) =>
     [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind);
   const modalLeads = modalHaveLeads(kb.grammar, ['1', '3']);
   const outputModal = modalLeads.length &&
     kb.markings.get('download')?.some(({ act, marker, role }) => act === 'save' && marker === 'as' && role === 'format');
-  if (!actions.length && !copies.length &&
+  if (!actions.length && !copies.length && !loads.length &&
       !(outputModal && modalLeads.some(([modal]) => tokens.some(({ lower }) => lower === modal)))) return [];
   const windows = frameWindows(tokens, splitPoints, predicates).filter((window) => !window.internalJoiners);
   if (outputModal) {
@@ -808,9 +870,10 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
     }
   }
   const readings = [];
-  for (const predicate of new Set([...actions, ...copies])) {
+  for (const predicate of new Set([...actions, ...copies, ...loads])) {
     const start = predicate.endTok + 1;
     const word = predicate.text.toLowerCase();
+    const loading = loads.includes(predicate);
     const formats = new Set((kb.markings.get(predicate.modalOutput ? 'download' : word) ?? [])
       .filter(({ role }) => role === 'format').map(({ marker }) => marker));
     const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok >= start &&
@@ -822,7 +885,9 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
       const token = tokens[i];
       const cue = token.lower;
       if (token.kind !== 'word' || tokens[i + 1].isPunct) continue;
-      if (formats.has(cue) && cue === 'as') markers.push({ index: i, note: 'save.format' });
+      if (loading) {
+        if (origins.has(cue)) markers.push({ index: i, note: 'load.source_or_qualifier' });
+      } else if (formats.has(cue) && cue === 'as') markers.push({ index: i, note: 'save.format' });
       // The origin is an operand, but the intent schema has no source role.
       else if (origins.has(cue) && cue === 'from') markers.push({ index: i, note: 'save.source' });
       else if (destinations.has(cue) && ['to', 'into'].includes(cue)) markers.push({ index: i, role: 'destination' });
@@ -832,8 +897,22 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
     while (targetEnd >= start && (tokens[targetEnd].isPunct || tokens[targetEnd].isFiller)) targetEnd--;
     const bareReference = candidates.some((head) =>
       head.isPronoun && head.startTok === start && head.endTok === targetEnd);
-    if (!markers.length && !bareReference) continue;
-    if (!candidates.some((candidate) => isHead(candidate) && candidate.startTok >= start && candidate.endTok <= targetEnd)) continue;
+    const scopeHeads = candidates.filter((candidate) => isHead(candidate) &&
+      candidate.startTok >= start && candidate.endTok <= targetEnd);
+    if (loading && !scopeHeads.some(({ startTok, detTok }) => startTok === start || detTok === start)) continue;
+    const unambiguousLoad = loading && predicate.licensed.every(({ act }) => act === 'load');
+    const loadHeads = loading ? scopeHeads.filter(({ family, det, endTok }) =>
+      artifactFamilies.has(family) && (unambiguousLoad || ['definite', 'possessive', 'demonstrative'].includes(det)) &&
+      (endTok === targetEnd || artifactNameEnds(tokens, scopeHeads, endTok).includes(targetEnd))) : [];
+    const physicalObjects = word === 'open' && kb.actionSpecs.get('open')?.objects;
+    if (loading && !loadHeads.length && physicalObjects &&
+        scopeHeads.some(({ family, sort, endTok }) => family === 'drawn' &&
+          physicalObjects.has(sort) && endTok === targetEnd)) {
+      readings.push({ predicate, physicalOpen: true });
+      continue;
+    }
+    if (loading && !loadHeads.length && !bareReference && !unambiguousLoad) continue;
+    if (!scopeHeads.length || (!markers.length && !bareReference && !loadHeads.length)) continue;
     const roles = markers.flatMap(({ index, role, note }, i) => {
       let endTok = (markers[i + 1]?.index ?? window.endTok + 1) - 1;
       while (endTok > index && (tokens[endTok].isPunct || tokens[endTok].isFiller)) endTok--;
@@ -847,7 +926,7 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
       }
       return [{ startTok: index, endTok, role, note }];
     });
-    if (roles.length || bareReference) readings.push({ predicate, targetEnd, roles, bareReference });
+    if (roles.length || bareReference || loadHeads.length) readings.push({ predicate, targetEnd, roles, bareReference, loadHeads });
   }
   return readings;
 }

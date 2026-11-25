@@ -534,7 +534,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       head.startTok > predicate.endTok && head.endTok <= predicate.outputTargetEnd &&
       (!predicate.bareReference || (head.isPronoun && head.startTok === predicate.endTok + 1 &&
         head.endTok === predicate.outputTargetEnd)));
-    if ((!roles.length && !predicate.bareReference) || !artifact.length) continue;
+    const loadHeads = predicate.loadHeads?.length ? artifact.filter((candidate) => predicate.loadHeads.some((head) =>
+      head.kind === candidate.kind && head.family === candidate.family && sameSpan(head, candidate))) : [];
+    if ((!roles.length && !predicate.bareReference && !loadHeads.length) || !artifact.length) continue;
     if (outputPredicates.length <= R) {
       emit(`(assert sel_${predicate.id})`);
     } else {
@@ -551,8 +553,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         `(<= rend_${r} ${Math.max(predicate.outputTargetEnd, ...roles.map(({ endTok }) => endTok))})`,
         `(not ${smtOr(constraints.map(owns))})`,
       ] : [];
+      const existingArtifact = loadHeads.length ? `(= tmode_${r} TM_EXISTING) ${smtOr(loadHeads.map(owns))}` : '';
       emit(`(assert (=> ${owns(predicate)} (and ${smtOr(artifact.map(owns))}
-        ${[...roles.map(owns), ...untyped].join(' ')} (not ${smtOr(foreign.map(owns))}))))`);
+        ${[...roles.map(owns), ...untyped].join(' ')} ${existingArtifact} (not ${smtOr(foreign.map(owns))}))))`);
       for (const role of roles) emit(`(assert (=> ${owns(role)} ${owns(predicate)}))`);
       if (predicate.modalOutput) {
         emit(`(assert (=> ${owns(predicate)} (and (= q_${r} Q_NONE) (= asked_${r} (- 1)))))`);
@@ -588,12 +591,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       for (const operand of operands) emit(`(assert (=> ${owns(operand)} ${owns(anchor)}))`);
     }
   }
-  const modalWants = preds.filter(({ modalWantHeads }) => modalWantHeads);
-  for (const predicate of modalWants) {
-    const artifact = outputHeads.filter((candidate) => predicate.modalWantHeads.some((head) =>
+  const groundedPredicates = preds.filter(({ predicateTargetHeads }) => predicateTargetHeads);
+  for (const predicate of groundedPredicates) {
+    const artifact = outputHeads.filter((candidate) => predicate.predicateTargetHeads.some((head) =>
       head.kind === candidate.kind && head.family === candidate.family && sameSpan(head, candidate)));
     if (!artifact.length) continue;
-    if (modalWants.length + outputPredicates.length <= R) {
+    if (groundedPredicates.length + outputPredicates.length <= R) {
       emit(`(assert sel_${predicate.id})`);
     } else {
       emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
@@ -602,6 +605,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
       const grounded = artifact.map((head) => `(and ${owns(head)} (= tpos_${r} ${head.startTok}))`);
       emit(`(assert (=> ${owns(predicate)} ${smtOr(grounded)}))`);
+      if (predicate.creationEnd != null) {
+        emit(`(assert (=> ${owns(predicate)} (and (= tmode_${r} TM_NEW) (<= rend_${r} ${predicate.creationEnd}))))`);
+      }
     }
   }
   for (let r = 1; r <= R; r++) {

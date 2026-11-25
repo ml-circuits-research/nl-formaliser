@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { chartFieldAxisForms, chartFieldEnd, chartFieldRole, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { chartFieldAxisForms, chartFieldEnd, chartFieldRole, matchArtifactOperands, matchBlankArtifactCreation, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -3655,9 +3655,32 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   }
 
   if (catalog) {
-    for (const { predicate, targetEnd, roles, bareReference } of matchOutputOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
+    for (const { predicate, descriptor, endTok, heads, qualifier } of matchBlankArtifactCreation(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
+      const expanded = heads.map((head) => ({ ...head, startTok: descriptor, det: 'indefinite' }));
+      for (const head of expanded) emit(head);
+      Object.assign(predicate, {
+        licensed: [{ act: 'make', mode: 'none', mood: 'do' }],
+        predicateTargetHeads: expanded,
+        creationEnd: endTok,
+      });
+      if (qualifier) {
+        predicate.outputTargetEnd = qualifier.startTok - 1;
+        emit({
+          kind: HYP_KINDS.UNREAD, ...qualifier, rolePredicate: predicate.startTok,
+          note: 'create.artifact_detail', cost: 0,
+        });
+      }
+    }
+    for (const { predicate, targetEnd, roles, bareReference, loadHeads, physicalOpen } of matchArtifactOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
+      if (physicalOpen) {
+        predicate.licensed = predicate.licensed.filter(({ act }) => act === 'change');
+        continue;
+      }
       if (predicate.modalOutput) emit({ ...predicate, outputTargetEnd: targetEnd, bareReference });
-      else Object.assign(predicate, { outputTargetEnd: targetEnd, bareReference });
+      else {
+        Object.assign(predicate, { outputTargetEnd: targetEnd, bareReference, loadHeads });
+        if (loadHeads.length) predicate.licensed = predicate.licensed.filter(({ act }) => act === 'load');
+      }
       for (const { startTok, endTok, role, note } of roles) {
         emit({
           kind: role ? HYP_KINDS.INTENT : HYP_KINDS.UNREAD,
@@ -3741,7 +3764,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     for (const { startTok, endTok, act, heads } of matchModalWants(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
       if (modalOutputs.has(startTok)) continue;
       emit({
-        kind: HYP_KINDS.PREDICATE, startTok, endTok, modalWantHeads: heads,
+        kind: HYP_KINDS.PREDICATE, startTok, endTok, predicateTargetHeads: heads,
         licensed: [{ act, mode: 'none', mood: 'do' }], cost: 0,
       });
     }
@@ -4225,7 +4248,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.chartAxisAssignment ? 1 : 0,
       c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
-      c.modalWantHeads ? 1 : 0,
+      c.predicateTargetHeads ? 1 : 0,
       c.predicateRole ?? '',
       c.predicateRoleFamily ?? '',
       c.dictatedContent ? 1 : 0,
