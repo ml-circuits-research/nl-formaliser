@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchChartDisplayEdits, matchChartFieldAssignments, matchFrames, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { matchChartDisplayEdits, matchChartFieldAssignments, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -3668,6 +3668,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const chartAssignments = catalog ? [
     ...matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb),
     ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb, parseNumeric),
+    ...matchChartLegendEdits(tokens, splitPoints, writtenPredicates, kb),
   ] : [];
   for (const { startTok, endTok, fields, owner, limit, fragment, qualifier } of chartAssignments) {
     const scopeEnd = qualifier?.endTok ?? limit - 1;
@@ -3745,7 +3746,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   // Preserve a type-bearing candidate alongside the extended target description.
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
     c.licensed?.some((licence) => licence.act === 'make'));
-  if (catalog && tabKeys.has('chart.yMin') && tokens.some(({ lower }) => lower === 'with')) {
+  const legendKey = tabKeys.get('chart.legend');
+  if (catalog && tokens.some(({ lower }) => ['with', 'without', 'legend'].includes(lower))) {
     const chartHeads = rawCandidates.filter((head) =>
       [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
       head.family === 'chart' && head.det === 'indefinite' &&
@@ -3754,27 +3756,49 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       !(tokens[startTok].lower.endsWith('ed') && tokens[endTok + 1]?.lower === 'by')).map(({ startTok }) => startTok));
     const boundaries = splitPoints.filter(({ isStrong, endTok }) => isStrong || directiveStarts.has(endTok + 1));
     for (let i = 0; i < T; i++) {
-      if (tokens[i].lower !== 'with') continue;
-      const first = i + (DET_MAP.has(tokens[i + 1]?.lower) ? 2 : 1);
-      const zero = matchZeroBasedAt(tokens, first);
-      if (!zero) continue;
-      const cueStart = zero.endTok + 1;
-      const axisEnd = ['y', 'value'].includes(tokens[cueStart]?.lower) && tokens[cueStart + 1]?.lower === 'axis'
-        ? cueStart + 1 : tokens[cueStart]?.lower === 'y-axis' ? cueStart : -1;
-      if (axisEnd < 0 || (tokens[axisEnd + 1]?.isContent && !tokens[axisEnd + 1]?.isFiller)) continue;
+      const marker = tokens[i].lower;
+      if (!['with', 'without', ','].includes(marker)) continue;
+      const negated = tokens[i + 1]?.lower === 'no';
+      const first = i + (negated || DET_MAP.has(tokens[i + 1]?.lower) ? 2 : 1);
+      let field;
+      if (marker === 'with' && tabKeys.has('chart.yMin')) {
+        const zero = matchZeroBasedAt(tokens, first);
+        if (zero) {
+          const cueStart = zero.endTok + 1;
+          const axisEnd = ['y', 'value'].includes(tokens[cueStart]?.lower) && tokens[cueStart + 1]?.lower === 'axis'
+            ? cueStart + 1 : tokens[cueStart]?.lower === 'y-axis' ? cueStart : -1;
+          if (axisEnd >= 0) field = { ...zero, attribute: 'chart.yMin', cueStart, cueEnd: axisEnd };
+        }
+      }
+      if (!field && legendKey?.values && tokens[first]?.kind === 'word' && tokens[first].lower === 'legend') {
+        const hide = marker === 'without' || negated;
+        const position = hide ? null : matchLegendPosition(tokens, first + 1, T, legendKey);
+        if (position) field = { ...position, attribute: legendKey.name, cueStart: first, cueEnd: first };
+        else if (marker !== ',' || negated) {
+          const value = hide ? 'hide' : 'show';
+          if (legendKey.values.has(value)) {
+            field = { attribute: legendKey.name, value, startTok: hide ? i : first, endTok: first, wordsStart: i };
+          }
+        }
+      }
+      if (!field) continue;
+      const stop = (field.endTok > (field.cueEnd ?? -1) ? field.endTok : field.cueEnd) + 1;
+      if (tokens[stop]?.isContent && !tokens[stop]?.isFiller) continue;
       const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
       const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < i);
       const predicate = owner && creationPredicates.find((p) =>
         p.startTok > boundary && p.endTok < owner.startTok &&
         tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
       if (!predicate) continue;
-      emit({
-        kind: HYP_KINDS.KEY_WORD, startTok: cueStart, endTok: axisEnd, attrs: ['chart.yMin'],
-        families: ['chart'], cost: 0,
-      });
-      emitConstraint('chart.yMin', zero.value, zero.startTok, zero.endTok, {
-        phase: 'result', requiresKeyWord: true, chartCreationPredicate: predicate.startTok,
-        words: src.slice(tokens[zero.startTok].start, tokens[zero.endTok].end), cost: 1,
+      if (field.cueStart !== undefined) {
+        emit({
+          kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd, attrs: [field.attribute],
+          families: ['chart'], cost: 0,
+        });
+      }
+      emitConstraint(field.attribute, field.value, field.startTok, field.endTok, {
+        phase: 'result', requiresKeyWord: field.cueStart !== undefined, chartCreationPredicate: predicate.startTok,
+        words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
       });
     }
   }

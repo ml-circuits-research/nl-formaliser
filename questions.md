@@ -1212,3 +1212,15 @@ All 23 published `23f19aa` diagram rows from the direct X-scale lexical cohort n
 ### READY Q-NL-052 — review request
 
 Focused chart groups 6/6 and final full serial suite 248/248. Please independently review and publish the preserved X-scale evidence and coordinated Y-scale result. Keep the partial status and remaining grouping failures visible beside the historical L0–L4 table under Q045.
+
+## Q-NL-053 — Bind chart legend visibility and position to the written owner
+
+The scoped parser uses the published `chart.legend` request key for show/hide and written sides. “Add a legend” and “remove the legend” set visibility on the chart named in the clause. “Drop the legend on the right” uses the declared placement reading and retains right; it does not remove the chart or its legend. “Left side” keeps its exact wording and an explicit chart name or pronoun retains its own role. The emitted request key admits the written position; this makes no claim about chart drawing or runtime support.
+
+Chart creation accepts an attached “with”, “without”, or comma legend clause when the preceding creation and chart noun license it. The legend result can coexist with a zero-based Y axis on the same new chart, and a following independent operation stays separate. Coordinated visibility “hide the legend on the Expenses by department chart and the values as well” now binds both `chart.legend=hide` and `chart.show_values=hide` with the exact owner boundary. “Show the legend and values on Quarterly sales” shares the named chart. Quoted title content is a control.
+
+A lexical inventory of the pinned diagram CSVs found 1,981 positional legend phrases, 397 explicitly introduced by “with”, and 200 direct add/show/hide/remove/lose phrases. Counts overlap and do not grade the rows. In the actual selected `23f19aa` cohort, native validation passed 35/35 and 28 leading proposals retained the intended legend result on the appropriate chart request (22 existing-chart edits and six creations). The seven remaining rows were `diagram/charts-02.csv:38,52,589` and `diagram/charts-01.csv:3764,3765,3804,3807`. They still expose “lose”, preamble, or creation-boundary gaps. Numeric, grid and display effects in the same compounds have their own checks; the legend counts alone do not grade the full utterance.
+
+### READY Q-NL-053 — review request
+
+Focused chart groups 7/7, final full serial suite 249/249 and final selected WebMeet run 35/35 native-valid with 28/35 intended legend results on the appropriate chart request. Please independently review and publish the scoped legend role change. Keep the latest aggregate table under Q045 separate from these targeted results.

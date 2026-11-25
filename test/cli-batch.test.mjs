@@ -841,3 +841,56 @@ test('distinct X-axis scale wording remains unresolved alongside supported Y-sca
     await reader.close();
   }
 });
+
+test('chart legend requests retain visibility, scoped position and the chart owner', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    for (const [text, effect, who] of [
+      ['Add a legend to the Sales by month chart', 'show', /description="the Sales by month chart"/],
+      ['Remove the legend from Quarterly sales', 'hide', /name="Quarterly sales"/],
+      ['Drop the legend on the right', 'right', /key=thing from=any/],
+      ['Put the legend on the left side of the Expenses by department chart', 'left',
+        /description="the Expenses by department chart"/],
+      ['Set the legend on Quarterly sales to the bottom', 'bottom', /name="Quarterly sales"/],
+      ['Move the legend of it to the top', 'top', /from=any words=it\b/],
+    ]) {
+      const { sop, check } = (await reader.propose(text)).candidates[0];
+      assert.ok(check.ok, sop);
+      assert.match(sop, /act=change mood=do/);
+      assert.match(sop, /family=chart mode=existing/);
+      assert.match(sop, who);
+      assert.match(sop, new RegExp(`attribute=chart\\.legend value=${effect} .*phase=result`));
+      assert.doesNotMatch(sop, /attribute=(?:page\.style|chart\.showLegend)|name="the (?:right|left)"/);
+    }
+
+    const creation = (await reader.propose('Create a bar chart of 2023 sales, with a zero-based y-axis, legend at the bottom; then draw a cat')).candidates[0];
+    assert.ok(creation.check.ok, creation.sop);
+    assert.match(creation.sop, /@r1\.t .*family=chart mode=new/);
+    assert.match(creation.sop, /@r1\.c\d+ .*chart\.legend value=bottom/);
+    assert.match(creation.sop, /@r1\.c\d+ .*chart\.yMin value="0"/);
+    assert.match(creation.sop, /@r2\.t .*sort=cat/);
+
+    const excluded = (await reader.propose('Create a bar chart of sales without a legend')).candidates[0];
+    assert.ok(excluded.check.ok, excluded.sop);
+    assert.match(excluded.sop, /chart\.legend value=hide words="without a legend"/);
+
+    const combined = (await reader.propose('Hide the legend on the Expenses by department chart and the values as well')).candidates[0];
+    assert.ok(combined.check.ok, combined.sop);
+    assert.match(combined.sop, /description="the Expenses by department chart"/);
+    assert.match(combined.sop, /@r1\.c\d+ .*chart\.legend value=hide/);
+    assert.match(combined.sop, /@r1\.c\d+ .*chart\.show_values value=hide/);
+
+    const sharedOwner = (await reader.propose('Show the legend and values on Quarterly sales')).candidates[0];
+    assert.ok(sharedOwner.check.ok, sharedOwner.sop);
+    assert.match(sharedOwner.sop, /name="Quarterly sales"/);
+    assert.match(sharedOwner.sop, /@r1\.c\d+ .*chart\.legend value=show/);
+    assert.match(sharedOwner.sop, /@r1\.c\d+ .*chart\.show_values value=show/);
+
+    const quoted = (await reader.propose('Add a heading called "legend at the bottom"')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /value="legend at the bottom"/);
+    assert.doesNotMatch(quoted.sop, /attribute=chart\.legend/);
+  } finally {
+    await reader.close();
+  }
+});

@@ -91,3 +91,5 @@
 - 2026-11-25 — Q-NL-051 binds numeric Y-axis limits and zero-based creation modifiers, and retains exact normalized scale evidence. Eleven of 22 published probes preserve the intended numeric operand and chart owner. Focused 5/5, full serial 247/247. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-052 preserves the written X-scale operand pending a native key and separates the Y-scale result. Twelve of 23 published probes preserve X; five also emit the intended Y scale. Focused 6/6, full serial 248/248. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-053 binds native legend visibility and position to chart edits and creations. Twenty-eight of 35 published probes preserve the intended legend effect and owner. Focused 7/7, full serial 249/249. Review requested in `questions.md`.

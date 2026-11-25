@@ -263,6 +263,124 @@ export function matchZeroBasedAt(tokens, startTok) {
   return null;
 }
 
+export function matchLegendPosition(tokens, start, limit, key) {
+  let index = start;
+  if (['on', 'at', 'to'].includes(tokens[index]?.lower)) index++;
+  if (DET_WORDS.has(tokens[index]?.lower)) index++;
+  const token = tokens[index];
+  if (index >= limit || token?.kind !== 'word' || ['show', 'hide'].includes(token.lower) || !key.values.has(token.lower)) {
+    return null;
+  }
+  const endTok = index + (index + 1 < limit && tokens[index + 1].lower === 'side' ? 1 : 0);
+  return { startTok: index, endTok, value: token.lower, wordsStart: index };
+}
+
+function chartClauseQualifier(tokens, separator, end, grammar) {
+  const tail = tokens.slice(separator + 1, end + 1);
+  if (!tail.some(({ isContent }) => isContent)) return null;
+  const [joiner, subject] = tail;
+  const modal = grammar.phraseItems?.get('shape.can');
+  const writtenSubject = DET_WORDS.has(subject?.lower) || grammar.pronouns?.get(subject?.lower)?.cases.includes('subject');
+  const finiteContinuation = writtenSubject && tail.slice(2).some(({ lower }) => modal?.has(lower));
+  if (tokens[separator]?.text !== ',' || joiner?.lower !== 'so' ||
+      !grammar.phraseItems?.get('connective')?.has('so') ||
+      !(subject?.lower === 'that' || finiteContinuation)) return false;
+  while (end > separator + 1 && tokens[end].isPunct) end--;
+  return { startTok: separator + 1, endTok: end };
+}
+
+export function matchChartLegendEdits(tokens, splitPoints, predicates, kb) {
+  const key = kb.catalog.keys.get('chart.legend');
+  const labels = kb.catalog.keys.get('chart.show_values');
+  if (!key?.values || !tokens.some(({ kind, lower }) => kind === 'word' && key.keyWords.has(lower))) return [];
+  const actions = new Map([
+    ['show', 'change'], ['hide', 'change'], ['add', 'make'], ['remove', 'remove'],
+    ['set', 'change'], ['make', 'change'],
+  ]);
+  const visibility = new Map([['show', 'show'], ['hide', 'hide'], ['add', 'show'], ['remove', 'hide']]);
+  const labelCues = [...(labels?.keyWords ?? [])].map((words) => words.split(' '));
+  const byCue = new Map();
+  for (const window of frameWindows(tokens, splitPoints, predicates)) {
+    if (window.internalJoiners) continue;
+    let clauseStart = window.startTok;
+    while (['and', 'then'].includes(tokens[clauseStart]?.lower)) clauseStart++;
+    for (const startTok of [clauseStart, ...matchLeadAt(tokens, clauseStart, kb)]) {
+      const predicate = predicates.find((p) => p.startTok === startTok &&
+        p.licensed?.some(({ act }) => act === 'place' || act === actions.get(p.text.toLowerCase())));
+      const verb = predicate?.text.toLowerCase();
+      const endTok = predicate?.endTok ?? startTok - 1;
+      const fragment = !predicate;
+      let limit = endTok + 1;
+      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
+      if (qualifier === false) continue;
+
+      const cue = endTok + (DET_WORDS.has(tokens[endTok + 1]?.lower) ? 2 : 1);
+      if (tokens[cue]?.kind !== 'word' || !key.keyWords.has(tokens[cue].lower)) continue;
+      let cursor = cue + 1;
+      const toggle = visibility.get(verb);
+      const scopeLimit = limit;
+      let labelField;
+      let owner;
+      if (labels?.values?.has(toggle)) {
+        for (let joiner = cursor; joiner < limit; joiner++) {
+          if (tokens[joiner].lower !== 'and') continue;
+          const first = joiner + (DET_WORDS.has(tokens[joiner + 1]?.lower) ? 2 : 1);
+          const phrase = labelCues.find((words) => {
+            const end = matchWordSeqAt(tokens, first, words);
+            if (end < first || end > limit) return false;
+            if (joiner === cursor && ['on', 'of', 'for'].includes(tokens[end]?.lower) && end + 1 < limit) {
+              owner = { startTok: end + 1, endTok: limit - 1 };
+              return true;
+            }
+            const fillerStart = tokens[end]?.lower === 'as' && tokens[end + 1]?.lower === 'well' ? end + 2 : end;
+            return fillerStart <= limit && tokens.slice(fillerStart, limit).every(({ isFiller }) => isFiller);
+          });
+          if (!phrase) continue;
+          labelField = { attribute: labels.name, value: toggle, startTok: first, endTok: first + phrase.length - 1,
+            wordsStart: first };
+          limit = joiner;
+          break;
+        }
+      }
+      while (limit > endTok + 1 && tokens[limit - 1].isFiller) limit--;
+      let position = matchLegendPosition(tokens, cursor, limit, key);
+      if (toggle === 'hide' && position) continue;
+      if (position) cursor = position.endTok + 1;
+      const ownerMarkers = ['on', 'of', 'for', ...(verb === 'add' ? ['to'] : []), ...(verb === 'remove' ? ['from'] : [])];
+      if (ownerMarkers.includes(tokens[cursor]?.lower)) {
+        const first = ++cursor;
+        while (cursor < limit && (position || toggle === 'hide' || tokens[cursor].lower !== 'to')) cursor++;
+        if (cursor <= first) continue;
+        owner = { startTok: first, endTok: cursor - 1 };
+        if (!position && cursor < limit) {
+          position = matchLegendPosition(tokens, cursor, limit, key);
+          if (position) cursor = position.endTok + 1;
+        }
+      }
+      if (cursor !== limit || (!position && (!toggle || !key.values.has(toggle)))) continue;
+      const ownerWords = owner ? tokens.slice(owner.startTok, owner.endTok + 1) : [];
+      const families = ownerWords.filter(({ kind }) => kind === 'word')
+        .map(({ lower }) => kb.catalog.familyWords.get(lower)).filter(Boolean);
+      const explicitChart = families.some((entry) => entry.size === 1 && entry.has('chart'));
+      if (!explicitChart && (tokens[cue].lower !== 'legend' || families.some((entry) => !entry.has('chart')) ||
+          ownerWords.some(({ kind, lower }) => kind === 'word' && ['map', 'sheet', 'spreadsheet'].includes(lower)))) continue;
+      const field = position
+        ? { ...position, attribute: key.name, cueStart: cue, cueEnd: cue }
+        : { attribute: key.name, value: toggle, startTok: cue, endTok: cue, wordsStart: startTok };
+      const finalLimit = labelField ? scopeLimit : limit;
+      const existing = byCue.get(cue);
+      if (!existing || existing.limit > finalLimit || (existing.limit === finalLimit &&
+          (existing.startTok > startTok || (existing.startTok === startTok &&
+            (existing.qualifier?.endTok ?? finalLimit) > (qualifier?.endTok ?? finalLimit))))) {
+        byCue.set(cue, { startTok, endTok, fields: labelField ? [field, labelField] : [field],
+          owner, limit: finalLimit, qualifier, fragment });
+      }
+    }
+  }
+  return [...byCue.values()];
+}
+
 export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, parseNumeric) {
   const { catalog } = kb;
   const grid = catalog.keys.get('chart.grid');
@@ -344,19 +462,8 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, pars
       const visibility = labels.values.has(verb);
       let limit = end + 1;
       while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
-      let qualifier;
-      const tail = tokens.slice(limit + 1, window.endTok + 1);
-      if (tail.some(({ isContent }) => isContent)) {
-        const [joiner, subject] = tail;
-        const modal = kb.grammar.phraseItems?.get('shape.can');
-        const subjectIsWritten = DET_WORDS.has(subject?.lower) || kb.grammar.pronouns?.get(subject?.lower)?.cases.includes('subject');
-        const finiteContinuation = subjectIsWritten && tail.slice(2).some(({ lower }) => modal?.has(lower));
-        if (tokens[limit]?.text !== ',' || joiner?.lower !== 'so' || !kb.grammar.phraseItems?.get('connective')?.has('so') ||
-            !(subject?.lower === 'that' || finiteContinuation)) continue;
-        let endTok = window.endTok;
-        while (endTok > limit + 1 && tokens[endTok].isPunct) endTok--;
-        qualifier = { startTok: limit + 1, endTok };
-      }
+      const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
+      if (qualifier === false) continue;
       while (limit > end + 1 && tokens[limit - 1].isFiller) limit--;
 
       let cueStart = end + 1;
