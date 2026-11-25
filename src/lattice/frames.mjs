@@ -289,6 +289,72 @@ function chartClauseQualifier(tokens, separator, end, grammar) {
   return { startTok: separator + 1, endTok: end };
 }
 
+export function chartFieldRole(token, kb) {
+  if (token?.kind !== 'word') return null;
+  const lemmas = lemmatiseVerb(token.lower, kb);
+  if (kb.catalog.keys.has('chart.colourBy') && lemmas.some((lemma) =>
+    /^(?:colour|color)$/.test(lemma) && kb.verbs.get(lemma)?.some(({ act }) => act === 'change'))) {
+    return 'chart.colourBy';
+  }
+  if (kb.catalog.keys.has('chart.seriesDimension') && lemmas.includes('split') &&
+      kb.verbs.get('split')?.some(({ act }) => act === 'take apart')) return 'chart.seriesDimension';
+  return null;
+}
+
+export function chartFieldEnd(tokens, start, limit, kb) {
+  if (tokens[start]?.kind === 'quote') return start + 1;
+  let end = start;
+  while (end < limit && !tokens[end].isPunct) {
+    const word = tokens[end].lower;
+    if (['and', 'then', 'also'].includes(word)) {
+      let next = end + 1;
+      while (['and', 'then', 'also'].includes(tokens[next]?.lower)) next++;
+      if (chartFieldRole(tokens[next], kb) || kb.verbs.has(tokens[next]?.lower) ||
+          kb.grammar.phraseItems?.get('shape.want')?.has(tokens[next]?.lower)) break;
+    }
+    if (tokens[end + 1]?.text === ':' && kb.catalog.keys.get('chart.type')?.values?.has(word)) break;
+    if (['as', 'in'].includes(word) && tokens.slice(end + 1, Math.min(end + 5, limit)).some(({ kind, lower }) =>
+      kind === 'word' && kb.catalog.familyWords.get(lower)?.has('chart'))) break;
+    end++;
+  }
+  return end;
+}
+
+export function matchChartFieldEdits(tokens, splitPoints, predicates, kb) {
+  if (!tokens.some(({ lower }) => lower === 'by')) return [];
+  const byStart = new Map();
+  for (const window of frameWindows(tokens, splitPoints, predicates)) {
+    if (window.internalJoiners) continue;
+    for (const startTok of [window.startTok, ...matchLeadAt(tokens, window.startTok, kb)]) {
+      const attribute = chartFieldRole(tokens[startTok], kb);
+      if (!attribute) continue;
+      const predicate = predicates.find((candidate) => candidate.startTok === startTok && candidate.endTok === startTok);
+      if (!predicate) continue;
+      let limit = startTok + 1;
+      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      const qualifier = chartClauseQualifier(tokens, limit, window.endTok, kb.grammar);
+      if (qualifier === false) continue;
+      while (limit > startTok + 1 && tokens[limit - 1].isFiller) limit--;
+      let chartNoun = false;
+      let by = startTok + 1;
+      for (; by < limit; by++) {
+        const token = tokens[by];
+        if (chartNoun && token.lower === 'by') break;
+        const families = kb.catalog.familyWords.get(token.lower);
+        chartNoun ||= token.kind === 'word' && families?.size === 1 && families.has('chart');
+      }
+      if (by + 1 >= limit) continue;
+      const fieldEnd = chartFieldEnd(tokens, by + 1, limit, kb);
+      if (fieldEnd !== limit) continue;
+      const reading = { startTok, endTok: startTok, limit, qualifier,
+        owner: { startTok: startTok + 1, endTok: by - 1 },
+        fields: [{ attribute, startTok: by + 1, endTok: fieldEnd - 1, cueStart: by, cueEnd: by }] };
+      if (!byStart.has(startTok) || byStart.get(startTok).limit > limit) byStart.set(startTok, reading);
+    }
+  }
+  return [...byStart.values()];
+}
+
 export function matchChartLegendEdits(tokens, splitPoints, predicates, kb) {
   const key = kb.catalog.keys.get('chart.legend');
   const labels = kb.catalog.keys.get('chart.show_values');

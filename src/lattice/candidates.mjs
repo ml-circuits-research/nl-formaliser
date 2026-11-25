@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchChartDisplayEdits, matchChartFieldAssignments, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { chartFieldEnd, chartFieldRole, matchChartDisplayEdits, matchChartFieldAssignments, matchChartFieldEdits, matchChartLegendEdits, matchFrames, matchLegendPosition, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -3667,6 +3667,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
 
   const chartAssignments = catalog ? [
     ...matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb),
+    ...matchChartFieldEdits(tokens, splitPoints, writtenPredicates, kb),
     ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb, parseNumeric),
     ...matchChartLegendEdits(tokens, splitPoints, writtenPredicates, kb),
   ] : [];
@@ -3747,16 +3748,93 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
     c.licensed?.some((licence) => licence.act === 'make'));
   const legendKey = tabKeys.get('chart.legend');
-  if (catalog && tokens.some(({ lower }) => ['with', 'without', 'legend'].includes(lower))) {
+  if (catalog && tokens.some(({ lower }) => ['with', 'without', 'legend', 'by'].includes(lower))) {
     const chartHeads = rawCandidates.filter((head) =>
       [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
-      head.family === 'chart' && head.det === 'indefinite' &&
+      head.family === 'chart' && ['indefinite', 'none'].includes(head.det) &&
       mapGet(familyWords, tokens[head.endTok].lower)?.has('chart'));
     const directiveStarts = new Set(writtenPredicates.filter(({ startTok, endTok }) =>
-      !(tokens[startTok].lower.endsWith('ed') && tokens[endTok + 1]?.lower === 'by')).map(({ startTok }) => startTok));
+      !(tokens[endTok + 1]?.lower === 'by' && (chartFieldRole(tokens[startTok], kb) ||
+        tokens[startTok].lower.endsWith('ed')))).map(({ startTok }) => startTok));
     const boundaries = splitPoints.filter(({ isStrong, endTok }) => isStrong || directiveStarts.has(endTok + 1));
+    const sourceDimensions = new Set();
+    const emitField = (field, predicate) => {
+      if (field.cueStart !== undefined) {
+        emit({
+          kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd, attrs: [field.attribute],
+          families: ['chart'], cost: 0,
+        });
+      }
+      emitConstraint(field.attribute, field.value, field.startTok, field.endTok, {
+        phase: 'result', requiresKeyWord: field.cueStart !== undefined, chartCreationPredicate: predicate.startTok,
+        words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
+      });
+    };
+    const literalField = (startTok, endTok) => tokens[startTok].kind === 'quote' && startTok === endTok
+      ? tokens[startTok].inner : src.slice(tokens[startTok].start, tokens[endTok].end);
     for (let i = 0; i < T; i++) {
       const marker = tokens[i].lower;
+      if (tokens[i + 1]?.lower === 'by' && i + 2 < T) {
+        const attribute = chartFieldRole(tokens[i], kb);
+        if (attribute) {
+          const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
+          const limit = boundaries.reduce((next, { startTok }) => startTok > i ? Math.min(next, startTok) : next, T);
+          let fieldEnd = chartFieldEnd(tokens, i + 2, limit, kb);
+          while (fieldEnd > i + 2 && tokens[fieldEnd - 1].isFiller) fieldEnd--;
+          const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < limit &&
+            (head.endTok < i || (head.startTok > fieldEnd && ['as', 'in'].includes(tokens[fieldEnd]?.lower))));
+          const predicate = owner?.det === 'indefinite' && creationPredicates.find((p) =>
+            p.startTok > boundary && p.endTok < Math.min(owner.startTok, i) &&
+            tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
+          const bareChart = owner?.det === 'none' && owner.endTok < i && tokens[owner.endTok + 1]?.lower === 'of' &&
+            tokens.slice(boundary + 1, owner.startTok).every((token) => !token.isContent || token.isFiller);
+          const creation = predicate || (bareChart ? { startTok: -1, endTok: owner.startTok - 1 } : null);
+          if (creation && fieldEnd > i + 2) {
+            let fieldAttribute = attribute;
+            const bodyStart = owner.endTok < i ? owner.endTok + 1 : creation.endTok + 1;
+            const body = tokens.slice(bodyStart, i);
+            const writtenSeries = tokens[i - 1]?.lower === 'series' ||
+              (tokens[i - 1]?.lower === 'line' && tokens[i - 2]?.lower === 'a' && tokens[i - 3]?.lower === 'with' &&
+                tabKeys.get('chart.type')?.values?.has('line'));
+            if (attribute === 'chart.seriesDimension' && !writtenSeries &&
+                !body.some(({ lower }, offset) => lower === 'by' && !chartFieldRole(tokens[bodyStart + offset - 1], kb))) {
+              // A distribution over one field is the primary dimension.
+              // An additional series field needs separate grouping evidence.
+              if (!tabKeys.has('chart.dimension') || !body.some(({ lower }) => lower === 'how')) continue;
+              fieldAttribute = 'chart.dimension';
+              const how = body.findIndex(({ lower }) => lower === 'how');
+              const subject = bodyStart + how + 1;
+              if (tabKeys.has('diagram.about') && subject < i &&
+                  tokens.slice(subject, i).every(({ kind }) => kind === 'word')) {
+                const introducer = tokens[subject - 2]?.lower;
+                const showing = introducer && lemmatiseVerb(introducer, kb).includes('show');
+                emitField({ attribute: 'diagram.about', value: literalField(subject, i - 1),
+                  startTok: subject, endTok: i - 1, wordsStart: subject,
+                  ...(showing ? { cueStart: subject - 2, cueEnd: subject - 1 } : {}) }, creation);
+              }
+            }
+            emitField({ attribute: fieldAttribute, value: literalField(i + 2, fieldEnd - 1), startTok: i + 2,
+              endTok: fieldEnd - 1, wordsStart: i + 2, cueStart: i, cueEnd: i + 1 }, creation);
+            if (tabKeys.has('chart.dimension') && !sourceDimensions.has(owner.startTok) &&
+                owner.endTok < i && tokens[owner.endTok + 1]?.lower === 'of') {
+              const first = owner.endTok + 2;
+              let end = first;
+              while (end < i && !tokens[end].isPunct) end++;
+              const grouping = tokens.slice(first, end).findIndex(({ lower }) => lower === 'by') + first;
+              if (grouping > first && grouping + 1 < end && !chartFieldRole(tokens[grouping - 1], kb) &&
+                  !tokens.slice(grouping + 1, end).some(({ lower }) => lower === 'by')) {
+                const valueEnd = chartFieldEnd(tokens, grouping + 1, end, kb);
+                if (valueEnd > grouping + 1) {
+                  emitField({ attribute: 'chart.dimension', value: literalField(grouping + 1, valueEnd - 1),
+                    startTok: grouping + 1, endTok: valueEnd - 1, wordsStart: grouping + 1,
+                    cueStart: grouping, cueEnd: grouping }, creation);
+                  sourceDimensions.add(owner.startTok);
+                }
+              }
+            }
+          }
+        }
+      }
       if (!['with', 'without', ','].includes(marker)) continue;
       const negated = tokens[i + 1]?.lower === 'no';
       const first = i + (negated || DET_MAP.has(tokens[i + 1]?.lower) ? 2 : 1);
@@ -3785,21 +3863,12 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       const stop = (field.endTok > (field.cueEnd ?? -1) ? field.endTok : field.cueEnd) + 1;
       if (tokens[stop]?.isContent && !tokens[stop]?.isFiller) continue;
       const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
-      const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < i);
+      const owner = chartHeads.find((head) => head.det === 'indefinite' && head.startTok > boundary && head.endTok < i);
       const predicate = owner && creationPredicates.find((p) =>
         p.startTok > boundary && p.endTok < owner.startTok &&
         tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
       if (!predicate) continue;
-      if (field.cueStart !== undefined) {
-        emit({
-          kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd, attrs: [field.attribute],
-          families: ['chart'], cost: 0,
-        });
-      }
-      emitConstraint(field.attribute, field.value, field.startTok, field.endTok, {
-        phase: 'result', requiresKeyWord: field.cueStart !== undefined, chartCreationPredicate: predicate.startTok,
-        words: src.slice(tokens[field.wordsStart].start, tokens[field.endTok].end), cost: 1,
-      });
+      emitField(field, predicate);
     }
   }
   const typeMentions = rawCandidates.filter((c) => CREATION_TYPE_KEYS.has(c.attribute) &&

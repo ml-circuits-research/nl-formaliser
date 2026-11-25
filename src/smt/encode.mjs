@@ -897,8 +897,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
     for (let r = 1; r <= R; r++) {
       if (c.chartCreationPredicate != null) {
-        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= ppos_${r} ${c.chartCreationPredicate})
-          (= fam_${r} ${cFamId}) (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= ${phExpr} PH_RESULT))))`);
+        const predicate = c.chartCreationPredicate < 0 ? '(- 1)' : c.chartCreationPredicate;
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= ppos_${r} ${predicate})
+          (= fam_${r} ${famToId.get('chart')}) (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= ${phExpr} PH_RESULT))))`);
       }
       if (lattice.catalog && c.predicateRole != null && roleOwner !== undefined) {
         const bindings = predicateRoles.get(c.predicateRole) ?? [];

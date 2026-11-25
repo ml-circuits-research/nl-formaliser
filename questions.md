@@ -1224,3 +1224,15 @@ A lexical inventory of the pinned diagram CSVs found 1,981 positional legend phr
 ### READY Q-NL-053 — review request
 
 Focused chart groups 7/7, final full serial suite 249/249 and final selected WebMeet run 35/35 native-valid with 28/35 intended legend results on the appropriate chart request. Please independently review and publish the scoped legend role change. Keep the latest aggregate table under Q045 separate from these targeted results.
+
+## Q-NL-054 — Separate primary grouping, series fields and colour encodings
+
+The catalog's existing `chart.dimension`, `chart.seriesDimension` and `chart.colourBy` now survive as independent operands. “Create a bar chart of sales by month, coloured by region and split by customer segment” retains month, region and customer segment in their written roles on one new chart. A bare “line chart of sales by month, split by category” uses the same role agreement without a manufactured predicate. “Split the Sales by Month chart by category” keeps the first “by” in the chart description and uses the second as the source-field cue. Quoted “Research and Development” remains one field, and the following draw command is independent.
+
+An explicit chart showing how stations split by network retains stations as the subject and network as its primary dimension. It no longer fabricates a scene setting or a second series grouping in that construction. The secondary-series reading in chart creation requires an already stated grouping or series evidence. Non-chart paragraph splitting stays an ordinary take-apart request. Scatter “profit against sales” still needs independent source-axis binding; retaining the colour field alone does not complete that compound.
+
+All 26 selected `23f19aa` inputs from `diagram/charts-01.csv` native-validate. Twenty leading proposals retain the selected field and the correct new-chart ownership: eight colour encodings (`:3717,3724,3728,3729,3755,3763,3766,3769`), four series fields (`:3792,3797,3802,3803`) and eight primary distribution dimensions (`:2513,2535,2558,2581,2620,2642,2683,2700`). The six remaining cases expose broader creation leads or preambles (`:3725,3726,3730,3767,3804,3809`). The lexical inventory found 193 colour-by and 399 split-by phrases in the pinned diagram CSVs; the latter count mixes primary distributions with secondary series. Neither count grades whole circuits.
+
+### READY Q-NL-054 — review request
+
+Focused chart groups 8/8 and final full serial suite 250/250. Please review and publish the scoped field roles, including the distinction between one distribution dimension and an additional series. In the owner output, keep these targeted results separate from the last aggregate L0–L4 table under Q045.

@@ -894,3 +894,50 @@ test('chart legend requests retain visibility, scoped position and the chart own
     await reader.close();
   }
 });
+
+test('chart field roles distinguish primary grouping, series and colour encoding', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    const combined = (await reader.propose('Create a bar chart of sales by month, coloured by region and split by customer segment')).candidates[0];
+    assert.ok(combined.check.ok, combined.sop);
+    assert.match(combined.sop, /family=chart mode=new/);
+    assert.match(combined.sop, /chart\.dimension value=month .*phase=result/);
+    assert.match(combined.sop, /chart\.colourBy value=region .*phase=result/);
+    assert.match(combined.sop, /chart\.seriesDimension value="customer segment" .*phase=result/);
+    assert.doesNotMatch(combined.sop, /chart\.colour value=coloured|chart\.dimension value=region/);
+
+    const fragment = (await reader.propose('line chart of sales by month, split by category')).candidates[0];
+    assert.ok(fragment.check.ok, fragment.sop);
+    assert.match(fragment.sop, /family=chart mode=new/);
+    assert.match(fragment.sop, /chart\.dimension value=month .*phase=result/);
+    assert.match(fragment.sop, /chart\.seriesDimension value=category .*phase=result/);
+
+    const repeated = (await reader.propose('line chart of sales by month, split by category and and use a colour-blind-safe palette')).candidates[0];
+    assert.ok(repeated.check.ok, repeated.sop);
+    assert.match(repeated.sop, /chart\.seriesDimension value=category .*phase=result/);
+
+    const owner = (await reader.propose('Split the Sales by Month chart by category')).candidates[0];
+    assert.ok(owner.check.ok, owner.sop);
+    assert.match(owner.sop, /act=change/);
+    assert.match(owner.sop, /description="the Sales by Month chart"/);
+    assert.match(owner.sop, /chart\.seriesDimension value=category .*phase=result/);
+
+    const colour = (await reader.propose('Colour the chart by "Research and Development"; then draw a cat')).candidates[0];
+    assert.ok(colour.check.ok, colour.sop);
+    assert.match(colour.sop, /@r1\.c\d+ .*chart\.colourBy value="Research and Development"/);
+    assert.match(colour.sop, /@r2\.t .*sort=cat/);
+
+    const distribution = (await reader.propose('Draw me a bar chart showing how the stations split by network')).candidates[0];
+    assert.ok(distribution.check.ok, distribution.sop);
+    assert.match(distribution.sop, /diagram\.about value="the stations"/);
+    assert.match(distribution.sop, /chart\.dimension value=network/);
+    assert.doesNotMatch(distribution.sop, /chart\.seriesDimension|page\.scene/);
+
+    const ordinary = (await reader.propose('Split the paragraph by headings')).candidates[0];
+    assert.ok(ordinary.check.ok, ordinary.sop);
+    assert.match(ordinary.sop, /act="take apart"/);
+    assert.doesNotMatch(ordinary.sop, /attribute=chart\.seriesDimension/);
+  } finally {
+    await reader.close();
+  }
+});
