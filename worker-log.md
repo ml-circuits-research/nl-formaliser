@@ -73,3 +73,5 @@
 - 2026-11-25 — Q-NL-042 prevents an explicit output source from becoming the target name, preserves quoted source/name readings, and keeps differing unread roles separate. Full serial suite 238/238. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-043 links explicit first-person file-form requests to the named/pronominal artifact, retaining delivery and permission readings and exact unread form. Full serial suite 239/239. Related modal property requests were inventoried in `questions.md`.
+
+- 2026-11-25 — Q-NL-044 composes modal subjects and separates desired creation, existing property edits and file requests. Eight published WebMeet probes validate, with the remaining three semantic families and a partial axis result documented. Full serial suite 240/240. See `questions.md`.

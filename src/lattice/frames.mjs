@@ -147,6 +147,74 @@ export function matchOptionQuestions(tokens, splitPoints, predicates, kb) {
   return results;
 }
 
+function modalHaveLeads(grammar) {
+  const phrases = grammar.phraseItems;
+  if (!phrases?.get('shape.want')?.has('have')) return [];
+  const subjects = [...(grammar.pronouns ?? [])].filter(([, pronoun]) =>
+    pronoun.person === '1' && pronoun.cases.includes('subject')).map(([pronoun]) => pronoun);
+  const modalWords = phrases.get('shape.can');
+  const wishes = phrases.get('shape.wishto') ?? new Set();
+  // The options frame distinguishes capability/permission modals from
+  // advice. Combine those modals with independently declared subjects.
+  const examples = grammar.frames?.get('acts.more.ask.options.what')?.parts.flatMap(({ words }) => words) ?? [];
+  const modals = new Set(examples.flatMap((lead) => {
+    const [modal, subject, ...rest] = lead.split(/\s+/);
+    return !rest.length && modalWords?.has(modal) && subjects.includes(subject) && wishes.has(lead) ? [modal] : [];
+  }));
+  return [...modals].flatMap((modal) => subjects.map((subject) => [modal, subject]));
+}
+
+export function matchModalWants(tokens, splitPoints, predicates, candidates, kb) {
+  const frame = kb.grammar.frames?.get('acts.data.change.want');
+  if (!frame || frame.act !== 'change' || !frame.roles.includes('thing') || !frame.roles.includes('value')) return [];
+  const leads = modalHaveLeads(kb.grammar);
+  if (!leads.some(([modal]) => tokens.some(({ lower }) => lower === modal))) return [];
+  const found = new Map();
+  for (const window of frameWindows(tokens, splitPoints, predicates)) {
+    if (window.internalJoiners) continue;
+    let start = window.startTok;
+    while (tokens[start]?.isFiller && start <= window.endTok) start++;
+    for (const lead of leads) {
+      const end = matchWordSeqAt(tokens, start, lead);
+      if (end < 0 || tokens[end]?.lower !== 'have') continue;
+      const first = end + 1;
+      let last = window.endTok;
+      for (let i = first; i <= last; i++) {
+        if (tokens[i].isPunct) last = i - 1;
+      }
+      if (last <= first) continue;
+      const nounStart = ({ detTok, startTok }) => detTok >= 0 ? detTok : startTok;
+      const heads = candidates.filter((head) => head.startTok >= first && head.endTok <= last &&
+        ([HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) ||
+          (head.kind === HYP_KINDS.TARGET_REF && head.isPronoun)));
+      const indefinite = kb.grammar.determiners.get(tokens[first].lower)?.det === 'indefinite';
+      const create = indefinite && heads.some((head) => nounStart(head) === first && !head.isPronoun);
+      if (indefinite && !create) continue;
+      let grounded = create ? heads.filter((head) => nounStart(head) === first && !head.isPronoun) : [];
+      if (!create) {
+        const typedResults = candidates.filter((c) => c.kind === HYP_KINDS.CONSTRAINT && c.startTok >= first &&
+          c.endTok <= last && c.phase === 'result' && !c.openValue && !c.isAnchor && !c.needsAnchor &&
+          (c.operator === 'delta' || c.endTok === last || predicates.some((p) =>
+            p.endTok === last && p.licensed?.some(({ act }) => act === 'change'))));
+        grounded = heads.filter((head) => {
+          const anchor = nounStart(head);
+          const attached = ['on', 'of', 'in'].includes(tokens[anchor - 1]?.lower);
+          return (head.isPronoun ? anchor === first : anchor >= first &&
+            (anchor === first || attached || tokens.slice(first, head.startTok).every((token) => !token.isPunct))) &&
+            typedResults.some((value) => (head.isPronoun || value.family === head.family) &&
+              (value.startTok > head.endTok || value.endTok < head.startTok));
+        });
+      }
+      if (!grounded.length || (found.has(start) && found.get(start).last <= last)) continue;
+      found.set(start, {
+        startTok: start, endTok: end, last, act: create ? 'make' : 'change',
+        heads: grounded.map(({ kind, family, startTok, endTok }) => ({ kind, family, startTok, endTok })),
+      });
+    }
+  }
+  return [...found.values()];
+}
+
 // The published saving and export frames put the artifact before the
 // destination/name/format operand. The latter must never identify the artifact.
 export function matchOutputOperands(tokens, splitPoints, predicates, candidates, kb) {
@@ -168,12 +236,8 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
   });
   const isHead = ({ kind }) =>
     [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind);
-  const phrases = kb.grammar.phraseItems;
-  const modalWords = phrases?.get('shape.can');
-  const modalLeads = [...(phrases?.get('shape.wishto') ?? [])].map((lead) => lead.split(/\s+/))
-    .filter(([modal, subject, ...rest]) => !rest.length && modalWords?.has(modal) &&
-      kb.grammar.pronouns?.get(subject)?.person === '1');
-  const outputModal = phrases?.get('shape.want')?.has('have') &&
+  const modalLeads = modalHaveLeads(kb.grammar);
+  const outputModal = modalLeads.length &&
     kb.markings.get('download')?.some(({ act, marker, role }) => act === 'save' && marker === 'as' && role === 'format');
   if (!actions.length && !(outputModal && modalLeads.some(([modal]) => tokens.some(({ lower }) => lower === modal)))) return [];
   const windows = frameWindows(tokens, splitPoints, predicates).filter((window) => !window.internalJoiners);

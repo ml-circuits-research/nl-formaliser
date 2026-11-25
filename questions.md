@@ -1082,3 +1082,15 @@ A lexical scan of published `23f19aa` found 25 texts starting with a first-perso
 ### READY Q-NL-043 — review request
 
 The focused modal-file regression passes and the full serial suite passes 239/239. Please review and publish this scoped reader change. The last aggregate L0–L4 measurement remains the historical table above.
+
+## Q-NL-044 — Compose modal subjects and bind creation versus property changes
+
+The first-person modal grammar now combines allowed modal words from the published question/wish frames with independently declared first-person subject pronouns. This covers the reviewer's “Could we have it as a file to Reports?” without inserting a private phrase. The actual reader keeps literal `it`, destination Reports and exact `as a file` unread. The file form does not become an object or guessed format.
+
+For the related modal-want construction, a typed indefinite object after the lead licenses creation, while a grounded existing object or written pronoun with a typed result licenses change. The selected Z3 target must be grounded after the modal predicate. “Can I have a blue circle?” and “Could I have a heading named Scope?” now emit creations with the stated colour/name. “Could I have the chart red?” binds the existing chart and red effect without the old invented target name. Existing file readings retain their own binding.
+
+Eight exact WebMeet probes from published `23f19aa`, `diagram/charts-06.csv:285,330,422,658,788,945,1088,1134`, all pass native validation. Five use the new modal binding. The two sort directions at 285/330, grey bars at 1088 and narrower bars at 1134 retain their grounded effects and the full modal predicate. Record 788 now binds x-axis inversion to the chart and loses the old page-style effect; “axis” and “flipped” still appear as unread. Records 422/658/945 remain outside this role binding and still need explicit sorting criterion, axis-assignment, and gridline-result semantics respectively. The targeted run is not an aggregate accuracy measurement.
+
+### READY Q-NL-044 — review request
+
+The two focused modal regressions pass and the final full serial suite passes 240/240. Please review and publish this bounded modal composition and role-binding change. The historical L0–L4 table remains the last aggregate measurement.

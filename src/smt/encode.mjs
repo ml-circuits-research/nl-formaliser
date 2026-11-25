@@ -543,6 +543,22 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
   }
+  const modalWants = preds.filter(({ modalWantHeads }) => modalWantHeads);
+  for (const predicate of modalWants) {
+    const artifact = outputHeads.filter((candidate) => predicate.modalWantHeads.some((head) =>
+      head.kind === candidate.kind && head.family === candidate.family && sameSpan(head, candidate)));
+    if (!artifact.length) continue;
+    if (modalWants.length + outputPredicates.length <= R) {
+      emit(`(assert sel_${predicate.id})`);
+    } else {
+      emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+    }
+    for (let r = 1; r <= R; r++) {
+      const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
+      const grounded = artifact.map((head) => `(and ${owns(head)} (= tpos_${r} ${head.startTok}))`);
+      emit(`(assert (=> ${owns(predicate)} ${smtOr(grounded)}))`);
+    }
+  }
   for (let r = 1; r <= R; r++) {
     const pInR = preds.map((p) => `(and sel_${p.id} (= own_${p.id} ${r}))`);
     const amo = atMostOne(pInR);

@@ -496,9 +496,13 @@ test('modal artifact requests keep polite delivery and permission readings witho
       }
     }
 
-    const pronoun = (await reader.propose('Can we have it as a file?')).candidates[0];
+    const pronoun = (await reader.propose('Could we have it as a file to Reports?')).candidates[0];
     assert.equal(pronoun.check.ok, true);
+    assert.match(pronoun.sop, /act=save mood=do predicate="Could we have"/);
     assert.match(pronoun.sop, /from=any words=it\b/);
+    assert.match(pronoun.sop, /role=destination value=Reports/);
+    assert.match(pronoun.sop, /text="as a file" note=save\.format/);
+    assert.doesNotMatch(pronoun.sop, /name="Could we"|sort=file/);
 
     const ordinary = (await reader.propose('Can you draw a cat?')).candidates[0];
     assert.match(ordinary.sop, /act=make\b/);
@@ -510,6 +514,46 @@ test('modal artifact requests keep polite delivery and permission readings witho
     const quoted = (await reader.propose('Add a heading called "Can I have the drawing as a file?"')).candidates[0];
     assert.match(quoted.sop, /value="Can I have the drawing as a file\?"/);
     assert.doesNotMatch(quoted.sop, /act=save\b/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('modal wants bind an explicit new object or an existing property owner without naming the request lead', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const circle = (await reader.propose('Can I have a blue circle?')).candidates[0];
+    assert.equal(circle.check.ok, true);
+    assert.match(circle.sop, /act=make mood=do predicate="Can I have"/);
+    assert.match(circle.sop, /mode=new .*sort=circle/);
+    assert.match(circle.sop, /attribute=(?:drawn|node)\.colou?r value=blue/);
+    assert.doesNotMatch(circle.sop, /name="Can I"/);
+
+    const heading = (await reader.propose('Could I have a heading named Scope?')).candidates[0];
+    assert.match(heading.sop, /act=make mood=do predicate="Could I have"/);
+    assert.match(heading.sop, /attribute=(?:section|block)\.name value=Scope/);
+
+    const chart = (await reader.propose('Could I have the chart red?')).candidates[0];
+    assert.equal(chart.check.ok, true);
+    assert.match(chart.sop, /act=change mood=do predicate="Could I have"/);
+    assert.match(chart.sop, /family=chart mode=existing/);
+    assert.match(chart.sop, /attribute=chart\.colou?r value=red/);
+    assert.doesNotMatch(chart.sop, /name="Could I"/);
+
+    const axis = (await reader.propose('Can we have the x axis on the sales chart flipped, since the chart has to match the deck template')).candidates[0];
+    assert.equal(axis.check.ok, true);
+    assert.match(axis.sop, /family=chart mode=existing/);
+    assert.match(axis.sop, /attribute=chart\.invert value=x/);
+    assert.doesNotMatch(axis.sop, /attribute=page\.style/);
+
+    const sort = (await reader.propose('Can we have it largest to smallest, because the numbers in the sheet are still moving')).candidates[0];
+    assert.equal(sort.check.ok, true);
+    assert.match(sort.sop, /from=any words=it\b/);
+    assert.match(sort.sop, /attribute=chart\.sort value=desc/);
+
+    const file = (await reader.propose('Can I have the drawing as a file?')).candidates[0];
+    assert.match(file.sop, /act=save\b/);
+    assert.match(file.sop, /text="as a file" note=save\.format/);
   } finally {
     await reader.close();
   }
