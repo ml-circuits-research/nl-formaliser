@@ -306,3 +306,40 @@ test('reported past actions stay distinct from current commands and literal refe
     await reader.close();
   }
 });
+
+test('an explicit chart subject keeps its whole phrase separate from names and chart data', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    for (const [text, topic, family] of [
+      ['Create a chart about shipping delays', '"shipping delays"', 'chart'],
+      ['Make a treemap about plant groups', '"plant groups"', 'chart'],
+      ['Draw a flowchart about refunds', 'refunds', 'diagram'],
+      ['Create a chart about costs and revenue', '"costs and revenue"', 'chart'],
+    ]) {
+      const best = (await reader.propose(text)).candidates[0];
+      assert.equal(best.check.ok, true);
+      assert.ok(best.sop.includes(`family=${family} mode=new`), best.sop);
+      assert.ok(best.sop.includes(`attribute=diagram.about value=${topic} operator=eq phase=result key_words=about`), best.sop);
+    }
+    const combined = (await reader.propose('could you add a page and a treemap about the linen room?')).candidates[0];
+    assert.equal(combined.check.ok, true);
+    assert.match(combined.sop, /@r1\.t .*family=page/);
+    assert.match(combined.sop, /@r2\.t .*family=chart .*sort=treemap/);
+    assert.match(combined.sop, /@r2\.c\d+ .*attribute=diagram\.about value="the linen room"/);
+    assert.doesNotMatch(combined.sop, /attribute=(?:chart\.colou?r|page\.scene)/);
+
+    const named = (await reader.propose('Create a chart about shipping delays and title it Incidents')).candidates[0];
+    assert.match(named.sop, /attribute=diagram\.about value="shipping delays"/);
+    assert.match(named.sop, /name=Incidents|attribute=chart\.(?:title|label) value=Incidents/);
+
+    const title = (await reader.propose('Create a chart titled Shipping delays')).candidates[0];
+    assert.match(title.sop, /attribute=chart\.(?:title|label) value="Shipping delays"/);
+    assert.doesNotMatch(title.sop, /attribute=diagram\.about/);
+
+    const dimension = (await reader.propose('Show sales by month in a bar chart')).candidates[0];
+    assert.match(dimension.sop, /attribute=chart\.(?:dimension|colourBy) value=month/);
+    assert.doesNotMatch(dimension.sop, /attribute=diagram\.about/);
+  } finally {
+    await reader.close();
+  }
+});

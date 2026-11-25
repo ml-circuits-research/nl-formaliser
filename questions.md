@@ -1008,3 +1008,15 @@ The reviewer's exact reproduction, “I selected the wrong node earlier. Clear t
 ### READY Q-NL-037 — review request
 
 The first full gate exposed that lightweight lattice fixtures omit the canonical pronoun and tense tables. The report detection now checks that those declarations are available. The isolated lattice file passes 7/7 and the subsequent full serial suite passes 233/233. Please review and publish this scoped change. The detailed L0–L4 table above remains the last aggregate measurement.
+
+## Q-NL-038 — Preserve explicit graphic subjects using the existing topic key
+
+The reader now consumes the declared `acts.make.diagram` topic cue for a chart or diagram noun with an explicit creation predicate. Its existing `diagram.about` key binds the full written complement to the selected chart/diagram target. This separates the topic from coincidentally compatible colour, material or scene terms. Naming continuations retain their own role. No chart-subject schema addition was required for these checked requests.
+
+On the real Z3 reader and published WebMeet `23f19aa` (canonical knowledge `3b2deebd`), seven of eight targeted cases in `diagram/charts-03.csv` kept their full explicit subject and passed native validation. Record 419 now places `diagram.about="the linen room"` on the second, treemap request, replacing the spurious linen colour and room scene. Record 425 separates an explicitly repeated creation verb. Records 3728, 3786, 3807, 3848, and 3916 preserve lab onboarding, the faculty, the hiring rounds, the pond system, and how pizza ordering works, respectively. Record 415 still drops the treemap and subject in a verbless placement clause. This is a targeted property result, not a comparison of aggregate accuracy.
+
+Controls distinguish a title, a naming continuation, a by-month data operand and a conjunction in a literal topic. The by-month probe still leaves “sales” unread. The case “about average delivery time by depot” can need separate topic and grouping recognition; this change does not establish that reading.
+
+### READY Q-NL-038 — review request
+
+The focused subject regression passes and the full serial suite passes 234/234. Please review and publish this scoped reader change. The detailed L0–L4 table above remains the latest aggregate measurement.

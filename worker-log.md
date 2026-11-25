@@ -61,3 +61,5 @@
 - 2026-11-25 — Q-NL-036 reads canonical selection-wide commands without fabricated objects, keeps scoped deselection and ordinary removal distinct, and reports the remaining declarative-past error. Full serial suite 232/232. Q-NL-035 adds exact diagram-topic verifier probes. See `questions.md`.
 
 - 2026-11-25 — Q-NL-037 separates past reports from current commands and keeps exact reported evidence in diagnostics. Three exact WebMeet probes drop the spurious pick/time request. Two still need the shared selection particle variant. Full serial suite 233/233. See `questions.md`.
+
+- 2026-11-25 — Q-NL-038 binds complete explicit chart/diagram subjects through `diagram.about`. Seven of eight exact WebMeet probes keep the intended subject; the verbless placement case remains open. Full serial suite 234/234. See `questions.md`.

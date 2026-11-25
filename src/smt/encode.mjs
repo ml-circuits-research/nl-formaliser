@@ -795,10 +795,11 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       attrOnlyConstraints.push(c);
     }
 
+    const roleOwner = c.predicateRoleFamily ? famToId.get(c.predicateRoleFamily) : cFamId;
     for (let r = 1; r <= R; r++) {
-      if (lattice.catalog && c.predicateRole != null && cFamId !== undefined) {
+      if (lattice.catalog && c.predicateRole != null && roleOwner !== undefined) {
         const bindings = predicateRoles.get(c.predicateRole) ?? [];
-        bindings.push(`(and sel_${c.id} (= own_${c.id} ${r}) (= ppos_${r} ${c.predicateRole}) (= fam_${r} ${cFamId}) (= ${phExpr} PH_RESULT))`);
+        bindings.push(`(and sel_${c.id} (= own_${c.id} ${r}) (= ppos_${r} ${c.predicateRole}) (= fam_${r} ${roleOwner}) (= ${phExpr} PH_RESULT))`);
         predicateRoles.set(c.predicateRole, bindings);
       }
       if (compatFids.length > 0 && compatFids.length < F) {

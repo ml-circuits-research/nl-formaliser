@@ -880,6 +880,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const rawCandidates = [];
   const splitPoints = [];
   const splitSeen = new Set();
+  const isNamingContinuationAt = (index) => tokens[index]?.lower === 'and' &&
+    ['call', 'name', 'label', 'title'].includes(tokens[index + 1]?.lower) &&
+    ['it', 'them', 'this', 'that'].includes(tokens[index + 2]?.lower);
   const hasPartOwners = tabKeys.has('part.owner');
 
   const genitiveOwner = (index) => {
@@ -943,6 +946,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       requiresKeyWord: Boolean(extra.requiresKeyWord),
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       predicateRole: extra.predicateRole ?? null,
+      predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
       isAnchor: Boolean(extra.isAnchor),
@@ -1167,12 +1171,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
 
     if (tok.kind === 'word' && ['and', 'then', 'also', 'but', 'afterwards', 'next'].includes(tok.lower)) {
       // Never split "and call it <Name>" / "and name it <Name>" / "and label it <Name>" into a separate request!
-      const isNamingContinuation =
-        tok.lower === 'and' &&
-        i + 2 < T &&
-        ['call', 'name', 'label', 'title'].includes(tokens[i + 1].lower) &&
-        ['it', 'them', 'this', 'that'].includes(tokens[i + 2].lower);
-      if (!isNamingContinuation) {
+      if (!isNamingContinuationAt(i)) {
         const isStrong = ['then', 'afterwards', 'next'].includes(tok.lower);
         emit({
           kind: HYP_KINDS.SEP,
@@ -1360,14 +1359,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
 
       // Naming continuation ("and call it <Name>", "and name it <Name>", "and label it <Name>") is a name-introducer
       // on the SAME request, never a separate verb predicate!
-      const isNamingContVerb =
-        len === 1 &&
-        ['call', 'name', 'label', 'title'].includes(tok.lower) &&
-        i > 0 &&
-        tokens[i - 1].lower === 'and' &&
-        i + 1 < T &&
-        ['it', 'them', 'this', 'that'].includes(tokens[i + 1].lower);
-      if (isNamingContVerb) {
+      if (len === 1 && isNamingContinuationAt(i - 1)) {
         emit({
           kind: HYP_KINDS.KEY_WORD,
           startTok: i,
@@ -3675,6 +3667,47 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     });
   }
 
+  // A typed chart or diagram with an explicit subject complement uses the
+  // declared diagram topic role. The full operand is literal topic evidence.
+  const diagramTopicFrame = kb.grammar.frames?.get('acts.make.diagram');
+  const topicIndex = diagramTopicFrame?.parts.findIndex(({ role }) => role === 'topic') ?? -1;
+  const explicitTopicCue = diagramTopicFrame?.parts.slice(0, topicIndex)
+    .some(({ words }) => words.includes('about'));
+  if (catalog && explicitTopicCue && tabKeys.has('diagram.about') && tokens.some(({ lower }) => lower === 'about')) {
+    const heads = rawCandidates.filter((head) =>
+      [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
+      ['chart', 'diagram'].includes(head.family) && tokens[head.endTok + 1]?.lower === 'about');
+    const predicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+    const predicateStarts = new Set(predicates.map(({ startTok }) => startTok));
+    const directiveStarts = new Set(splitPoints.filter(({ isStrong, endTok }) => isStrong ||
+      predicateStarts.has(endTok + 1)).map(({ startTok }) => startTok));
+    for (const head of heads) {
+      const nounStart = head.detTok >= 0 ? head.detTok : head.startTok;
+      const predicate = creationPredicates.find(({ endTok }) => endTok < nounStart &&
+        tokens.slice(endTok + 1, nounStart).every((token) => token.isGrammar && !token.isPunct));
+      if (!predicate) continue;
+      const cue = head.endTok + 1;
+      const first = cue + 1;
+      if (!tokens[first] || tokens[first].isPunct || directiveStarts.has(first)) continue;
+      let last = first;
+      if (tokens[first].kind !== 'quote') {
+        while (last + 1 < T && !tokens[last + 1].isPunct && !directiveStarts.has(last + 1) &&
+            !isNamingContinuationAt(last + 1) && !NAME_INTRO_WORDS.has(tokens[last + 1].lower)) last++;
+      }
+      const value = tokens[first].kind === 'quote' ? tokens[first].inner :
+        src.slice(tokens[first].start, tokens[last].end);
+      if (!value.trim()) continue;
+      emit({
+        kind: HYP_KINDS.KEY_WORD, startTok: cue, endTok: cue, attrs: ['diagram.about'],
+        families: [head.family], cost: 0,
+      });
+      emitConstraint('diagram.about', value, first, last, {
+        phase: 'result', requiresKeyWord: true, predicateRole: predicate.startTok,
+        predicateRoleFamily: head.family, cost: 1,
+      });
+    }
+  }
+
   // A textual creation frame distinguishes dictated content from title/name
   // cues. The contents can begin with a preposition or contain a conjunction.
   const textCreationFrame = kb.grammar.frames?.get('acts.text.make.text');
@@ -3841,6 +3874,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.predicateRole ?? '',
+      c.predicateRoleFamily ?? '',
       c.dictatedContent ? 1 : 0,
       c.targetless ? 1 : 0,
       c.creationOnly ? 1 : 0,
