@@ -5,6 +5,72 @@ import { unquoteSop } from '../src/contracts.mjs';
 
 const value = (wire, key) => unquoteSop(wire.attrs[key]?.[0] ?? '');
 
+test('context properties preserve typed values and unsupported measured operands', async (t) => {
+  const formaliser = await createFormaliser();
+  const cases = [
+    { tab: 'diagram', text: 'Make the width medium', unread: 'width medium', families: ['node', 'chart', 'link'] },
+    { tab: 'drawing', text: 'Make the width medium', unread: 'width medium', families: ['drawn', 'part'] },
+    { tab: 'diagram', text: 'Set the width to whatever fits and undo', unread: 'width to whatever fits', undo: true },
+    { tab: 'diagram', text: 'Make the height whatever fits then undo', unread: 'height whatever fits', undo: true },
+    { tab: 'diagram', text: 'Make the grid width medium', attribute: 'chart.gridWidth', operand: 'medium', key: 'grid width' },
+    { tab: 'diagram', text: 'Make the colour bar length medium', attribute: 'chart.colourBarLength', operand: 'medium', key: 'colour bar length' },
+    { tab: 'diagram', text: 'Set the width to sixteen pixels and undo', attribute: 'node.width', operand: '16', key: 'width', measure: 'sixteen pixels', undo: true },
+    { tab: 'diagram', text: 'Set the width to "15"', attribute: 'node.width', operand: '15', key: 'width' },
+  ];
+  for (const { tab, text, unread, undo, families, attribute, operand, key, measure } of cases) {
+    await t.test(`${tab}: ${text}`, async () => {
+      const output = await formaliser.formalise(text, { tab, topK: 2, verify: true });
+      assert.equal(output.check?.ok, true, output.sop || output.error);
+      const wires = formaliser.verifier.parse(output.sop);
+      const requests = wires.filter((w) => w.type === 'w.request.request');
+      assert.deepEqual(requests.map((r) => value(r, 'act')), undo ? ['change', 'undo'] : ['change'], output.sop);
+      const owned = wires.filter((w) => value(w, 'request') === `$${requests[0].id}`);
+      const target = owned.find((w) => w.type === 'w.request.target');
+      assert.equal(value(target, 'mode'), 'existing');
+      assert.equal(value(target, 'fill'), 'context');
+      assert.ok(owned.some((w) => w.type === 'w.request.lookup' && value(w, 'key') === 'thing'));
+      const values = owned.filter((w) => w.type === 'w.request.constraint');
+      const unreadWires = owned.filter((w) => w.type === 'w.request.unread').map((w) => value(w, 'text'));
+      if (unread) {
+        assert.deepEqual(unreadWires, [unread], output.sop);
+        assert.equal(values.length, 0, output.sop);
+        assert.equal(value(owned.find((w) => w.type === 'w.request.unread'), 'note'),
+          text.startsWith('Set') ? 'context.set.property' : 'context.make.property');
+      } else {
+        assert.deepEqual(unreadWires, [], output.sop);
+        assert.deepEqual(values.map((w) => ['attribute', 'value', 'key_words', 'phase', 'measure_words'].map((k) => value(w, k))),
+          [[attribute, operand, key, 'result', measure ?? '']], output.sop);
+      }
+      if (families) {
+        const proposed = output.proposals.map(({ sop }) => formaliser.verifier.parse(sop));
+        const proposedFamilies = proposed.map((proposal) => value(proposal.find((w) => w.type === 'w.request.target'), 'family'));
+        assert.equal(new Set(proposedFamilies).size, 2);
+        assert.ok(proposedFamilies.every((family) => families.includes(family)));
+        assert.ok(proposed.every((proposal) => !proposal.some((w) => w.type === 'w.request.constraint')));
+      }
+    });
+  }
+});
+
+test('context property typing preserves literal and object readings', async (t) => {
+  const formaliser = await createFormaliser();
+  const cases = [
+    ['diagram', 'Make the label Save and Close', 'node.label', 'Save and Close'],
+    ['drawing', 'Make the orange red', 'drawn.colour', 'red'],
+    ['diagram', 'make all corners rounded', 'node.effect', 'rounded'],
+    ['drawing', 'change the time to after sunset', 'page.time', 'sunset'],
+  ];
+  for (const [tab, text, attribute, operand] of cases) {
+    await t.test(text, async () => {
+      const output = await formaliser.formalise(text, { tab, verify: true });
+      assert.equal(output.check?.ok, true, output.sop || output.error);
+      const wires = formaliser.verifier.parse(output.sop);
+      assert.ok(wires.some((w) => w.type === 'w.request.constraint' && value(w, 'attribute') === attribute &&
+        value(w, 'value') === operand), output.sop);
+    });
+  }
+});
+
 test('numeric property frames consume typed values and leave later commands available', async (t) => {
   const formaliser = await createFormaliser();
   const cases = [

@@ -975,6 +975,7 @@ function loadGrammar(parse, worldsDir) {
           mode: one(w, 'mode') ?? '',
           set: one(w, 'set') ?? '',
           priority: Number(one(w, 'priority') ?? 0),
+          needs: one(w, 'needs'),
           roles: many(w, 'role'),
           parts: [],
           fixed: new Map(),

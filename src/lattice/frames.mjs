@@ -69,6 +69,10 @@ function getCompiledFrames(kb) {
         .filter((s) => s.length > 0)
         .sort((a, b) => b.length - a.length),
     }));
+    const contextProperty = frame.act === 'change' && frame.roles?.length === 2 &&
+      ['attrs', 'values'].includes(frame.needs) &&
+      parts.some((p) => p.role === 'attribute' && p.lexicon === 'attribute') &&
+      parts.some((p) => p.role === 'value' && p.takes === 'words');
 
     // Collect quick-filter anchor tokens from the first required literal/lexicon part
     const reqWordParts = parts.filter((p) => !p.optional && p.is === 'word' && p.wordSeqs.length > 0);
@@ -85,6 +89,7 @@ function getCompiledFrames(kb) {
       reqWordParts,
       reqLexParts,
       ellipsisAnchors,
+      contextProperty,
       coordinationAnchor: resultative && coordinationAnchors.has(frame.name),
     });
   }
@@ -263,6 +268,35 @@ function propertyAttributes(span, kb, tabSpec) {
   return new Set(forms.flatMap((form) => [...(tabSpec?.keyWordIndex?.get(form) ?? [])]));
 }
 
+function structuredContextKeys(span, tokens, candidates, kb, tabSpec) {
+  const det = kb.grammar.determiners?.get(tokens[span?.startTok - 1]?.lower)?.det;
+  if (!span || ['indefinite', 'quantified'].includes(det)) return [];
+  const matched = [...propertyAttributes(span, kb, tabSpec)].map((name) => tabSpec.keys.get(name)).filter(Boolean);
+  const direct = matched.filter((key) => key.literalKeyWords?.has(span.text.toLowerCase()));
+  const keys = direct.length ? direct : matched;
+  if (keys.some((key) => key.head === 'span') || !keys.some((key) => key.head.startsWith('number') || key.values?.size)) return [];
+  const head = candidates.some((c) => [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(c.kind) &&
+    c.startTok === span.startTok && c.endTok === span.endTok);
+  return head ? [] : keys;
+}
+
+export function isStructuredPropertyValue(candidate, key) {
+  if (!key || candidate.kind !== HYP_KINDS.CONSTRAINT || candidate.openValue || candidate.isAnchor ||
+      candidate.needsAnchor || candidate.pairedConstraints?.length) return false;
+  const value = String(candidate.value ?? '').trim();
+  return Boolean(value && ((key.head.startsWith('number') && candidate.operator === 'eq' && Number.isFinite(Number(value))) ||
+    (['eq', 'degree'].includes(candidate.operator) && key.values?.has(value.toLowerCase()))));
+}
+
+function hasExactNumericKey(keys, span) {
+  return keys.length > 0 && keys.every((key) => key.head === 'number' && key.literalKeyWords?.has(span.text.toLowerCase()));
+}
+
+function contextValues(candidates, keys, span) {
+  return candidates.filter((c) => c.startTok === span.startTok && c.endTok === span.endTok &&
+    keys.some((key) => key.name === c.attribute && isStructuredPropertyValue(c, key)));
+}
+
 /**
  * Match declared frames within hard punctuation boundaries. Candidate clause
  * separators also license local windows when they precede a predicate.
@@ -349,6 +383,17 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             // Require frame to consume cleanly to clause end (or optional trailing politeness/punct)
             let rem = tIdx;
             while (rem <= clEnd && (tokens[rem].isPunct || tokens[rem].isFiller)) rem++;
+            let contextKeys;
+            if (frame.contextProperty) {
+              const value = roles.get('value');
+              const attribute = roles.get('attribute');
+              const keys = structuredContextKeys(attribute, tokens, candidates, kb, tabSpec);
+              if (value && keys.length && (hasExactNumericKey(keys, attribute) || contextValues(candidates, keys, value).length)) {
+                if (rem <= clEnd || splitPoints.some((cut) => cut.startTok >= value.startTok && cut.endTok < tIdx &&
+                  (cut.isStrong || predicates.some((p) => p.startTok === cut.endTok + 1)))) return;
+                contextKeys = keys;
+              }
+            }
             if (window.side && (rem <= clEnd || !roles.get('value')?.groundedValue)) return;
             if (window.side === 'first' && !changePredicates.some((predicate) =>
               predicate.startTok === predSpan?.startTok && predicate.endTok === predSpan?.endTok)) return;
@@ -368,6 +413,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                   roles: new Map(roles),
                   wordAnchors: [...wordAnchors],
                   predSpan,
+                  contextKeys,
                 };
               }
             }
@@ -521,6 +567,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
   const bestByStart = new Map();
   const alternatives = [];
   const coordinated = [];
+  const context = [];
   for (const m of rawMatches) {
     if (m.coordination) {
       coordinated.push(m);
@@ -530,10 +577,12 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
     const key = `${m.frameName}:${m.startTok}:${m.endTok}:${scope?.startTok ?? ''}:${scope?.endTok ?? ''}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    if (m.contextKeys) context.push(m);
     if (bestByStart.has(m.startTok)) alternatives.push(m);
     else bestByStart.set(m.startTok, m);
   }
-  return [...[...bestByStart.values(), ...alternatives].slice(0, 6), ...coordinated].map((m, id) => ({ id, ...m }));
+  const ranked = [...bestByStart.values(), ...alternatives].slice(0, 6);
+  return [...new Set([...ranked, ...context]), ...coordinated].map((m, id) => ({ id, ...m }));
 }
 
 export function pairResultativeFrames(matches) {
@@ -580,6 +629,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const valSpan = fm.roles.get('value');
     let resultSpan = valSpan;
     let unresolvedDuration = null;
+    let contextProperty = null;
     const oldSpan = fm.roles.get('old');
     const topicSpan = fm.roles.get('topic');
     const wholeSpan = fm.roles.get('whole');
@@ -593,6 +643,26 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       ? fm.wordAnchors.find((wa) => wa.afterRole === 'attribute' && wa.beforeRole === 'thing')
       : null;
     const describedOwner = Boolean(valSpan?.describedOwner && !attrSpan);
+
+    if (fm.contextKeys) {
+      const keys = fm.contextKeys;
+      const families = [...new Set(keys.map((key) => key.family))];
+      const token = tokens[valSpan.startTok];
+      if (valSpan.startTok === valSpan.endTok && token.kind === 'quote') {
+        const inner = tokenize(token.inner, kb);
+        const scalar = inner.length === 1 && inner[0].kind === 'number' ? parseNumeric?.(inner[0]) : null;
+        if (scalar != null) {
+          for (const key of keys.filter((key) => key.head.startsWith('number'))) {
+            emitConstraint(key.name, String(scalar), valSpan.startTok, valSpan.endTok, { phase: 'result', requiresKeyWord: true, cost: 1 });
+          }
+        }
+      }
+      const valid = contextValues(candidates, keys, valSpan);
+      for (const c of valid) expectedAttrs.add(c.attribute);
+      const unresolved = valid.length ? null : { startTok: attrSpan.startTok, endTok: valSpan.endTok };
+      if (unresolved) emit({ kind: HYP_KINDS.UNREAD, ...unresolved, propertyQualifier: true, note: fm.frameName, cost: 9 });
+      contextProperty = { families, unresolved };
+    }
 
     // 1. Property-owner-value frame (`acts.change.property.on`: "Set the width on the node to 15",
     //    `acts.ask.property.have`: "What width does the node have?"):
@@ -797,6 +867,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       propertyOwnerMarker,
       describedOwner,
       unresolvedDuration,
+      contextProperty,
       blockedSpatialToks: [...blockedSpatialToks],
       blockedEndpointToks: [...blockedEndpointToks],
       oldSpan: oldSpan ? { startTok: oldSpan.startTok, endTok: oldSpan.endTok } : null,

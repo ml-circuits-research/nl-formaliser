@@ -50,6 +50,7 @@
   "declaredRelationValue": 6,
   "spatialTargetSelector": 56,
   "describedOwnerFrame": 32,
+  "contextPropertyFrame": 92,
   "coordinatedChange": 85,
   "markingActAlign": 14
 }

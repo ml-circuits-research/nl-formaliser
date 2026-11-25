@@ -21,7 +21,7 @@ import {
   phaseToSmt,
   wantToSmt,
 } from '../contracts.mjs';
-import { findOwnerSelectors, findSpatialOwners } from '../lattice/frames.mjs';
+import { findOwnerSelectors, findSpatialOwners, isStructuredPropertyValue } from '../lattice/frames.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_WEIGHTS = JSON.parse(readFileSync(join(HERE, 'weights.json'), 'utf8'));
@@ -160,7 +160,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const tFams = byKind[HYP_KINDS.TARGET_FAMILY];
   const tRefs = byKind[HYP_KINDS.TARGET_REF];
   const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
-  const propertyFrames = frameMatches.filter((fm) => fm.propertyOwnerMarker);
+  const propertyFrames = frameMatches.filter((fm) => fm.propertyOwnerMarker || fm.contextProperty);
   const grammarBetween = (left, right) => tokens.slice(left.endTok + 1, right.startTok)
     .every((token) => token.isGrammar && !token.isPunct);
 
@@ -330,7 +330,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
   const qualifierCandidates = byKind[HYP_KINDS.UNREAD].filter((c) => c.propertyQualifier);
   for (const qualifier of qualifierCandidates) {
-    const frames = frameMatches.filter((fm) => fm.unresolvedDuration && sameSpan(qualifier, fm.unresolvedDuration));
+    const frames = frameMatches.filter((fm) => {
+      const span = fm.unresolvedDuration ?? fm.contextProperty?.unresolved;
+      return span && sameSpan(qualifier, span);
+    });
     const owners = frames.map((fm) => `(and sel_fr_${fm.id} (= own_${qualifier.id} own_fr_${fm.id}))`);
     emit(`(assert (=> sel_${qualifier.id} ${smtOr(owners)}))`);
   }
@@ -1138,7 +1141,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const blockedSpatialSet = new Set(fm.blockedSpatialToks ?? []);
     const blockedEndpointSet = new Set(fm.blockedEndpointToks ?? []);
     const ownerMarker = fm.propertyOwnerMarker;
-    const qualifier = fm.unresolvedDuration && qualifierCandidates.find((c) => sameSpan(c, fm.unresolvedDuration));
+    const context = fm.contextProperty;
+    const unresolved = fm.unresolvedDuration ?? context?.unresolved;
+    const qualifier = unresolved && qualifierCandidates.find((c) => sameSpan(c, unresolved));
     const spatialBlockedCands = ownerMarker || blockedSpatialSet.size > 0
       ? constraints.filter((c) => {
           const sk = c.attribute?.split('.').slice(1).join('.');
@@ -1174,8 +1179,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         )
       : [];
 
-    const propertyResults = ownerMarker
+    const propertyResults = ownerMarker || context
       ? valCands.filter((value) => {
+          if (context) return isStructuredPropertyValue(value, tabSpec.keys.get(value.attribute));
           const numeric = tabSpec.keys.get(value.attribute)?.head === 'number' ||
             fm.numericPropertyFamilies?.includes(value.family);
           return !numeric || (!value.pairedConstraints?.length && (value.operator !== 'eq' ||
@@ -1184,6 +1190,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
           .filter((keyword) => sameSpan(keyword, fm.attrSpan) && sameSpan(value, fm.valSpan))
           .map((keyword) => ({ value, keyword })))
       : [];
+    const contextResultIds = new Set(context ? propertyResults.map(({ value }) => value.id) : []);
+    const contextCompetingValues = context ? constraints.filter((c) => c.startTok <= fm.valSpan.endTok &&
+      c.endTok >= fm.attrSpan.startTok && !contextResultIds.has(c.id)) : [];
     const describedOwnerResults = fm.describedOwner
       ? valCands.filter((c) => sameSpan(c, fm.valSpan) && isIndependentValueCandidate(c))
       : [];
@@ -1231,7 +1240,17 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       for (const c of endpointBlockedCands) {
         emit(`(assert (=> ${frInR} (not (and sel_${c.id} (= own_${c.id} ${r})))))`);
       }
-      if (ownerMarker || fm.describedOwner) {
+      if (context) {
+        const selected = (c) => `(and sel_${c.id} (= own_${c.id} ${r}))`;
+        const families = context.families.map((family) => `(= fam_${r} ${famToId.get(family)})`);
+        const bindings = propertyResults.map(({ value, keyword }) =>
+          `(and ${selected(value)} (= ${phaseExprOf.get(value.id)} PH_RESULT) (= ${kwExprOf.get(value.id)} ${keyword.id}) (= fam_${r} ${famToId.get(value.family)}))`);
+        const result = qualifier ? selected(qualifier) : smtOr(bindings);
+        emit(`(assert (=> ${frInR} (and (= tmode_${r} TM_EXISTING) (= tpos_${r} (- 1)) ${smtOr(families)} ${result})))`);
+        for (const c of contextCompetingValues) {
+          emit(`(assert (=> ${frInR} (not ${selected(c)})))`);
+        }
+      } else if (ownerMarker || fm.describedOwner) {
         const selected = (c) => `(and sel_${c.id} (= own_${c.id} ${r}))`;
         const headInR = (c) => `(and ${selected(c)} (= tpos_${r} ${c.startTok}))`;
         const phaseInR = (c, phase) => `(and ${selected(c)} (= ${phaseExprOf.get(c.id)} ${phase}))`;
@@ -1269,7 +1288,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       } else if (ownerCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(ownerCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
       }
-      if (!ownerMarker && !fm.describedOwner && valCands.length > 0) {
+      if (!context && !ownerMarker && !fm.describedOwner && valCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(valCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`))}))`);
       }
       if (oldCands.length > 0) {
@@ -1284,7 +1303,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
 
     const frWeight = 24 + Math.min(16, Math.max(0, Math.round(fm.priority ?? 10))) +
-      (fm.describedOwner ? W.describedOwnerFrame : 0);
+      (fm.describedOwner ? W.describedOwnerFrame : 0) + (context ? W.contextPropertyFrame : 0);
     emit(`(assert-soft sel_fr_${fm.id} :weight ${frWeight})`);
   }
 
