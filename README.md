@@ -28,6 +28,19 @@ node eval/benchmark.mjs --source keys --workers 10
 
 The result includes `unresolved` when the reader detects a directive prohibition that the current `w.request` contract cannot represent. Each entry carries its exact text and half-open character offsets in the original input. `status: "partial"` accompanies independently formalised clauses. When only the prohibition remains, the result has `status: "unknown"` and no SOP proposal. The text CLI prints this diagnostic to standard error.
 
+## Text-only batch with both readers
+
+Run these commands from the workspace containing both checkouts and `inputs.jsonl`.
+
+```sh
+(cd nl-formaliser && node bin/formalise.mjs --batch --json --tab auto --verify < ../inputs.jsonl > ../z3-results.jsonl)
+(cd pro-formaliser && node bin/formalise.mjs --batch --json --worlds-only < ../inputs.jsonl > ../prolog-results.jsonl)
+```
+
+Each input line contains one JSON object with a nonempty `text` string, for example `{"text":"Move it to the left"}`. These commands give the readers only the written text and their loaded knowledge. Z3 batch mode defaults to `auto`, reuses one initialized formaliser, skips blank lines, and writes one JSON object per remaining line in input order. It accepts only the `text` field and rejects `--previous` in batch mode.
+
+Z3 results retain `ok`, `status`, `sop`, `tab`, `proposals`, `alternatives` and any `unresolved` evidence returned by the reader. Each proposal includes its tab and circuit. With `--verify`, `check` on each proposal and on the selected result has `ok`, `errors`, `warnings` and `uncoveredWords` from the native verifier. `unknown` can have an empty circuit, and `partial` can have a circuit alongside unresolved evidence. A malformed record yields `ok: false`, `status: "invalid-input"`, an `error` and the physical input `line`. A thrown engine error yields `status: "error"` with the same record fields. These record statuses leave the batch running and a completed stream exits successfully. The Prolog command returns its independent `candidates` array for each text, along with any `unread` evidence.
+
 ## Documentation
 
 Full technical documentation lives in [`docs/`](docs/index.html) (static multi-page HTML, open directly in any browser):
