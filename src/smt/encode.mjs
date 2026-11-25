@@ -397,11 +397,13 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const valueFrames = propertyFrames.filter((fm) => sameSpan(c, fm.valSpan) && fm.expectedAttrs.includes(c.attribute));
     if (c.attribute && kwByAttr.has(c.attribute)) {
       for (const k of kwByAttr.get(c.attribute)) {
+        const scoped = k.chartEditPredicate != null || c.chartEditPredicate != null;
+        if (scoped && k.chartEditPredicate !== c.chartEditPredicate) continue;
         const overlaps = !(k.endTok < c.startTok || c.endTok < k.startTok);
         if (overlaps) continue;
         const lo = Math.min(k.endTok, c.endTok);
         const hi = Math.max(k.startTok, c.startTok);
-        if (hi - lo > 5) {
+        if (!scoped && hi - lo > 5) {
           const frames = valueFrames.filter((fm) => sameSpan(k, fm.attrSpan));
           if (frames.length === 0) continue;
           longKwFrames.set(k.id, frames);

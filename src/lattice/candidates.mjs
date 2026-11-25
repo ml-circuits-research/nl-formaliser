@@ -3684,7 +3684,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       if (hasCue) {
         emit({
           kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd,
-          attrs: [field.attribute], families: ['chart'], cost: 0,
+          attrs: [field.attribute], families: ['chart'], cost: 0, chartEditPredicate: startTok,
           ...(fragment ? { chartEditEnd: scopeEnd, chartEditStart: startTok } : {}),
         });
       }

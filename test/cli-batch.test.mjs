@@ -726,3 +726,34 @@ test('chart stroke edits preserve slot-owned open literals and keep dependent wo
     await reader.close();
   }
 });
+
+test('chart axis edits bind closed positions and value-axis scales without inventing an owner', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    for (const [text, result, owner] of [
+      ['Switch the y axis to log', /chart\.axisScale value=log/, /key=thing from=any/],
+      ['The y axis scale should be log', /chart\.axisScale value=log/, /key=thing from=any/],
+      ['Put the x axis on the top', /chart\.xAxis value=top/, /key=thing from=any/],
+      ['Y axis on the right', /chart\.axisSide value=right/, /key=thing from=any/],
+      ['Move the y-axis on Monthly sales to the left', /chart\.axisSide value=left/, /name="Monthly sales"/],
+      ['Set the axis scale on Annual print and digital sales to logarithmic', /chart\.axisScale value=log/,
+        /name="Annual print and digital sales"/],
+      ['Put the y axis of it on the left', /chart\.axisSide value=left/, /from=any words=it\b/],
+    ]) {
+      const { sop, check } = (await reader.propose(text)).candidates[0];
+      assert.ok(check.ok, sop);
+      assert.match(sop, /act=change mood=do/);
+      assert.match(sop, /family=chart mode=existing/);
+      assert.match(sop, result);
+      assert.match(sop, owner);
+      assert.doesNotMatch(sop, /\bname=[xy]\b|open_value|attribute=chart\.[xy]Field|attribute=page\.style/);
+    }
+
+    const compound = (await reader.propose('Y axis scale log. Show grid lines.')).candidates[0];
+    assert.ok(compound.check.ok, compound.sop);
+    assert.match(compound.sop, /@r1\.c\d+ .*chart\.axisScale value=log/);
+    assert.match(compound.sop, /@r2\.c\d+ .*chart\.grid value=show/);
+  } finally {
+    await reader.close();
+  }
+});

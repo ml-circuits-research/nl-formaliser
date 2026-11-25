@@ -85,3 +85,5 @@
 - 2026-11-25 — Q-NL-048 guards L3/L4 against wrong or missing request references, preserving default, reordered and renamed equivalents and later reference alternatives. Evaluator/verifier 14/14 and full serial 244/244. Reproduction and review request in `questions.md`.
 
 - 2026-11-25 — Q-NL-049 preserves exact open grid strokes, canonical series-line strokes and dependent wording. Seven of twelve published probes retain the intended grid result. Focused 3/3, full serial 245/245. The shared choice lead proposal and review are in `questions.md`.
+
+- 2026-11-25 — Q-NL-050 binds native axis sides and value scale separately, including a written chart owner between property and value. Nineteen of 24 probes preserve the intended axis operand and owner. Focused 4/4, full serial 246/246. See `questions.md` for review and the X-scale gap.

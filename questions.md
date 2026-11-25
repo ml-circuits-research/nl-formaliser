@@ -1176,3 +1176,15 @@ The actual reader native-validates all 12 selected published `23f19aa` inputs. S
 ### READY Q-NL-049 — review request
 
 Focused chart groups 3/3 and final full serial suite 245/245. Please independently review and publish the scoped reader change. For the owner report, keep the native open-literal result and the still-unread reason explicit. The L0–L4 table under Q045 is still the last aggregate measurement.
+
+## Q-NL-050 — Separate chart axis positions, scale and chart identity
+
+The scoped chart editor now binds the category-axis side to `chart.xAxis`, the value-axis side to `chart.axisSide` and the value-axis linear/logarithmic scale to `chart.axisScale`. The legal values and the axis/property cues come from the declared chart keys. “Switch the y axis to log” previously supplied an invented chart named `y` and an open axis-side value. It now supplies a native log scale with an unresolved chart lookup. “Put the x axis on the top” edits the existing chart instead of creating one. A separately written chart name or pronoun remains the owner. A keyword and result licensed by the same scoped edit can bind across a long owner description. The generic keyword-distance limit still applies elsewhere.
+
+All 24 selected `diagram/charts-02.csv` probes from `23f19aa` native-validate. Nineteen preserve the intended axis effect and a faithful owner, including `:713–717,720,725,726,775–777,796–798,800,812,820,821,823`. Row 720 keeps `go` unread. Rows 725, 726 and 812 keep the following grid or axis command independent. Five probes remain open: `:718,719,721` use alternate selection/wish wording, `:728` gets the scale but invents chart name “do the y”, and `:819` has the spelling error `rihgt`. The probe counts qualify only the intended operands.
+
+**Scope and catalog follow-up.** A lexical inventory over the pinned diagram CSVs found 724 rows with a direct axis-side phrase, 93 with a value-axis scale phrase, 216 with “zero-based y/value axis”, and 23 with a separate X-axis scale phrase. These are candidate counts with possible overlap. Zero-based value-axis edits can reuse existing `chart.yMin=0`. The X-axis scale has a distinct representation gap: `:4003–4004` explicitly ask for X linear and Y logarithmic together, while the existing `chart.axisScale` means the value-axis scale only. The actual current “Set the x axis to logarithmic” fallback assigns an open value to `chart.xAxis`, which denotes side, so it is semantically wrong. Please review whether a separate X-axis scale is part of the shared chart contract. Preserve its literal evidence until representable, without treating it as side or as the Y-axis scale. The pending “go for” lexical proposal is independent and unpublished.
+
+### READY Q-NL-050 — review request
+
+Focused chart groups 4/4 and final full serial suite 246/246. Please independently review and publish the scoped axis edit and the long-owner binding. Report these as targeted results, with the last aggregate L0–L4 table still under Q045.

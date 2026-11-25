@@ -259,12 +259,22 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
   const gridStyle = catalog.keys.get('chart.gridStyle');
   const lineStyle = catalog.keys.get('chart.lineStyle');
   const labels = catalog.keys.get('chart.show_values');
-  if (!grid || !gridStyle || !lineStyle || !labels) return [];
+  const categorySide = catalog.keys.get('chart.xAxis');
+  const valueSide = catalog.keys.get('chart.axisSide');
+  const scale = catalog.keys.get('chart.axisScale');
+  if (!grid || !gridStyle || !lineStyle || !labels || !categorySide || !valueSide || !scale) return [];
 
   const compactCue = (phrase) => phrase.replace(/[ _-]/g, '');
-  const cues = [grid, gridStyle, lineStyle, labels].flatMap((key) => [...key.keyWords].map((phrase) =>
-    ({ attribute: key.name, phrase, compact: compactCue(phrase) })))
-    .sort((a, b) => b.compact.length - a.compact.length);
+  const stockCues = (key, phrases = key.keyWords) => [...phrases].map((phrase) =>
+    ({ key, phrase, compact: compactCue(phrase) }));
+  const valueAxes = [...valueSide.keyWords].filter((word) => /^(?:y|value) axis side$/.test(word))
+    .map((word) => word.replace(/ side$/, ''));
+  const sideKeys = new Set([categorySide, valueSide]);
+  const cues = [
+    ...[grid, gridStyle, lineStyle, labels, categorySide].flatMap((key) => stockCues(key)),
+    ...stockCues(valueSide, [...valueAxes, ...[...valueSide.keyWords].filter((word) => word.endsWith('side'))]),
+    ...stockCues(scale, [...valueAxes, ...valueAxes.map((word) => word + ' scale'), 'axis scale']),
+  ].sort((a, b) => b.compact.length - a.compact.length);
   if (!tokens.some(({ kind, lower }) => kind === 'word' && cues.some(({ compact }) =>
     compact.startsWith(compactCue(lower))))) return [];
   const styleValues = new Set([...gridStyle.values, ...lineStyle.values]);
@@ -293,11 +303,13 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
     while (['and', 'then'].includes(tokens[clauseStart]?.lower)) clauseStart++;
     for (const start of [clauseStart, ...matchLeadAt(tokens, clauseStart, kb)]) {
       const direct = predicates.find((p) => p.startTok === start && p.licensed?.some(({ act }) => act === 'change') &&
-        ['show', 'hide', 'make', 'set'].includes(p.text.toLowerCase()));
+        ['show', 'hide', 'make', 'set', 'switch'].includes(p.text.toLowerCase()));
+      const move = predicates.find((p) => p.startTok === start && ['put', 'move'].includes(p.text.toLowerCase()) &&
+        p.licensed?.some(({ act }) => act === 'place'));
       const lead = leads.find((words) => tokens[matchWordSeqAt(tokens, start, words)]?.lower === 'have');
       const wishEnd = wishLeads.map((words) => matchWordSeqAt(tokens, start, words))
         .find((next) => next > start);
-      const end = direct?.endTok ?? (lead ? start + lead.length : (wishEnd ?? start) - 1);
+      const end = direct?.endTok ?? move?.endTok ?? (lead ? start + lead.length : (wishEnd ?? start) - 1);
       const fragment = end < start;
       const verb = direct?.text.toLowerCase();
       const visibility = labels.values.has(verb);
@@ -320,27 +332,47 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
 
       let cueStart = end + 1;
       if (DET_WORDS.has(tokens[cueStart]?.lower)) cueStart++;
-      let style = !visibility && verb !== 'set' ? matchStyleAt(cueStart, limit) : null;
+      let style = !visibility && !move && verb !== 'set' ? matchStyleAt(cueStart, limit) : null;
       if (style) cueStart = style.endTok + 1;
       const spellings = [];
       for (let i = cueStart; i < Math.min(limit, cueStart + 3) && tokens[i].kind === 'word'; i++) {
         spellings.push((spellings.at(-1) ?? '') + compactCue(tokens[i].lower));
       }
-      const cue = cues.find(({ attribute, compact }) => spellings.includes(compact) &&
-        (visibility ? catalog.keys.get(attribute).values.has(verb) : attribute !== labels.name));
+      const matches = cues.filter(({ key, compact }) => spellings.includes(compact) &&
+        (visibility ? key.values.has(verb) : key !== labels) && (!move || sideKeys.has(key)));
+      const cue = matches[0];
       if (!cue) continue;
 
       const cueEnd = cueStart + spellings.indexOf(cue.compact);
       let cursor = cueEnd + 1;
+      const propertyCues = matches.filter(({ compact }) => compact === cue.compact);
+      const acceptsStroke = propertyCues.some(({ key }) => key === grid || key === gridStyle || key === lineStyle);
+      if (style && !acceptsStroke) continue;
+      const matchResultAt = (index) => {
+        const stroke = acceptsStroke && matchStyleAt(index, limit);
+        if (stroke) return { ...stroke, key: cue.key === lineStyle ? lineStyle : gridStyle };
+        const marker = tokens[index]?.lower;
+        let first = index;
+        if (['on', 'at', 'to'].includes(marker)) first++;
+        if (DET_WORDS.has(tokens[first]?.lower)) first++;
+        if (first >= limit || tokens[first].kind !== 'word') return null;
+        const word = tokens[first].lower;
+        const value = word === 'logarithmic' && scale.keyWords.has(word) ? 'log' : word;
+        const property = propertyCues.find(({ key }) => (sideKeys.has(key) || key === scale) && key.values.has(value) &&
+          (!['on', 'at'].includes(marker) || sideKeys.has(key)));
+        if (!property) return null;
+        return { startTok: first, endTok: first, value, key: property.key };
+      };
       if (!visibility && !style) {
-        style = matchStyleAt(cursor, limit);
+        style = matchResultAt(cursor);
         if (style) cursor = style.endTok + 1;
       }
       let owner;
       if (['on', 'of'].includes(tokens[cursor]?.lower)) {
         const first = ++cursor;
         while (cursor < limit && (visibility || style ||
-          (!['to', 'should'].includes(tokens[cursor].lower) && !matchStyleAt(cursor, limit)))) cursor++;
+          (!['to', 'should'].includes(tokens[cursor].lower) &&
+            matchResultAt(cursor)?.endTok !== limit - 1))) cursor++;
         if (cursor <= first) continue;
         owner = { startTok: first, endTok: cursor - 1 };
       }
@@ -351,7 +383,7 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
           styleStart = cursor;
           cursor += 2;
         }
-        style = matchStyleAt(cursor, limit);
+        style = matchResultAt(cursor);
         if (!style) continue;
         cursor = style.endTok + 1;
       }
@@ -368,9 +400,9 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const nearbyChart = (!owner || ownerIsPronoun) && tokens.slice(0, start).some(isChartNoun);
       if (weakCue && !chartOwner && !nearbyChart) continue;
 
-      const styleKey = cue.attribute === lineStyle.name ? lineStyle : gridStyle;
+      const styleKey = style?.key ?? (cue.key === lineStyle ? lineStyle : gridStyle);
       const field = visibility
-        ? { attribute: cue.attribute, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
+        ? { attribute: cue.key.name, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
         : { attribute: styleKey.name, startTok: styleStart ?? style.startTok, endTok: style.endTok,
           literalStart: style.startTok, wordsStart: styleStart, cueStart, cueEnd,
           ...(styleKey.values.has(style.value) ? { value: style.value } : { allowOpen: true }) };
