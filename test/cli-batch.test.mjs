@@ -519,6 +519,50 @@ test('modal artifact requests keep polite delivery and permission readings witho
   }
 });
 
+test('file and copy requests retain untyped references and distinguish modal question subjects', async () => {
+  const reader = await createReader();
+  try {
+    for (const [text, pronoun, acts] of [
+      ['Save it to Reports', 'it', ['save']],
+      ['Copy it', 'it', ['copy']],
+      ['Could we have it as a file to Reports?', 'it', ['save', 'ask']],
+      ['Could she have it as a file?', 'it', ['ask']],
+      ['Can he have that one as a file?', '"that one"', ['ask']],
+    ]) {
+      const result = await reader.propose(text);
+      if (text.includes('as a file')) assert.equal(result.status, 'partial');
+      assert.deepEqual(result.candidates.map(({ sop }) => sop.match(/w\.request\.request act=(\S+)/)?.[1]), acts);
+      for (const { sop, check } of result.candidates) {
+        assert.ok(check.ok, sop);
+        assert.match(sop, /\brefers=thing\b/);
+        assert.ok(sop.includes(`w.request.lookup request=$r1 key=thing from=any words=${pronoun}`), sop);
+        if (text.includes('as a file')) assert.match(sop, /text="as a file" note=save\.format/);
+        assert.doesNotMatch(sop, /w\.request\.target|from=previous/);
+        if (sop.includes('act=ask')) assert.match(sop, /act=ask mood=check/);
+        if (text.includes('Reports')) assert.match(sop, /role=destination value=Reports/);
+      }
+    }
+
+    const typed = await reader.propose('May they have the diagram as an image file?');
+    assert.ok(typed.candidates.length);
+    for (const { sop, check } of typed.candidates) {
+      assert.ok(check.ok, sop);
+      assert.match(sop, /act=ask mood=check predicate="May they have"/);
+      assert.match(sop, /family=diagram .*family_words=diagram/);
+      assert.match(sop, /text="as an image file" note=save\.format/);
+    }
+
+    const named = (await reader.propose('Could we have the chart called It as a file?')).candidates[0];
+    assert.match(named.sop, /family=chart .*name=It\b/);
+
+    const quoted = (await reader.propose('Could we have the chart called "it" as a file?')).candidates[0];
+    assert.match(quoted.sop, /family=chart .*name=it\b/);
+    assert.doesNotMatch(quoted.sop, /\brefers=thing\b/);
+  } finally {
+    await reader.close();
+  }
+});
+
 test('modal wants bind an explicit new object or an existing property owner without naming the request lead', async () => {
   const reader = await createReader({ topK: 2 });
   try {

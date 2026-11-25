@@ -133,6 +133,7 @@ export function modelToSop(model, lattice, meta) {
       reqPairs.push(['predicate', pred.text]);
     }
     if (question !== 'none') reqPairs.push(['question', question]);
+    if (pred?.bareReference) reqPairs.push(['refers', 'thing']);
     if (typeof askedId === 'number' && askedId >= 0 && askedId < tabSpec.keyList.length) {
       const askedAttr = tabSpec.keyList[askedId].name;
       reqPairs.push(['asked', askedAttr]);
@@ -224,13 +225,13 @@ export function modelToSop(model, lattice, meta) {
       }
     }
 
-    if (!pred?.targetless) lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
+    if (!pred?.targetless && !pred?.bareReference) lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
 
     let lookupIndex = 0;
     const emitThingLookup = (owner, wireId, from, words) => {
       lines.push(wireLine(`${rId}.l${++lookupIndex}`, 'w.request.lookup', [
         ['request', { ref: `$${rId}` }],
-        [owner, { ref: `$${wireId}` }],
+        ...(owner ? [[owner, { ref: `$${wireId}` }]] : []),
         ['key', 'thing'],
         ['from', from],
         ['words', words],
@@ -240,7 +241,9 @@ export function modelToSop(model, lattice, meta) {
     if (hasLookup && !pred?.targetless) {
       const reference = tRef?.isPronoun && scopeText.includes(tRef.text) ? tRef.text : null;
       const fromWhere = lattice.catalog ? 'any' : previous || tfill === 'journal_step' ? 'previous' : (reference ? 'any' : 'page');
-      emitThingLookup('target', `${rId}.t`, fromWhere, reference);
+      // An unresolved artifact can belong to the request without a typed target.
+      if (pred?.bareReference) emitThingLookup(null, null, fromWhere, reference);
+      else emitThingLookup('target', `${rId}.t`, fromWhere, reference);
     }
 
     // Constraint wires (including atomic pairedConstraints like coord x,y)

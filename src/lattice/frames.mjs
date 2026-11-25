@@ -147,11 +147,10 @@ export function matchOptionQuestions(tokens, splitPoints, predicates, kb) {
   return results;
 }
 
-function modalHaveLeads(grammar) {
+function modalHaveLeads(grammar, persons = ['1']) {
   const phrases = grammar.phraseItems;
   if (!phrases?.get('shape.want')?.has('have')) return [];
-  const subjects = [...(grammar.pronouns ?? [])].filter(([, pronoun]) =>
-    pronoun.person === '1' && pronoun.cases.includes('subject')).map(([pronoun]) => pronoun);
+  const subjects = [...(grammar.pronouns ?? [])].filter(([, pronoun]) => pronoun.cases.includes('subject'));
   const modalWords = phrases.get('shape.can');
   const wishes = phrases.get('shape.wishto') ?? new Set();
   // The options frame distinguishes capability/permission modals from
@@ -159,9 +158,11 @@ function modalHaveLeads(grammar) {
   const examples = grammar.frames?.get('acts.more.ask.options.what')?.parts.flatMap(({ words }) => words) ?? [];
   const modals = new Set(examples.flatMap((lead) => {
     const [modal, subject, ...rest] = lead.split(/\s+/);
-    return !rest.length && modalWords?.has(modal) && subjects.includes(subject) && wishes.has(lead) ? [modal] : [];
+    return !rest.length && modalWords?.has(modal) && subjects.some(([word, pronoun]) =>
+      word === subject && pronoun.person === '1') && wishes.has(lead) ? [modal] : [];
   }));
-  return [...modals].flatMap((modal) => subjects.map((subject) => [modal, subject]));
+  const allowedSubjects = subjects.filter(([, pronoun]) => persons.includes(pronoun.person)).map(([word]) => word);
+  return [...modals].flatMap((modal) => allowedSubjects.map((subject) => [modal, subject]));
 }
 
 export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) {
@@ -322,12 +323,15 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
     return predicate.licensed?.some(({ act }) => act === 'save') &&
       (word === 'save' || exportVerbs.has(word));
   });
+  const copies = frames?.get('acts.copy')?.act === 'copy' ? predicates.filter((predicate) =>
+    predicate.licensed?.some(({ act }) => act === 'copy')) : [];
   const isHead = ({ kind }) =>
     [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind);
-  const modalLeads = modalHaveLeads(kb.grammar);
+  const modalLeads = modalHaveLeads(kb.grammar, ['1', '3']);
   const outputModal = modalLeads.length &&
     kb.markings.get('download')?.some(({ act, marker, role }) => act === 'save' && marker === 'as' && role === 'format');
-  if (!actions.length && !(outputModal && modalLeads.some(([modal]) => tokens.some(({ lower }) => lower === modal)))) return [];
+  if (!actions.length && !copies.length &&
+      !(outputModal && modalLeads.some(([modal]) => tokens.some(({ lower }) => lower === modal)))) return [];
   const windows = frameWindows(tokens, splitPoints, predicates).filter((window) => !window.internalJoiners);
   if (outputModal) {
     const fileHeads = candidates.filter((candidate) => candidate.kind === HYP_KINDS.TARGET_FAMILY &&
@@ -348,13 +352,17 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
               tokens.slice(head.endTok + 1, endTok + 1).every((token) => token.isPunct || token.isFiller));
         });
         if (!mentionsFileForm) continue;
+        const firstPerson = kb.grammar.pronouns.get(lead[1]).person === '1';
         modalStarts.add(start);
         actions.push({
           kind: HYP_KINDS.PREDICATE,
           startTok: start,
           endTok: have,
           text: tokens.slice(start, have + 1).map((token) => token.text).join(' '),
-          licensed: [{ act: 'save', mood: 'do' }, { act: 'ask', mood: 'check' }],
+          licensed: [
+            ...(firstPerson ? [{ act: 'save', mood: 'do' }] : []),
+            { act: 'ask', mood: 'check' },
+          ],
           modalOutput: true,
           cost: 0,
         });
@@ -363,17 +371,17 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
     }
   }
   const readings = [];
-  for (const predicate of actions) {
+  for (const predicate of new Set([...actions, ...copies])) {
     const start = predicate.endTok + 1;
     const word = predicate.text.toLowerCase();
     const formats = new Set((kb.markings.get(predicate.modalOutput ? 'download' : word) ?? [])
       .filter(({ role }) => role === 'format').map(({ marker }) => marker));
-    const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok > start &&
+    const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok >= start &&
       tokens.slice(startTok, predicate.startTok).every((token) => token.isFiller || token.isGrammar))
       .sort((left, right) => left.endTok - right.endTok)[0];
     if (!window) continue;
     const markers = [];
-    for (let i = start + 1; i < window.endTok; i++) {
+    for (let i = start + 1; !copies.includes(predicate) && i < window.endTok; i++) {
       const token = tokens[i];
       const cue = token.lower;
       if (token.kind !== 'word' || tokens[i + 1].isPunct) continue;
@@ -383,8 +391,11 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
       else if (destinations.has(cue) && ['to', 'into'].includes(cue)) markers.push({ index: i, role: 'destination' });
       else if (word === 'save' && names.has(cue)) markers.push({ index: i, note: 'save.name_or_format' });
     }
-    if (!markers.length) continue;
-    const targetEnd = markers[0].index - 1;
+    let targetEnd = (markers[0]?.index ?? window.endTok + 1) - 1;
+    while (targetEnd >= start && (tokens[targetEnd].isPunct || tokens[targetEnd].isFiller)) targetEnd--;
+    const bareReference = candidates.some((head) =>
+      head.isPronoun && head.startTok === start && head.endTok === targetEnd);
+    if (!markers.length && !bareReference) continue;
     if (!candidates.some((candidate) => isHead(candidate) && candidate.startTok >= start && candidate.endTok <= targetEnd)) continue;
     const roles = markers.flatMap(({ index, role, note }, i) => {
       let endTok = (markers[i + 1]?.index ?? window.endTok + 1) - 1;
@@ -399,7 +410,7 @@ export function matchOutputOperands(tokens, splitPoints, predicates, candidates,
       }
       return [{ startTok: index, endTok, role, note }];
     });
-    if (roles.length) readings.push({ predicate, targetEnd, roles });
+    if (roles.length || bareReference) readings.push({ predicate, targetEnd, roles, bareReference });
   }
   return readings;
 }

@@ -3650,9 +3650,9 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   }
 
   if (catalog) {
-    for (const { predicate, targetEnd, roles } of matchOutputOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
-      if (predicate.modalOutput) emit({ ...predicate, outputTargetEnd: targetEnd });
-      else predicate.outputTargetEnd = targetEnd;
+    for (const { predicate, targetEnd, roles, bareReference } of matchOutputOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
+      if (predicate.modalOutput) emit({ ...predicate, outputTargetEnd: targetEnd, bareReference });
+      else Object.assign(predicate, { outputTargetEnd: targetEnd, bareReference });
       for (const { startTok, endTok, role, note } of roles) {
         emit({
           kind: role ? HYP_KINDS.INTENT : HYP_KINDS.UNREAD,

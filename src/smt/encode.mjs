@@ -524,8 +524,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const predicate of outputPredicates) {
     const roles = outputRoles.filter(({ rolePredicate }) => rolePredicate === predicate.startTok);
     const artifact = outputHeads.filter((head) =>
-      head.startTok > predicate.endTok && head.endTok <= predicate.outputTargetEnd);
-    if (!roles.length || !artifact.length) continue;
+      head.startTok > predicate.endTok && head.endTok <= predicate.outputTargetEnd &&
+      (!predicate.bareReference || (head.isPronoun && head.startTok === predicate.endTok + 1 &&
+        head.endTok === predicate.outputTargetEnd)));
+    if ((!roles.length && !predicate.bareReference) || !artifact.length) continue;
     if (outputPredicates.length <= R) {
       emit(`(assert sel_${predicate.id})`);
     } else {
@@ -533,13 +535,23 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
     for (let r = 1; r <= R; r++) {
       const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
-      const foreign = outputHeads.filter((head) => head.startTok <= predicate.endTok || head.endTok > predicate.outputTargetEnd);
+      const foreign = outputHeads.filter((head) => !artifact.includes(head));
+      // A bare artifact reference has no emitted family. Its internal slot
+      // must not consume the returned alternatives with arbitrary types.
+      const untyped = predicate.bareReference ? [
+        `(= fam_${r} 0)`,
+        `(= tmode_${r} TM_EXISTING)`,
+        `(<= rend_${r} ${Math.max(predicate.outputTargetEnd, ...roles.map(({ endTok }) => endTok))})`,
+        `(not ${smtOr(constraints.map(owns))})`,
+      ] : [];
       emit(`(assert (=> ${owns(predicate)} (and ${smtOr(artifact.map(owns))}
-        ${roles.map(owns).join(' ')} (not ${smtOr(foreign.map(owns))}))))`);
+        ${[...roles.map(owns), ...untyped].join(' ')} (not ${smtOr(foreign.map(owns))}))))`);
       for (const role of roles) emit(`(assert (=> ${owns(role)} ${owns(predicate)}))`);
       if (predicate.modalOutput) {
         emit(`(assert (=> ${owns(predicate)} (and (= q_${r} Q_NONE) (= asked_${r} (- 1)))))`);
-        emit(`(assert-soft (=> ${owns(predicate)} (= act_${r} ACT_SAVE)) :weight ${W.predicateRole})`);
+        if (predicate.licensed.some(({ act }) => act === 'save')) {
+          emit(`(assert-soft (=> ${owns(predicate)} (= act_${r} ACT_SAVE)) :weight ${W.predicateRole})`);
+        }
       }
     }
   }

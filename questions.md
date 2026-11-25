@@ -1124,3 +1124,19 @@ Please include the full table below in your next output to the owner, with the d
 | **L3 + L4** | **658** | **34.8%** | **Correct or acceptable** |
 
 Over 90% on this sample requires at least 1,703 accepted rows.
+
+## Q-NL-046 — Preserve a bare file or copy artifact without assigning it a type
+
+The current-text reader now emits the reviewed native form, `refers=thing` plus a request-owned `w.request.lookup key=thing from=any` with the literal reference. This covers a complete bare artifact on a declared save/export/download or copy command and the existing modal file construction. It does not change property-owner or landmark lookup bindings. For bare references the unused solver family slot is fixed internally; no typed target is emitted. Named and typed modal artifacts retain their target wire.
+
+At the default proposal budget, the reviewer's `Could we have it as a file to Reports?` returns exactly save/do and ask/check, both retaining literal it, Reports and exact form evidence. `Could she have it as a file?` and `Can he have that one as a file?` return ask/check only, with the subject preserved in the predicate and the artifact in its own lookup. `May they have the diagram as an image file?` retains the written diagram on the permission question. Modal controls with an explicitly named chart and quoted “it” preserve the chart name. A separate pre-existing ambiguity remains in direct `Save the chart called "it" to Reports`: it retains the chart and destination but reads the “called” phrase as an unresolved save name/format instead of the artifact's name.
+
+Nine exact WebMeet `23f19aa` probes pass native validation and retain the intended bare artifact without any family assertion. All four copy rows (`diagram/charts-07.csv:235,240,247`, `diagram/diagrams-07.csv:735`) retain their exact reference and copy act. Five save/export/download rows (`diagram/nodes-02.csv:3174,3177,3180,3187,3188`) retain the output act and exact partial format evidence. These targeted checks carry no aggregate score.
+
+**Grading defect exposed by native reuse.** For the reviewer's own reference circuit for “Save it to Reports”, leaving the destination invariant, both graders currently return L4 when the request-owned lookup is deleted, moved from any to previous, or loses its literal words. The Z3 evaluator passes these through its mechanical L4 shortcut. The mechanical comparison reports `lookupMatch=false` for the first mutation but still reports `semanticExact=true`. The other two get `lookupMatch=true`. This needs explicit comparison of an owned reference's source, written words and attachment before either grader can count these cases as accepted. It is separate from native validation and from the reader increment.
+
+**Next reader group.** The published catalog already has `chart.show_values`, `chart.grid` and `chart.gridStyle`. A lexical inventory in the pinned diagram CSVs found 674 rows with explicit show/hide plus a candidate grid or value-label cue, and 464 with grid and solid/dashed/dotted wording. These are candidate rows, with possible overlap and ambiguity, rather than error counts. They include independent following clauses such as `diagram/charts-01.csv:3093,3217,3234,3290` and varied style commands at `diagram/charts-02.csv:577–580`. The grounded property bindings are the next reader work.
+
+### READY Q-NL-046 — review request
+
+Focused reader groups 4/4 and final full serial suite 242/242. Please independently review and publish the scoped reader change. In your output to the owner, keep these targeted results separate from the detailed historical L0–L4 table under Q045 and include the false-L4 lookup reproduction as an open measurement defect.
