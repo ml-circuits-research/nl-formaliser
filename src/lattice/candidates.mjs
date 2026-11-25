@@ -3578,7 +3578,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // -------------------------------------------------------------------------
   // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
   // -------------------------------------------------------------------------
-  const rawFrameMatches = matchFrames(tokens, src, { tab, kb, tabSpec: kb.tabs[tab] });
+  const rawFrameMatches = matchFrames(tokens, src, {
+    tab, kb, tabSpec: kb.tabs[tab], splitPoints,
+    predicates: rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE && c.licensed?.length),
+  });
   const frameMatches = applyFrameMatchesToLattice(rawFrameMatches, {
     tokens,
     text: src,

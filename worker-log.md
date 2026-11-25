@@ -9,3 +9,5 @@
 - 2026-11-25 — Q-NL-008 retains declared creation types with `new`, preserves quoted names and restores the distinct line-width alternative. Focused tests 15/15 and `npm test` 88/88. Dev L3+L4 stays 125/250. Recorded the dev/holdout overlap separately under Q-NL-009.
 
 - 2026-11-25 — Q-NL-009 excludes the standard holdout's exact texts from dev and calibration. Calibration selects 320 with zero shared texts. Corrected dev baseline is 124/250 L3+L4 and 65/250 L1c. `npm test` passes 88/88.
+
+- 2026-11-25 — Q-NL-010 keeps coordinated property frames in the correct requests. Focused tests 6/6, `npm test` 94/94. Dev L3+L4 126/250. Integrated WebMeet 1% L3+L4 658/1892 versus original 659/1892. See `questions.md` for exact probes and limits.

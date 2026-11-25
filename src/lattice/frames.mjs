@@ -178,28 +178,50 @@ function matchLeadAt(tokens, pos, kb) {
   return out;
 }
 
-/**
- * Match all applicable `w.lang.en.frame` schemas against `tokens` within clause boundaries
- * (never crossing `.`, `;`, or `?`).
- */
-export function matchFrames(tokens, text, { tab, kb, tabSpec }) {
-  if (!tokens?.length || !kb?.grammar?.frames) return [];
-  const compiled = getCompiledFrames(kb);
-  if (compiled.length === 0) return [];
-
-  const T = tokens.length;
-  const tokenLowSet = new Set(tokens.map((t) => t.lower));
-
-  // Split token stream into clause intervals at hard punctuation ('.', ';', '?')
+function frameWindows(tokens, splitPoints, predicates) {
   const clauses = [];
   let cStart = 0;
-  for (let i = 0; i < T; i++) {
+  for (let i = 0; i < tokens.length; i++) {
     if (tokens[i].isPunct && ['.', ';', '?'].includes(tokens[i].text)) {
       if (i > cStart) clauses.push([cStart, i - 1]);
       cStart = i + 1;
     }
   }
-  if (cStart < T) clauses.push([cStart, T - 1]);
+  if (cStart < tokens.length) clauses.push([cStart, tokens.length - 1]);
+
+  const predicateStarts = new Set(predicates.map((predicate) => predicate.startTok));
+  const cuts = new Map();
+  for (const split of splitPoints) {
+    if (!predicateStarts.has(split.endTok + 1)) continue;
+    const previous = cuts.get(split.endTok);
+    if (!previous || split.startTok < previous.startTok) cuts.set(split.endTok, split);
+  }
+  const windows = clauses.map(([startTok, endTok]) => ({ startTok, endTok }));
+  for (const [start, end] of clauses) {
+    const localCuts = [...cuts.values()].filter((cut) => cut.startTok > start && cut.endTok < end &&
+      predicates.some((predicate) => predicate.startTok >= start && predicate.endTok < cut.startTok));
+    let left = start;
+    for (const cut of localCuts.sort((a, b) => a.startTok - b.startTok)) {
+      if (cut.startTok <= left) continue;
+      windows.push({ startTok: left, endTok: cut.startTok - 1, joinerBounded: true });
+      left = cut.endTok + 1;
+    }
+    if (left > start) windows.push({ startTok: left, endTok: end, joinerBounded: true });
+  }
+  return windows;
+}
+
+/**
+ * Match declared frames within hard punctuation boundaries. Candidate clause
+ * separators also license local windows when they precede a predicate.
+ */
+export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], predicates = [] }) {
+  if (!tokens?.length || !kb?.grammar?.frames) return [];
+  const compiled = getCompiledFrames(kb);
+  if (compiled.length === 0) return [];
+
+  const tokenLowSet = new Set(tokens.map((t) => t.lower));
+  const windows = frameWindows(tokens, splitPoints, predicates);
 
   const rawMatches = [];
 
@@ -214,7 +236,8 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec }) {
     }
     if (!preOk) continue;
 
-    for (const [clStart, clEnd] of clauses) {
+    for (const window of windows) {
+      const { startTok: clStart, endTok: clEnd } = window;
       const clLen = clEnd - clStart + 1;
       if (clLen < 3 || clLen > 28) continue;
 
@@ -368,6 +391,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec }) {
             priority: frame.priority,
             sourceShard: frame.sourceShard,
             fixed: frame.fixed,
+            clauseWindow: window.joinerBounded ? window : null,
             ...bestInClause,
           });
           break; // one match per frame per clause
@@ -376,15 +400,20 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec }) {
     }
   }
 
-  // Deduplicate overlapping matches of the same frame family, keeping top 6 by (priority, span coverage)
+  // Reserve a ranked match for each observed clause start before filling the remaining budget.
   rawMatches.sort((a, b) => b.priority - a.priority || (b.endTok - b.startTok) - (a.endTok - a.startTok));
-  const selected = [];
+  const seen = new Set();
+  const bestByStart = new Map();
+  const alternatives = [];
   for (const m of rawMatches) {
-    if (selected.length >= 6) break;
-    const dup = selected.some((x) => x.frameName === m.frameName && x.startTok === m.startTok && x.endTok === m.endTok);
-    if (!dup) selected.push({ id: selected.length, ...m });
+    const scope = m.clauseWindow;
+    const key = `${m.frameName}:${m.startTok}:${m.endTok}:${scope?.startTok ?? ''}:${scope?.endTok ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (bestByStart.has(m.startTok)) alternatives.push(m);
+    else bestByStart.set(m.startTok, m);
   }
-  return selected;
+  return [...bestByStart.values(), ...alternatives].slice(0, 6).map((m, id) => ({ id, ...m }));
 }
 
 /**
@@ -586,6 +615,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       priority: fm.priority,
       startTok: fm.startTok,
       endTok: fm.endTok,
+      clauseWindow: fm.clauseWindow,
       propertyOwnerMarker,
       blockedSpatialToks: [...blockedSpatialToks],
       blockedEndpointToks: [...blockedEndpointToks],

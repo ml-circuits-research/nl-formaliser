@@ -1165,6 +1165,10 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     for (let r = 1; r <= R; r++) {
       const frInR = `(and sel_fr_${fm.id} (= own_fr_${fm.id} ${r}))`;
       emit(`(assert (=> ${frInR} (and active_${r} (span-in-req rstart_${r} rend_${r} ${fm.startTok} ${fm.endTok}) (= act_${r} ${actToSmt(fm.act)}))))`);
+      if (fm.clauseWindow) {
+        const { startTok, endTok } = fm.clauseWindow;
+        emit(`(assert (=> ${frInR} (and (>= rstart_${r} ${startTok}) (<= rend_${r} ${endTok}))))`);
+      }
       if (fm.mode && FINER_ACT_MODES.has(fm.mode)) {
         emit(`(assert (=> ${frInR} (= amode_${r} ${modeToSmt(fm.mode)})))`);
       }
