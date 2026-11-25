@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Out-of-sample Logistic Confidence Calibrator for nl-formaliser.
-// Runs on a DISJOINT calibration split (default --seed 1337, NEVER overlapping test seed=42!)
+// Fits on seed-1337 examples outside the seed-42 WebMeet holdout.
 // to fit the 8 transparent symbolic weights in src/confidence-weights.json via L2-regularized
 // gradient descent, maximizing calibration (log-loss / Brier) and preserving monotonicity.
 
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 import { TABS } from '../src/contracts.mjs';
-import { csvRows } from './benchmark.mjs';
+import { csvRows, webmeetHoldoutTexts } from './benchmark.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -34,8 +34,9 @@ function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
 }
 
-async function sampleDisjointRows({ datasetDir, limit = 320, seed = 1337 }) {
+export async function sampleDisjointRows({ datasetDir, limit = 320, seed = 1337 }) {
   const { readdirSync, existsSync } = await import('node:fs');
+  const holdoutTexts = webmeetHoldoutTexts(datasetDir);
   const rng = mulberry32(seed);
   const perTab = Math.ceil(limit / TABS.length);
   const rows = [];
@@ -53,7 +54,7 @@ async function sampleDisjointRows({ datasetDir, limit = 320, seed = 1337 }) {
       const si = header.indexOf('sop');
       if (ti < 0 || si < 0) continue;
       for (const r of iter) {
-        if (r.length <= Math.max(ti, si)) continue;
+        if (r.length <= Math.max(ti, si) || holdoutTexts.has(r[ti])) continue;
         seen++;
         if (reservoir.length < perTab) {
           reservoir.push({ tab, source: `${tab}/${file}`, text: r[ti], goldSop: r[si] });
@@ -208,7 +209,10 @@ async function main() {
   console.log(JSON.stringify(out, null, 2));
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

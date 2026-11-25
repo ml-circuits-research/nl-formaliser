@@ -1,11 +1,12 @@
 // Fast disjoint dev-split root-cause cluster auditor for nl-formaliser.
-// Uses seed=1337 (disjoint from seed=42 unseen holdout) to rank top generic failure modes.
+// Uses seed=1337 outside the seed=42 WebMeet holdout to rank generic failure modes.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { csvRows } from './benchmark.mjs';
+import { TABS } from '../src/contracts.mjs';
+import { csvRows, webmeetHoldoutTexts } from './benchmark.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -38,9 +39,9 @@ function mulberry32(s) {
   };
 }
 
-// Stratified sample proportional to dataset size using disjoint seed
+// Shuffle the original pool, then replace overlaps without changing its dev order.
 const all = [];
-for (const tab of ['drawing', 'diagram', 'document', 'calendar']) {
+for (const tab of TABS) {
   const dir = join(DATASET_DIR, tab);
   for (const fn of readdirSync(dir).filter((f) => f.endsWith('.csv')).sort()) {
     const rows = [...csvRows(readFileSync(join(dir, fn), 'utf8'))];
@@ -54,7 +55,8 @@ for (let i = all.length - 1; i > 0; i--) {
   const j = Math.floor(rng() * (i + 1));
   [all[i], all[j]] = [all[j], all[i]];
 }
-const sample = all.slice(0, limit);
+const holdoutTexts = webmeetHoldoutTexts(DATASET_DIR);
+const sample = all.filter(({ text }) => !holdoutTexts.has(text)).slice(0, limit);
 
 const results = new Array(sample.length);
 let nextIdx = 0;

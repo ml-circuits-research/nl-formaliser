@@ -16,6 +16,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const WORKER_FILE = join(HERE, 'bench-worker.mjs');
 
+// Both development samplers use the exact same selection as the standard WebMeet benchmark.
+export function webmeetHoldoutTexts(datasetDir) {
+  const rows = loadRows({ source: 'webmeet', datasetDir, tabs: TABS, samplePct: 1, seed: 42 });
+  return new Set(rows.map(({ text }) => text));
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {

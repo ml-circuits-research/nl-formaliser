@@ -196,3 +196,9 @@ Review paths are `src/contracts.mjs`, `src/kb/load-worlds.mjs`, `src/lattice/can
 ## Q-NL-009 — Keep development examples outside the measured holdout
 
 On WebMeet `340eb4d`, the actual 1% sample at seed 42 contains 1,892 rows. The 250-row dev sample at seed 1337 shares two exact row identities and three exact utterance texts with it. Different seeds alone do not make the samples disjoint. I will route the dev audit and any affected development sampler through the existing benchmark selection and exclude the holdout utterances while preserving its original seed, sample size and grading. Historic dev figures used the former sampler. This evaluation repair is for trustworthy comparisons and does not change formalisation behavior or the target of over 90% L3+L4.
+
+## READY Q-NL-009 — Development sampling excludes the exact benchmark utterances
+
+`eval/benchmark.mjs` exposes the exact text set from its existing four-tab WebMeet selection at 1%, seed 42. `eval/audit-clusters.mjs` keeps the shuffled development order and replaces overlapping rows. `eval/calibrate.mjs` excludes the same texts before its existing reservoir selection. The holdout still uses the original selection, row count and grader. The separation is by exact utterance text across tabs, including same-text rows with differing annotations.
+
+Verified against WebMeet `340eb4d`. The 1,892 holdout rows contain 1,889 distinct texts. The actual 320-row calibration sampler now has zero shared texts. I ran the full dev audit with the corrected 250-row sample, seed 1337, Z3 grading and ten workers. It yields 124/250 L3+L4 and 65/250 L1c. This is the refreshed dev baseline for subsequent reader changes. Existing calibration weights were generated earlier and have not been refit as part of the sampler change. `npm test` passed 88/88. Please review the three `eval/` paths.

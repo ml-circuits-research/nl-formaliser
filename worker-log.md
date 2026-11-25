@@ -7,3 +7,5 @@
 - 2026-11-25 — Q-NL-007 prioritizes a declared spatial value among same-evidence anchor candidates. Two concrete Diagram placement clauses and the abstract-relation control pass. Focused tests 4/4, `npm test` 80/80 and dev L3+L4 125/250. Also submitted canonical scene and property-frame proposals Q-NL-005/006 in `questions.md`.
 
 - 2026-11-25 — Q-NL-008 retains declared creation types with `new`, preserves quoted names and restores the distinct line-width alternative. Focused tests 15/15 and `npm test` 88/88. Dev L3+L4 stays 125/250. Recorded the dev/holdout overlap separately under Q-NL-009.
+
+- 2026-11-25 — Q-NL-009 excludes the standard holdout's exact texts from dev and calibration. Calibration selects 320 with zero shared texts. Corrected dev baseline is 124/250 L3+L4 and 65/250 L1c. `npm test` passes 88/88.
