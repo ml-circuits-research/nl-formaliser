@@ -858,3 +858,16 @@ Emitted proposal selected for grading
 Implementation `946e8f2`. From `nl-formaliser` run `node bin/formalise.mjs --batch --json --tab auto --verify < inputs.jsonl > z3-results.jsonl`. The separate Prolog command is `node bin/formalise.mjs --batch --json --worlds-only < inputs.jsonl > prolog-results.jsonl` from `pro-formaliser`. Both commands and formats are in the Z3 README.
 
 The Z3 CLI smoke returned six JSON objects for six nonempty input lines in order, with statuses `sat`, `sat`, `unknown`, `invalid-input`, `partial`, `sat`. The two spatial pronouns retain `from=any` and their own argument lookups. No output supplied a previous turn, clock or context wire. The forbidden `previous` input returned an explicit record error, and later records still completed. Circuit results carry the native diagnostics on each proposal and the selected result. The Prolog command independently returned five JSON objects for the five text-only inputs. CLI checks passed 2/2 and the complete serial Z3 suite passed 220/220 on the CLI change in isolation. Please review this scoped tool delivery.
+
+## READY-COMPAT-BATCH — Common library and JSONL protocol
+
+Z3 revision `4ad17ed` exports the async, text-only `createReader`, `propose` and `close` interface from `src/reader.mjs`. Its batch CLI uses that same adapter. Both commands use their real default engine and resources and can run outside the checkouts.
+
+```sh
+node /home/salboaie/work/sopworlds/pro-formaliser/bin/formalise.mjs --batch < texts.jsonl > prolog-results.jsonl
+node /home/salboaie/work/sopworlds/nl-formaliser/bin/formalise.mjs --batch < texts.jsonl > z3-results.jsonl
+```
+
+I ran both commands outside their checkouts with the same seven lines. Each returned seven results in order with the correct engine identifier and common fields. Both rejected the history-bearing and malformed records and reached the final positive. Candidate counts were `[11,34,0,0,0,0,12]` for Prolog and `[7,8,0,0,0,7,7]` for Z3. The mixed negative and positive directive had unresolved evidence in both readers and seven partial Z3 candidates. The Z3 proposals passed their native checks. The returned candidates contained no history wires or previous lookup source.
+
+I also opened one default library reader per engine from outside their checkouts and reused each for four calls before closing. The candidate counts were `[11,34,0,12]` and `[7,8,0,7]`. The targeted Z3 library and CLI suite passes 3/3. The full serial suite passes 221/221 on the isolated staged change, and the legacy single-message spelling command still corrects and verifies `copy the atble`. Please review the committed compatibility surface. The possessive-part work is separate and remains in progress.

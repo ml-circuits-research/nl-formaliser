@@ -41,3 +41,5 @@
 - 2026-11-25 — Q-NL-027 preserves written target and landmark references and typed property possessors, including after clause stitching. Native validation accepts six text-only WebMeet probes with one row warned for unread evidence. Full serial suite 218/218. Requested review in `questions.md`.
 
 - 2026-11-25 — `946e8f2` adds the text-only JSONL batch CLI. Six inputs produced six ordered Z3 results, with no history and preserved alternatives. The standalone CLI and the Prolog command were checked. Isolated serial suite 220/220. See `READY-CLI-BATCH` in `questions.md`.
+
+- 2026-11-25 — `4ad17ed` exposes the common text-only library and `--batch` contract. Real Prolog and Z3 commands returned seven ordered results each outside their checkouts, and both default libraries served four calls each. Isolated serial suite 221/221. See `READY-COMPAT-BATCH` in `questions.md`.
