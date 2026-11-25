@@ -25,3 +25,5 @@
 - 2026-11-25 — Q-NL-017 keeps independent owner/value pairs under a shared predicate. Full tests 141/141; targeted disjoint cases improve from 0/5 to 3/5 L3+L4. Shared trailing values remain open. Requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-016 provides 12 stratified disjoint development cases with full reference and emitted circuits. Q-NL-018 reports loss of one target in the PSys2 round trip for a verifier-accepted shared result and routes the contract to review.
+
+- 2026-11-25 — The pinned WebMeet 1% run through Q-NL-017 has 658/1892 L3+L4 versus 656/1892 through Q014. L1c is 603 versus 610 and L1b is 96 versus 89. Full table in the plan and review notes in `questions.md`.

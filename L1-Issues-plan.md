@@ -2,22 +2,22 @@
 
 ## 1. Ultimul benchmark WebMeet de 1%
 
-Formaliser `e122ad5`, date WebMeet `3d13d9b`, cunoștințe `3b2deebd`, `N = 1.892`, `seed = 42`, `spellcheck = false`. Evaluarea Z3 alege cea mai bună formalizare completă dintre propuneri.
+Formaliser `a6ed12b`, date WebMeet `3d13d9b`, cunoștințe `3b2deebd`, `N = 1.892`, `seed = 42`, `spellcheck = false`. Evaluarea Z3 alege cea mai bună formalizare completă dintre propuneri.
 
 | Nivel | Cazuri | Procent | Semnificație |
 | --- | ---: | ---: | --- |
-| L0 | 47 | 2,5% | Formalizare inutilizabilă |
+| L0 | 46 | 2,4% | Formalizare inutilizabilă |
 | **L1** | **990** | **52,3%** | Formalizare cu o eroare de sens |
-| ↳ L1a | 144 | 7,6% | Intenție greșită |
-| ↳ L1b | 89 | 4,7% | Țintă greșită |
-| ↳ L1c | 610 | 32,2% | Detaliu, valoare sau rol greșit. 23 cazuri de ortografie și 587 din alte cauze |
-| ↳ L1d | 147 | 7,8% | Instrucțiune sau detaliu inventat |
-| L2 | 199 | 10,5% | Sens parțial, cu o componentă esențială lipsă |
-| L3 | 43 | 2,3% | SOP identic cu referința |
-| L4 | 613 | 32,4% | Formalizare alternativă acceptabilă |
-| **L3 + L4** | **656** | **34,7%** | **Formalizări corecte sau acceptabile** |
+| ↳ L1a | 143 | 7,6% | Intenție greșită |
+| ↳ L1b | 96 | 5,1% | Țintă greșită |
+| ↳ L1c | 603 | 31,9% | Detaliu, valoare sau rol greșit. 23 cazuri de ortografie și 580 din alte cauze |
+| ↳ L1d | 148 | 7,8% | Instrucțiune sau detaliu inventat |
+| L2 | 198 | 10,5% | Sens parțial, cu o componentă esențială lipsă |
+| L3 | 39 | 2,1% | SOP identic cu referința |
+| L4 | 619 | 32,7% | Formalizare alternativă acceptabilă |
+| **L3 + L4** | **658** | **34,8%** | **Formalizări corecte sau acceptabile** |
 
-Pragul de peste 90% cere cel puțin 1.703 cazuri la acest eșantion. Prioritatea este atașarea sistematică a rolurilor și a efectelor în L1c. Evaluatorul semnalează și 558 de cazuri cu diferențe atribuite unei adnotări de referință problematice. Aceste semnalări se verifică independent înainte de corectarea datelor.
+Pragul de peste 90% cere cel puțin 1.703 cazuri la acest eșantion. Rularea prin Q-NL-014 avea 656 acceptate pe același eșantion. Prioritatea este atașarea sistematică a rolurilor și a efectelor în L1c. Evaluatorul semnalează 556 de cazuri cu diferențe atribuite unei adnotări de referință problematice. Aceste semnalări se verifică independent înainte de corectarea datelor.
 
 Principiu de lucru: **zero patch-uri pe propoziții individuale** — toate rezolvările sunt mecanisme generice, conduse de schemele `sop-knowledge-worlds` și formulate declarativ în Z3 MaxSMT.
 
@@ -25,9 +25,9 @@ Principiu de lucru: **zero patch-uri pe propoziții individuale** — toate rezo
 
 ## 2. Plan de atac pe subcategorii L1 (în `nl-formaliser/`)
 
-### P1. Atacarea `L1c (alte cauze)` — `31,0%` (cea mai mare sursă de pierdere)
+### P1. Atacarea `L1c (alte cauze)` — `30,7%` (cea mai mare sursă de pierdere)
 
-Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează proprietatea în cererea ei, reperul spațial participă la selectarea obiectului descris, iar măsurile compuse sunt citite ca o singură valoare. Un titlu literal poate traversa un `and` intern și rămâne separat de comanda următoare. Durata unei modificări temporare rămâne în textul `unread` al cererii. Vocabularul canonic distinge ceața, pâcla și vântul și poate furniza momentul zilei separat de vreme. Predicatul comun poate susține două editări când fiecare are o țintă și o valoare proprii. Distribuirea unei singure valori finale pe mai multe ținte și calificările cu rol propriu rămân de implementat. Benchmarkul de mai sus acoperă sursa până la Q-NL-014.
+Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează proprietatea în cererea ei, reperul spațial participă la selectarea obiectului descris, iar măsurile compuse sunt citite ca o singură valoare. Un titlu literal poate traversa un `and` intern și rămâne separat de comanda următoare. Durata unei modificări temporare rămâne în textul `unread` al cererii. Vocabularul canonic distinge ceața, pâcla și vântul și poate furniza momentul zilei separat de vreme. Predicatul comun poate susține două editări când fiecare are o țintă și o valoare proprii. Distribuirea unei singure valori finale pe mai multe ținte și calificările cu rol propriu rămân de implementat.
 
 1. **Extinderea compilatorului `w.lang.en.frame` → Z3 MaxSMT (`src/lattice/frames.mjs` + `src/smt/encode.mjs` §7b)**
    - **Problema**: Prepozițiile structurale (`on`, `of`, `at`, `with`, `to`, `from`, `by`, `in`) sunt încă deturnate ca relații spațiale (`node.anchor`, `node.position`, `node.relation`, `drawn.at`, `composition.with`) sau endpoint-uri (`link.to`) atunci când propoziția folosește un frame neacoperit sau cu roluri parțiale.
@@ -83,7 +83,7 @@ Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează
 
 ---
 
-### P4. Atacarea `L1b – Țintă greșită` — `4,7%`
+### P4. Atacarea `L1b – Țintă greșită` — `5,1%`
 
 1. **Dezambiguizarea familiilor `diagram` (`chart` vs `node` vs `diagram` vs `page` vs `link`)**
    - **Problema**: Peste 75% din erorile `L1b` sunt în `diagram`, în special `node/existing vs chart/existing` (ex. `"keep the font a middle size"`, `"turn bars over the target green"`, `"set the colours on Monthly sales to darker"`).
