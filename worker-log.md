@@ -39,3 +39,5 @@
 - 2026-11-25 — Q-NL-026 preserves explicit relative time values as exact unread and ranks their grounded Drawing and Calendar hypotheses in the text-only API. Z3 keeps the available valid model when alternatives run out. Native WebMeet probe verified and full serial suite 211/211. Requested review, with native binding still pending in Q025.
 
 - 2026-11-25 — Q-NL-027 preserves written target and landmark references and typed property possessors, including after clause stitching. Native validation accepts six text-only WebMeet probes with one row warned for unread evidence. Full serial suite 218/218. Requested review in `questions.md`.
+
+- 2026-11-25 — `946e8f2` adds the text-only JSONL batch CLI. Six inputs produced six ordered Z3 results, with no history and preserved alternatives. The standalone CLI and the Prolog command were checked. Isolated serial suite 220/220. See `READY-CLI-BATCH` in `questions.md`.

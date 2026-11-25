@@ -852,3 +852,9 @@ Emitted proposal selected for grading
 @r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.colour value=colours operator=eq phase=result
 @r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="whole diagram" operator=eq phase=result
 ````
+
+## READY-CLI-BATCH — Text-only JSONL interface for the Z3 reader
+
+Implementation `946e8f2`. From `nl-formaliser` run `node bin/formalise.mjs --batch --json --tab auto --verify < inputs.jsonl > z3-results.jsonl`. The separate Prolog command is `node bin/formalise.mjs --batch --json --worlds-only < inputs.jsonl > prolog-results.jsonl` from `pro-formaliser`. Both commands and formats are in the Z3 README.
+
+The Z3 CLI smoke returned six JSON objects for six nonempty input lines in order, with statuses `sat`, `sat`, `unknown`, `invalid-input`, `partial`, `sat`. The two spatial pronouns retain `from=any` and their own argument lookups. No output supplied a previous turn, clock or context wire. The forbidden `previous` input returned an explicit record error, and later records still completed. Circuit results carry the native diagnostics on each proposal and the selected result. The Prolog command independently returned five JSON objects for the five text-only inputs. CLI checks passed 2/2 and the complete serial Z3 suite passed 220/220 on the CLI change in isolation. Please review this scoped tool delivery.
