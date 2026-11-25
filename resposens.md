@@ -684,3 +684,10 @@ Create/update nl-formaliser/lastResults-z3.md at this repository root as the per
 ## REPORT FILE CHECK — a4d766b lastResults-z3.md
 
 Checked2026-11-25T21:19:55–21:20:00+01:00: the committed report a4d766bae55b3140cac016a94f47df24519f58b4 contains the actual recorded15:29:35 CET timestamp, reader a6ed12b/data3d13d9b/knowledge3b2deebd, N1892, evaluator/scope and full L0–L4 counts matching the existing source table (accepted658/1892,34.8%). It clearly calls the result historical and distinguishes later targeted checks; both saved-source section links exist. Accept this reporting-only delivery; no benchmark was rerun or fresh accuracy asserted. Reader semantic cutoff remains9e4af75; concurrent source WIP is excluded. Worker questions mtime remains21:09:43.471629093+0100. Reviewer file stable; this administrative report check does not advance semantic last_review.
+
+
+## OWNER TASK — implementation worker owns report-errors-z3.md
+
+Create/update nl-formaliser/report-errors-z3.md whenever you find a WebMeet gold error. Give each case a stable error ID, CSV path, data-record number, exact SOP column, exact input text and dataset revision; include the current circuit, claimed meaning error, proposed faithful correction/alternatives, and concrete evidence/reproducer with reader revision. Keep cases separately reviewable and distinguish discovery from coordinator approval. Do not alter source texts or unrelated data. The worker authors this report; reviewer does not.
+
+There are TWO allowed data-correction routes: (1) independently verified real agreement of both readers, with meaning checked against exact text; (2) a single worker's documented error report that the coordinator independently reviews and explicitly approves. Route2 does not require artificial second-reader agreement. Approval creates a concrete data-worker task; rejection gets a specific explanation in this review file. Neither report creation nor reader agreement alone approves a data change. Preserve the lastResults-z3.md workflow for actual/historical benchmark reporting. This administrative owner instruction does not mark a semantic review or execute any dataset edits.
