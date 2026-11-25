@@ -1006,13 +1006,31 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
   }
 
-  for (const rel of constraints.filter((c) => c.needsAnchor)) {
+  const anchoredRelations = constraints.filter((c) => c.needsAnchor);
+  const relationValueAlternatives = new Map();
+  for (const rel of anchoredRelations) {
     const anchors = constraints.filter(
       (a) => a.isAnchor && a.startTok > rel.endTok && (a.startTok - rel.endTok) <= 3
     );
     if (anchors.length > 0) {
       emit(`(assert-soft (=> sel_${rel.id} ${smtOr(anchors.map((a) => `(and sel_${a.id} (= own_${a.id} own_${rel.id}))`))}) :weight 16)`);
     }
+    if (W.declaredRelationValue > 0 && rel.family && anchors.some((anchor) => anchor.family === rel.family)) {
+      const signature = JSON.stringify([rel.family, rel.startTok, rel.endTok, rel.operator, rel.value]);
+      if (!relationValueAlternatives.has(signature)) relationValueAlternatives.set(signature, []);
+      relationValueAlternatives.get(signature).push(rel);
+    }
+  }
+
+  // With identical anchored evidence, prefer the slot that declares the value.
+  // A separately keyed relation or an open reading with distinct evidence still competes normally.
+  for (const alternatives of relationValueAlternatives.values()) {
+    if (alternatives.length < 2) continue;
+    const declared = alternatives.filter((rel) => tabSpec.keys.get(rel.attribute)?.values?.has(rel.value));
+    if (declared.length === 0 || declared.length === alternatives.length) continue;
+    const anyReading = smtOr(alternatives.map((rel) => `sel_${rel.id}`));
+    const declaredReading = smtOr(declared.map((rel) => `sel_${rel.id}`));
+    emit(`(assert-soft (=> ${anyReading} ${declaredReading}) :weight ${W.declaredRelationValue})`);
   }
 
   // Semantically substantive spatial/temporal relation phrases ("below", "above", "under", "behind", "beside", "next to",
@@ -1020,7 +1038,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // Because prepositions & pronouns are `isGrammar=true` in w.lang.en, reward Z3 for covering them rather than silently dropping "below X" or "on it"!
   const STRONG_SPATIAL_PREP_RE = /^(below|above|under|underneath|beneath|behind|beside|near|close to|next to|in front of|on top of|to the left of|left of|on the left side of|to the right of|right of|on the right side of|inside|outside|between|before|after)$/i;
   const relSpanBuckets = new Map();
-  for (const rel of constraints.filter((c) => c.needsAnchor)) {
+  for (const rel of anchoredRelations) {
     const followedByPronoun = rel.text.toLowerCase() === 'on' && ['it', 'them'].includes(tokens[rel.endTok + 1]?.lower ?? '');
     if (!STRONG_SPATIAL_PREP_RE.test(rel.text) && !followedByPronoun) continue;
     const spKey = `${rel.startTok}:${rel.endTok}`;
