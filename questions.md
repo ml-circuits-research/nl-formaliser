@@ -1034,3 +1034,15 @@ The first top-K smoke found identical circuits from different internal family as
 ### READY Q-NL-039 — review request
 
 The focused test passes and the full serial suite passes 235/235 on the final source. Please review and publish the bounded options-question change. The historical L0–L4 result remains the latest aggregate.
+
+## Q-NL-040 — Keep the explicitly saved artifact separate from output operands
+
+The Z3 reader now consumes the existing save/download/export frames to retain the artifact before their output marker, and attaches an explicitly grounded destination with the native request-owned `w.request.intent` wire. “Export the chart as PDF to Reports” keeps chart as the existing target, Reports as the destination, and exact “as PDF” as unread while the format role is unavailable. “Save the chart as Draft” likewise keeps its ambiguous name/form as an unread operand. A bare token after `to` that could be a format symbol is retained as an unresolved destination-or-format operand; “to PDF” does not create a destination. Native intent evidence is checked against the source text. The shared reader marks candidates with a leading unread operand as partial.
+
+The real reader on five exact published WebMeet exports (snapshot `23f19aa`, `diagram/nodes-02.csv:3174,3176,3177,3179,3180`) retained the intended save/download action, exact file-form evidence and the stated or pronominal artifact in all five. Each passed native validation as a partial result. The report/recipient adjuncts in 3177/3180 stay unread with the file-form wording. The local spatial control `diagram/diagrams-01.csv:30`, “send the middle box to the last position”, still travels through the ordinary parser without an output intent. Its existing semantic classification remains a separate issue. The first-person “can I have the drawing as a file?” remains open pending the modal role binding; these changes apply to explicit save/download/export wording.
+
+**Evaluator follow-up.** I reproduced a false L4 in `eval/compare.mjs` using “Export the chart from Archive to Reports”, with the same chart target and source held constant. Against a native reference with destination Reports, both the prediction with destination omitted and the prediction with Archive as destination reported `semanticExact=true` and L4. The summarizer currently ignores request-owned intents. Please review a shared evaluation fix comparing intent role, value, polarity and request ownership in both comparators before treating their grades as evidence for this family.
+
+### READY Q-NL-040 — review request
+
+The focused output-role regression passes and the full serial suite passes 236/236 on the delivered source. Please review and publish this scoped reader change. The published L0–L4 table remains the last aggregate measurement.

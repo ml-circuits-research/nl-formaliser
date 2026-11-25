@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchFrames, matchOptionQuestions, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { matchFrames, matchOptionQuestions, matchOutputOperands, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -3648,6 +3648,20 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     });
   }
 
+  if (catalog) {
+    for (const { predicate, targetEnd, roles } of matchOutputOperands(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
+      predicate.outputTargetEnd = targetEnd;
+      for (const { startTok, endTok, role, note } of roles) {
+        emit({
+          kind: role ? HYP_KINDS.INTENT : HYP_KINDS.UNREAD,
+          startTok, endTok, role, note, cost: 0,
+          rolePredicate: predicate.startTok,
+          ...(role ? { value: src.slice(tokens[startTok + 1].start, tokens[endTok].end) } : {}),
+        });
+      }
+    }
+  }
+
   // A creation modifier belongs to the same evidence as a catalog type name.
   // Preserve a type-bearing candidate alongside the extended target description.
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
@@ -3879,6 +3893,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.partHead?.join(':') ?? '',
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
+      c.rolePredicate ?? '',
       c.predicateRole ?? '',
       c.predicateRoleFamily ?? '',
       c.dictatedContent ? 1 : 0,

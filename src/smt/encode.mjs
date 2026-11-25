@@ -73,7 +73,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const activeCandidates = rawCandidates.filter((c) => {
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
     if (c.kind !== HYP_KINDS.SEP && excluded(c)) return false;
-    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier) return false;
+    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier && c.rolePredicate === undefined) return false;
     return true;
   });
 
@@ -516,6 +516,27 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       const noOperands = `(not ${smtOr(otherOperands)})`;
       const targetless = closedQuestion ? `(and ${noOperands} (= fam_${r} 0))` : noOperands;
       emit(`(assert (=> (and sel_${predicate.id} (= own_${predicate.id} ${r})) ${targetless}))`);
+    }
+  }
+  const outputPredicates = preds.filter(({ outputTargetEnd }) => outputTargetEnd !== undefined);
+  const outputRoles = activeCandidates.filter(({ rolePredicate }) => rolePredicate !== undefined);
+  const outputHeads = [...tSorts, ...tFams, ...tRefs];
+  for (const predicate of outputPredicates) {
+    const roles = outputRoles.filter(({ rolePredicate }) => rolePredicate === predicate.startTok);
+    const artifact = outputHeads.filter((head) =>
+      head.startTok > predicate.endTok && head.endTok <= predicate.outputTargetEnd);
+    if (!roles.length || !artifact.length) continue;
+    if (outputPredicates.length <= R) {
+      emit(`(assert sel_${predicate.id})`);
+    } else {
+      emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+    }
+    for (let r = 1; r <= R; r++) {
+      const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
+      const foreign = outputHeads.filter((head) => head.startTok <= predicate.endTok || head.endTok > predicate.outputTargetEnd);
+      emit(`(assert (=> ${owns(predicate)} (and ${smtOr(artifact.map(owns))}
+        ${roles.map(owns).join(' ')} (not ${smtOr(foreign.map(owns))}))))`);
+      for (const role of roles) emit(`(assert (=> ${owns(role)} ${owns(predicate)}))`);
     }
   }
   for (let r = 1; r <= R; r++) {

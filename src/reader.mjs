@@ -32,7 +32,9 @@ export async function createReader({ knowledgeDir, timeout, topK, spellcheck, co
         return { ...proposal, check: { ok, errors, warnings, uncoveredWords } };
       });
       const error = result.status === 'unknown' && unresolved.length ? null : result.error ?? null;
-      const { ok, status, elapsedMs, stats, spell, confidence } = result;
+      const { ok, elapsedMs, stats, spell, confidence } = result;
+      const status = result.status === 'sat' && unresolved.some(({ candidate }) => candidate === 0)
+        ? 'partial' : result.status;
       return { engine: 'z3', text, candidates, unresolved, error, ok, status, elapsedMs, stats, spell, confidence };
     } catch (error) {
       return readerError(text, error);

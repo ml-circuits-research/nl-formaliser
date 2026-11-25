@@ -147,6 +147,67 @@ export function matchOptionQuestions(tokens, splitPoints, predicates, kb) {
   return results;
 }
 
+// The published saving and export frames put the artifact before the
+// destination/name/format operand. The latter must never identify the artifact.
+export function matchOutputOperands(tokens, splitPoints, predicates, candidates, kb) {
+  const frames = kb.grammar.frames;
+  const cuesFor = (name, role) => {
+    const parts = frames?.get(name)?.parts ?? [];
+    const slot = parts.findIndex((part) => part.role === role);
+    return new Set(parts.slice(0, Math.max(0, slot)).flatMap(({ words }) => words));
+  };
+  const destinations = cuesFor('acts.save.place', 'place');
+  const names = cuesFor('acts.save.thing', 'name');
+  const exportVerbs = new Set(frames?.get('acts.more.save.download')?.parts.find(({ words }) =>
+    words.includes('export'))?.words ?? []);
+  const actions = predicates.filter((predicate) => {
+    const word = predicate.text.toLowerCase();
+    return predicate.licensed?.some(({ act }) => act === 'save') &&
+      (word === 'save' || exportVerbs.has(word));
+  });
+  if (!actions.length) return [];
+  const isHead = ({ kind }) =>
+    [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind);
+  const windows = frameWindows(tokens, splitPoints, predicates).filter((window) => !window.internalJoiners);
+  const readings = [];
+  for (const predicate of actions) {
+    const start = predicate.endTok + 1;
+    const word = predicate.text.toLowerCase();
+    const formats = new Set((kb.markings.get(word) ?? []).filter(({ role }) => role === 'format').map(({ marker }) => marker));
+    const window = windows.filter(({ startTok, endTok }) => startTok <= predicate.startTok && endTok > start &&
+      tokens.slice(startTok, predicate.startTok).every((token) => token.isFiller || token.isGrammar))
+      .sort((left, right) => left.endTok - right.endTok)[0];
+    if (!window) continue;
+    const markers = [];
+    for (let i = start + 1; i < window.endTok; i++) {
+      const token = tokens[i];
+      const cue = token.lower;
+      if (token.kind !== 'word' || tokens[i + 1].isPunct) continue;
+      if (formats.has(cue) && cue === 'as') markers.push({ index: i, note: 'save.format' });
+      else if (destinations.has(cue) && ['to', 'into'].includes(cue)) markers.push({ index: i, role: 'destination' });
+      else if (word === 'save' && names.has(cue)) markers.push({ index: i, note: 'save.name_or_format' });
+    }
+    if (!markers.length) continue;
+    const targetEnd = markers[0].index - 1;
+    if (!candidates.some((candidate) => isHead(candidate) && candidate.startTok >= start && candidate.endTok <= targetEnd)) continue;
+    const roles = markers.flatMap(({ index, role, note }, i) => {
+      let endTok = (markers[i + 1]?.index ?? window.endTok + 1) - 1;
+      while (endTok > index && (tokens[endTok].isPunct || tokens[endTok].isFiller)) endTok--;
+      if (endTok <= index) return [];
+      const operand = tokens.slice(index + 1, endTok + 1);
+      // Bare format-like symbols after "to" can describe output form. The
+      // spelling alone cannot identify a destination or a particular format.
+      const bareOperand = operand.length === 1 ? operand[0] : null;
+      if (role === 'destination' && bareOperand?.kind === 'word' && !/^[A-Z][a-z]+$/.test(bareOperand.text)) {
+        return [{ startTok: index, endTok, note: 'save.destination_or_format' }];
+      }
+      return [{ startTok: index, endTok, role, note }];
+    });
+    if (roles.length) readings.push({ predicate, targetEnd, roles });
+  }
+  return readings;
+}
+
 function matchLexiconAt(tokens, pos, lexName, kb, tabSpec) {
   const T = tokens.length;
   const maxLen = Math.min(4, T - pos);

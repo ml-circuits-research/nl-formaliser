@@ -89,6 +89,7 @@ export const HYP_KINDS = Object.freeze({
   TARGET_REF: 'TARGET_REF',
   KEY_WORD: 'KEY_WORD',
   CONSTRAINT: 'CONSTRAINT',
+  INTENT: 'INTENT',
   NEG: 'NEG',
   UNREAD: 'UNREAD',
 });

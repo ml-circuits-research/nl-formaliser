@@ -370,6 +370,15 @@ export function modelToSop(model, lattice, meta) {
       }
     }
 
+    for (const [index, intent] of mine.filter((candidate) => candidate.kind === HYP_KINDS.INTENT).entries()) {
+      lines.push(wireLine(`${rId}.i${index + 1}`, 'w.request.intent', [
+        ['request', { ref: '$' + rId }],
+        ['role', intent.role],
+        ['value', intent.value],
+        ['words', intent.text],
+      ]));
+    }
+
     // Merge contiguous selected UNREAD tokens (including bridging grammar words) into clean multi-word unread phrases
     const mergedUnreads = [];
     for (const u of unreads) {

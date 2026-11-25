@@ -14,6 +14,7 @@ const PHRASES = {
   'w.request.target': ['sort_words', 'name', 'name_words', 'description', 'count_words', 'code_words', 'ids', 'family_words'],
   'w.request.constraint': ['words', 'key_words', 'measure_words'],
   'w.request.lookup': ['words'],
+  'w.request.intent': ['words'],
   'w.request.unread': ['text'],
   'w.request.filler': ['text'],
 };

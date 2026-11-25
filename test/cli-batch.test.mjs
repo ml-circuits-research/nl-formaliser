@@ -386,3 +386,49 @@ test('declared option questions keep their interrogative role without inventing 
     await reader.close();
   }
 });
+
+test('declared output operations keep the artifact separate from destination and file form', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const exported = await reader.propose('Export the chart as PDF to Reports then make the node blue');
+    assert.equal(exported.status, 'partial');
+    const best = exported.candidates[0];
+    assert.equal(best.check.ok, true);
+    assert.match(best.sop, /@r1 .*act=(?:save|send)\b/);
+    assert.match(best.sop, /@r1\.t .*family=chart .*family_words=chart/);
+    assert.match(best.sop, /@r1\.i1 w\.request\.intent request=\$r1 role=destination value=Reports words="to Reports"/);
+    assert.match(best.sop, /request=\$r1 text="as PDF" note=save\.format/);
+    assert.doesNotMatch(best.sop, /name=Reports|sort=file/);
+    assert.match(best.sop, /@r2\.c\d+ .*attribute=node\.colou?r value=blue/);
+
+    const download = await reader.propose('Download the drawing as a file');
+    assert.equal(download.status, 'partial');
+    assert.equal(download.candidates[0].check.ok, true);
+    assert.match(download.candidates[0].sop, /(?:sort=drawing|family_words=drawing)/);
+    assert.deepEqual(download.unresolved[0], { candidate: 0, text: 'as a file', note: 'save.format' });
+
+    const name = await reader.propose('Save the chart as Draft');
+    assert.match(name.candidates[0].sop, /text="as Draft" note=save\.name_or_format/);
+    assert.doesNotMatch(name.candidates[0].sop, /name=Draft|w\.request\.intent/);
+
+    const format = await reader.propose('Export the org chart to PDF');
+    assert.equal(format.status, 'partial');
+    assert.match(format.candidates[0].sop, /text="to PDF" note=save\.destination_or_format/);
+    assert.doesNotMatch(format.candidates[0].sop, /role=destination/);
+
+    const localPlacement = await reader.propose('Send the second box to the end');
+    assert.ok(localPlacement.candidates.length);
+    assert.doesNotMatch(localPlacement.candidates[0].sop, /w\.request\.intent/);
+
+    const pronoun = await reader.propose('Export it to the shared folder');
+    assert.equal(pronoun.candidates[0].check.ok, true);
+    assert.match(pronoun.candidates[0].sop, /from=any words=it\b/);
+    assert.match(pronoun.candidates[0].sop, /role=destination value="the shared folder"/);
+
+    const plain = await reader.propose('Save the drawing');
+    assert.match(plain.candidates[0].sop, /act=save\b/);
+    assert.doesNotMatch(plain.candidates[0].sop, /w\.request\.intent|note=save\./);
+  } finally {
+    await reader.close();
+  }
+});

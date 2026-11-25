@@ -65,3 +65,5 @@
 - 2026-11-25 — Q-NL-038 binds complete explicit chart/diagram subjects through `diagram.about`. Seven of eight exact WebMeet probes keep the intended subject; the verbless placement case remains open. Full serial suite 234/234. See `questions.md`.
 
 - 2026-11-25 — Q-NL-039 emits native targetless list questions from the declared options frames, preserving independent edits and literal titles. Full serial suite 235/235. The modal file request remains open with two partial native wire proposals in `questions.md`.
+
+- 2026-11-25 — Q-NL-040 separates explicitly saved artifacts, named destinations and unresolved file-form evidence. Five published WebMeet probes return native-valid partial reads. Full serial suite 236/236. Recorded an L4 comparator defect for missing/wrong request intents and requested review in `questions.md`.
