@@ -114,6 +114,10 @@ const topN = (m, n = 12) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0
 let cleanGoldTotal = 0;
 let cleanGoldOk = 0;
 
+const maxSamples = Number(getArg('samples', 5));
+const fullOut = Boolean(getArg('full', false));
+const includeFlawed = Boolean(getArg('include-flawed', false));
+
 for (let i = 0; i < sample.length; i++) {
   const row = sample[i];
   const { predSop, cmp } = results[i];
@@ -170,14 +174,14 @@ for (let i = 0; i < sample.length; i++) {
     }
   }
 
-  const maxSamples = Number(getArg('samples', 5));
-  const fullOut = Boolean(getArg('full', false));
-  if (sampleByGrade[g] && sampleByGrade[g].length < maxSamples && !cmp.goldAnnotationFlawed && !cmp.inputHasTypo) {
+  if (sampleByGrade[g] && sampleByGrade[g].length < maxSamples && (includeFlawed || (!cmp.goldAnnotationFlawed && !cmp.inputHasTypo))) {
     const pFlat = predSop.replace(/\r?\n/g, ' | ');
     const gFlat = row.goldSop.replace(/\r?\n/g, ' | ');
     sampleByGrade[g].push({
       tab: row.tab,
       text: row.text,
+      flawed: Boolean(cmp.goldAnnotationFlawed),
+      typo: Boolean(cmp.inputHasTypo),
       pred: fullOut ? pFlat : pFlat.slice(0, 200),
       gold: fullOut ? gFlat : gFlat.slice(0, 200),
     });
@@ -201,11 +205,14 @@ console.log('Top L1d causes:', topN(l1dWhy, 10));
 console.log('Top unread tokens:', topN(unreadWords, 15));
 
 const showCount = Number(getArg('samples', 4));
-for (const g of ['L1a', 'L1b', 'L1c', 'L1d', 'L2a', 'L2b', 'L2c']) {
+const onlyGrade = getArg('grade', null);
+const gradesToShow = onlyGrade ? [onlyGrade] : ['L1a', 'L1b', 'L1c', 'L1d', 'L2a', 'L2b', 'L2c'];
+for (const g of gradesToShow) {
   if (!sampleByGrade[g]?.length) continue;
-  console.log(`\n--- Clean-Gold ${g} examples ---`);
+  console.log(`\n--- ${includeFlawed ? 'All' : 'Clean-Gold'} ${g} examples ---`);
   for (const e of sampleByGrade[g].slice(0, showCount)) {
-    console.log(`[${e.tab}] "${e.text}"`);
+    const tag = e.flawed ? '[GoldFlawed]' : e.typo ? '[Typo]' : '[Clean]';
+    console.log(`[${e.tab}]${tag} "${e.text}"`);
     console.log(`  P: ${e.pred}`);
     console.log(`  G: ${e.gold}`);
   }

@@ -236,4 +236,30 @@ test('v9.6: L1c root-cause fixes — k.faces ontologies, compound numbers, post-
     predSop: `@r1 w.request.request act=place mood=do predicate=put\n@r1.t w.request.target request=$r1 family=drawn mode=new sort=helm sort_words=helms\n@r1.c1 w.request.constraint request=$r1 on=place attribute=drawn.relation value=below operator=relation\n@r1.c2 w.request.constraint request=$r1 on=place attribute=drawn.anchor value=barn operator=relation phase=selector`,
   });
   assert.equal(rLemma.legendGrade, 'L4', `Expected L4 on plural lemma + determiner anchor, got ${rLemma.legendGrade}`);
+
+  // 6. Batch 6 L1c surgical fixes: non-swapped x/y, intensifier "right next to", multi-value ids, bare count vs distance, gradient
+  const xyRes = await formaliser.formalise('move o1 with y 80 and x 120', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(xyRes.ok, true);
+  assert.equal(xyRes.check.ok, true);
+  assert.ok(xyRes.sop.includes('attribute=drawn.y value="80"') && xyRes.sop.includes('attribute=drawn.x value="120"'), xyRes.sop);
+
+  const rightNext = await formaliser.formalise('put a medium red cart right next to the barn', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(rightNext.ok, true);
+  assert.equal(rightNext.check.ok, true);
+  assert.ok(!rightNext.sop.includes('attribute=drawn.at value=right'), `Intensifier "right next to" must not emit drawn.at=right:\n${rightNext.sop}`);
+
+  const multiIds = await formaliser.formalise('n5, n2 and n4 as a group', { tab: 'diagram', spellcheck: false, verify: true });
+  assert.equal(multiIds.ok, true);
+  assert.equal(multiIds.check.ok, true);
+  assert.ok(multiIds.sop.includes('value=n5') && multiIds.sop.includes('value=n2') && multiIds.sop.includes('value=n4'), multiIds.sop);
+
+  const exceptOne = await formaliser.formalise('clear the two boats except one', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(exceptOne.ok, true);
+  assert.equal(exceptOne.check.ok, true);
+  assert.ok(exceptOne.sop.includes('attribute=drawn.count value="1"'), exceptOne.sop);
+
+  const gradRes = await formaliser.formalise('the cat fading to navy', { tab: 'drawing', spellcheck: false, verify: true });
+  assert.equal(gradRes.ok, true);
+  assert.equal(gradRes.check.ok, true);
+  assert.ok(gradRes.sop.includes('attribute=drawn.gradient value=navy'), gradRes.sop);
 });

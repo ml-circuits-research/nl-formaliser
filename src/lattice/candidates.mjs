@@ -557,9 +557,17 @@ const SPATIAL_RELATIONS = new Map([
   ['into', 'in'],
   ['on', 'on'],
   ['onto', 'on'],
+  ['right on', 'on'],
   ['on top of', 'above'],
   ['above', 'above'],
+  ['right above', 'above'],
   ['over', 'above'],
+  ['right below', 'below'],
+  ['right under', 'under'],
+  ['right behind', 'behind'],
+  ['right next to', 'next_to'],
+  ['right beside', 'next_to'],
+  ['right in front of', 'in_front_of'],
   ['below', 'below'],
   ['under', 'below'],
   ['underneath', 'below'],
@@ -1105,6 +1113,9 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
     if (tok.text === ',' && i + 3 < T && ['since', 'because', 'as'].includes(tokens[i + 1].lower) && ['the', 'it', 'we', 'i', 'they'].includes(tokens[i + 2].lower)) {
       emit({ kind: HYP_KINDS.FILLER, startTok: i + 1, endTok: T - 1, isPureFiller: false, cost: 2.2 });
+    }
+    if (tok.lower === 'together' && (i === T - 1 || (i === T - 2 && tokens[T - 1].isPunct))) {
+      emit({ kind: HYP_KINDS.FILLER, startTok: i, endTok: i, isPureFiller: false, cost: 2.0 });
     }
 
     // 3. SEP (punctuation & joiners)
@@ -2271,9 +2282,11 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         const nameText = src.slice(tokens[i].start, tokens[e].end);
         const basePropCost = followedByFamilyNoun && det === 'definite'
           ? 2
-          : hasMidConnector
-            ? 2.5
-            : (tok.isSentenceStart ? 6 : 4) + (prevIsObliquePrep ? 15 : 0) + (len > 1 ? 1 : 0);
+          : hasMidConnector && followedByFamilyNoun
+            ? 1.2
+            : hasMidConnector
+              ? 2.5
+              : (tok.isSentenceStart ? 6 : 4) + (prevIsObliquePrep ? 15 : 0) + (len > 1 ? 1 : 0);
         emit({
           kind: HYP_KINDS.TARGET_REF,
           startTok: i,
@@ -2288,7 +2301,21 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         });
         for (const attr of idKeys) {
           if (attr.endsWith('.id')) {
-            emitConstraint(attr, nameText, i, e, { phase: 'selector', cost: hasMidConnector ? 2.5 : basePropCost + 2 });
+            emitConstraint(attr, nameText, i, e, { phase: 'selector', cost: hasMidConnector ? 2.0 : basePropCost + 2 });
+          }
+        }
+      }
+      // Coordinated proper-name IDs ("Approve and Ship", "Start and Review") -> node.ids / group.ids
+      if (
+        tab === 'diagram' &&
+        i + 2 < T &&
+        tokens[i + 1].lower === 'and' &&
+        tokens[i + 2].isProperCandidate
+      ) {
+        const ids = [tok.text, tokens[i + 2].text];
+        for (const attr of idKeys) {
+          if (attr.endsWith('.ids')) {
+            emitConstraint(attr, ids.join(', '), i, i + 2, { values: ids, phase: 'selector', cost: 1.8 });
           }
         }
       }
@@ -2455,6 +2482,16 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           else if (h.attr === 'drawn.edge' || h.attr === 'drawn.side' || h.attr === 'drawn.facing') closedCost = 6.5;
           else if (h.attr === 'link.tail' || h.attr === 'link.head' || h.attr === 'part.value' || h.attr === 'part.variant' || h.attr === 'diagram.by') closedCost = 9;
           if (len === 1 && tokens[i].isProperCandidate && !['UTC', 'GMT'].includes(tokens[i].text)) closedCost += 8;
+          // Intensifier adverbs ("right next to", "right on", "right above", "down at the bottom", "up at the top")
+          // are NOT standalone region `at=right` or `direction=down/up`!
+          if (
+            len === 1 &&
+            ((tokens[i].lower === 'right' && i + 1 < T && ['next', 'on', 'above', 'below', 'under', 'behind', 'beside', 'in', 'at'].includes(tokens[i + 1].lower)) ||
+              (tokens[i].lower === 'down' && i + 3 < T && tokens[i + 1].lower === 'at' && tokens[i + 2].lower === 'the' && tokens[i + 3].lower === 'bottom') ||
+              (tokens[i].lower === 'up' && i + 3 < T && tokens[i + 1].lower === 'at' && tokens[i + 2].lower === 'the' && tokens[i + 3].lower === 'top'))
+          ) {
+            closedCost = 18;
+          }
           emitConstraint(h.attr, h.value, i, e, {
             requiresKeyWord: needsToggleKw,
             cost: closedCost,
@@ -2481,9 +2518,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           // Secondary colour keys (titleColour, barEdgeColour, textColour, outline, gradient, highlight_colour)
           // require or strongly prefer their explicit KEY_WORD unless plain colour/color!
           const isPrimaryColour = shortKey === 'colour' || shortKey === 'color';
+          const isGradientContext = shortKey === 'gradient' && (
+            (i > 0 && ['fade', 'fading', 'gradient', 'blend', 'blending'].includes(tokens[i - 1].lower)) ||
+            (i > 1 && tokens[i - 1].lower === 'to' && ['fade', 'fading', 'gradient', 'blend', 'blending'].includes(tokens[i - 2].lower))
+          );
           emitConstraint(attr, val, i, e, {
             requiresKeyWord: !isPrimaryColour && ['titleColour', 'barEdgeColour', 'textColour', 'gradient', 'highlight_colour'].includes(shortKey),
-            cost: isPrimaryColour ? (len === 2 ? 3 : 4) : 8,
+            cost: isGradientContext ? 1.2 : isPrimaryColour ? (len === 2 ? 3 : 4) : 8,
           });
         }
       }
@@ -2856,23 +2897,27 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         if (isPartIndex && tabKeys.has('part.index')) {
           emitConstraint('part.index', String(numVal), i, i, { requiresKeyWord: false, cost: 1.5 });
         }
+        const prevAxisTok = i > 0 && ['x', 'y'].includes(tokens[i - 1].lower) ? tokens[i - 1].lower : null;
         for (const attr of numberKeys) {
           const shortKey = attr.split('.').slice(1).join('.');
           const isInt = Number.isInteger(numVal);
-          // Bare distance ("move it 40") only when NOT preceding an adjective/noun phrase ("three big boats" = count!)
+          // Prevent swapped coordinates on "with y 80 and x 120": right after 'y', never bind 'x' (and vice versa)!
+          if (prevAxisTok && (shortKey === 'x' || shortKey === 'y') && shortKey !== prevAxisTok) continue;
+          // Bare distance ("move it 40") only for digit numbers NOT preceding an adjective/noun phrase (never bare word "one" in "except one"!)
           const nextIsModOrNoun = i + 1 < T && tokens[i + 1].kind === 'word' && !tokens[i + 1].isGrammar && !tokens[i + 1].isPunct && !UNIT_CANON.has(tokens[i + 1].lower);
           const allowBare = (['values', 'value'].includes(shortKey))
             || (isInt && shortKey === 'count' && numVal >= 1 && numVal <= 20)
             || (isInt && ['level', 'bins', 'index'].includes(shortKey) && numVal >= 1 && numVal <= 50)
-            || (isInt && shortKey === 'distance' && !nextIsModOrNoun)
+            || (isInt && shortKey === 'distance' && tok.kind === 'number' && !nextIsModOrNoun)
             || (isFractionalUnit && ['barWidth', 'opacity', 'scale', 'pieRadius', 'labelPosition'].includes(shortKey));
           const bareCost = isFractionalUnit && shortKey === 'barWidth' ? 2
-            : shortKey === 'count' && nextIsModOrNoun ? 2
-            : shortKey === 'distance' ? 5.5
+            : shortKey === 'count' ? (nextIsModOrNoun ? 2 : 2.5)
+            : shortKey === 'distance' ? 6
             : 6;
+          const axisBoost = prevAxisTok && shortKey === prevAxisTok ? 0.5 : null;
           emitConstraint(attr, String(numVal), i, i, {
             requiresKeyWord: !allowBare,
-            cost: allowBare ? bareCost : 4,
+            cost: axisBoost ?? (allowBare ? bareCost : 4),
           });
         }
       }
@@ -3090,6 +3135,13 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         if (len === 1 && ['darker', 'lighter', 'brighter', 'pastel', 'warm', 'cool', 'monochrome'].includes(tok.lower) && tabKeys.has('chart.palette')) {
           emitConstraint('chart.palette', tok.lower, i, i, { allowOpen: true, requiresKeyWord: true, cost: 1.0 });
         }
+        if (len === 2 && tabKeys.has('chart.sort')) {
+          if (['highest first', 'largest first', 'biggest first', 'most first'].includes(ph)) {
+            emitConstraint('chart.sort', 'desc', i, e, { cost: 0.8 });
+          } else if (['lowest first', 'smallest first', 'least first'].includes(ph)) {
+            emitConstraint('chart.sort', 'asc', i, e, { cost: 0.8 });
+          }
+        }
         if (len === 3 && tabKeys.has('chart.sort')) {
           if (['largest to smallest', 'highest to lowest', 'most to least', 'biggest to smallest'].includes(ph)) {
             const sIdx = i > 0 && tokens[i - 1].lower === 'from' ? i - 1 : i;
@@ -3170,19 +3222,19 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
     }
 
-    // Standing preference scope, key & value triggers from `clauses.sop` (`w.lang.en.frame_lead`) + "the default"
+    // Standing preference scope, key & value triggers from `clauses.sop` (`w.lang.en.frame_lead`) + "the default" / "as the standard"
     if (tabKeys.has('preference.scope')) {
       for (let len = 2; len <= 4 && i + len <= T; len++) {
         const e = i + len - 1;
         if (hasPunctInSpan(tokens, i, e)) break;
         const ph = spanTextLower(tokens, i, e);
-        if (ph === 'the default' || ph === 'by default' || kb?.grammar?.frameLeads?.has?.(ph)) {
+        if (['the default', 'by default', 'as the default', 'as default', 'as the standard', 'as standard'].includes(ph) || kb?.grammar?.frameLeads?.has?.(ph)) {
           emitConstraint('preference.scope', src.slice(tokens[i].start, tokens[e].end), i, e, { cost: 1.5 });
         }
       }
-      if (/\b(the default|by default|from now on|in future|in the future|as a rule)\b/i.test(src) && tok.kind === 'word') {
-        const PREF_KEYS = new Set(['legend', 'grid', 'gridlines', 'background', 'font', 'colour', 'color', 'size', 'layout', 'style', 'theme', 'orientation']);
-        const PREF_VALS = new Set(['left', 'right', 'top', 'bottom', 'center', 'centre', 'on', 'off', 'show', 'hide', 'horizontal', 'vertical']);
+      if (/\b(the default|by default|as the default|as default|as the standard|as standard|from now on|in future|in the future|as a rule)\b/i.test(src) && tok.kind === 'word') {
+        const PREF_KEYS = new Set(['legend', 'grid', 'gridlines', 'background', 'font', 'colour', 'color', 'size', 'layout', 'style', 'theme', 'orientation', 'stroke']);
+        const PREF_VALS = new Set(['left', 'right', 'top', 'bottom', 'center', 'centre', 'on', 'off', 'show', 'hide', 'horizontal', 'vertical', 'thicker', 'thinner', 'bigger', 'smaller', 'wider', 'narrower', 'larger']);
         if (PREF_KEYS.has(tok.lower) && tabKeys.has('preference.key')) {
           emitConstraint('preference.key', tok.lower === 'gridlines' ? 'grid' : tok.lower, i, i, { cost: 1.4 });
         }
@@ -3222,7 +3274,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     'between', 'inside', 'outside', 'around', 'along', 'across', 'before', 'after', 'ahead',
     'in', 'on', 'at', 'for', 'from', 'to', 'into', 'onto', 'with', 'by', 'per', 'about', 'regarding',
     'containing', 'saying', 'called', 'named', 'titled', 'labelled', 'labeled',
-    'approximately', 'roughly', 'then', 'but', 'however', 'whereas',
+    'approximately', 'roughly', 'then', 'but', 'however', 'whereas', 'together',
   ]);
 
   const emitOpenSpansStartingAt = (s, targetAttrs, opts = {}) => {
@@ -3294,7 +3346,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         }
       }
     }
-    // "<KEY_WORD> of <target> to <VAL>" (e.g. "set the role of the diamond to connector"):
+    // "<KEY_WORD> of <target> to <VAL>" (e.g. "set the role of the diamond to connector", "set the background of the diagram to Background one"):
     if (tok.kind === 'word' && tok.lower === 'to' && nextStart < T) {
       const nearbyKwAttrs = new Set();
       for (let back = Math.max(0, i - 5); back < i; back++) {
@@ -3304,6 +3356,12 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
       if (nearbyKwAttrs.size > 0) {
         emitOpenSpansStartingAt(nextStart, [...nearbyKwAttrs], { requiresKeyWord: true, allowOpen: true, cost: 3.5, maxLen: 2 });
+        if (tokens[nextStart].isCapitalized && nextStart + 1 < T && (tokens[nextStart + 1].kind === 'number' || numberWords.has(tokens[nextStart + 1].lower))) {
+          const compName = src.slice(tokens[nextStart].start, tokens[nextStart + 1].end);
+          for (const attr of nearbyKwAttrs) {
+            if (tabKeys.has(attr)) emitConstraint(attr, compName, nextStart, nextStart + 1, { requiresKeyWord: true, allowOpen: true, cost: 1.5 });
+          }
+        }
       }
     }
 
@@ -3389,7 +3447,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       } else if (tab === 'diagram' && CHART_AGG_WORDS.has(tok.lower)) {
         emitOpenSpansStartingAt(nextStart, ['chart.measure'], { phase: 'result', cost: 3, maxLen: 3 });
       } else if (tok.lower === 'of') {
-        if (tab === 'diagram') emitOpenSpansStartingAt(nextStart, ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
+        if (tab === 'diagram') {
+          const isOwnerFamily = ['diagram', 'chart', 'graph', 'page', 'node', 'group'].includes(tokens[nextStart]?.lower ?? '');
+          emitOpenSpansStartingAt(nextStart, isOwnerFamily ? ['chart.measure'] : ['chart.measure', 'diagram.about'], { phase: 'result', cost: 4 });
+        }
         if (tab === 'drawing') emitOpenSpansStartingAt(nextStart, ['part.owner'], { phase: 'selector', cost: 5 });
       } else if (tok.lower === 'for') {
         if (tab === 'diagram') {
@@ -3434,12 +3495,15 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
         emitOpenSpansStartingAt(nextStart, ['meeting.title'], { phase: 'result', cost: hasForNonNum ? 4.5 : 2.5, maxLen: 3 });
       } else if (tok.lower === 'by' || tok.lower === 'per' || tok.lower === 'across' || tok.lower === 'versus' || tok.lower === 'vs' || tok.lower === 'against') {
         if (tab === 'diagram') {
-          emitOpenSpansStartingAt(nextStart, ['chart.dimension', 'chart.colourBy'], { phase: 'result', cost: 2.5 });
-          emitOpenSpansStartingAt(nextStart, ['chart.dimension'], {
-            includeTriggerTok: i,
-            phase: 'result',
-            cost: 2.5,
-          });
+          const isChartTitleModifier = tok.lower === 'by' && i > 0 && tokens[i - 1].isCapitalized && nextStart + 1 < T && ['chart', 'graph', 'plot', 'diagram'].includes(tokens[nextStart + 1].lower);
+          if (!isChartTitleModifier) {
+            emitOpenSpansStartingAt(nextStart, ['chart.dimension', 'chart.colourBy'], { phase: 'result', cost: 2.5 });
+            emitOpenSpansStartingAt(nextStart, ['chart.dimension'], {
+              includeTriggerTok: i,
+              phase: 'result',
+              cost: 2.5,
+            });
+          }
         }
       } else if (tok.lower === 'about' || tok.lower === 'regarding') {
         if (tab === 'document') emitOpenSpansStartingAt(nextStart, ['text.about', 'document.topic', 'section.content'], { cost: 4 });

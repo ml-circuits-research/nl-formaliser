@@ -34,6 +34,7 @@ const SPELLING_PAIRS = [
 const FINER_ACT_MODES = [
   ['arrange', 'place', 'arrange'],
   ['align', 'place', 'arrange'],
+  ['snap', 'place', 'arrange'],
   ['line up', 'place', 'arrange'],
   ['distribute', 'place', 'arrange'],
   ['space', 'place', 'arrange'],
@@ -332,6 +333,9 @@ function buildTabs(parse, worldsDir, grammar) {
       if (shortName === 'grid') {
         for (const kw of ['grid', 'gridlines', 'grid lines']) keyWords.add(kw);
       }
+      if (shortName === 'gradient') {
+        for (const kw of ['gradient', 'fade', 'fading', 'fade to', 'fading to', 'blend', 'blending']) keyWords.add(kw);
+      }
 
       const spec = {
         id,
@@ -394,11 +398,31 @@ function buildTabs(parse, worldsDir, grammar) {
           pushClosed(`the ${valLower} side`, false);
           pushClosed(`${valLower} edge`, false);
           pushClosed(`the ${valLower} edge`, false);
+          if (valLower === 'bottom') pushClosed('down at the bottom', false);
+          if (valLower === 'top') pushClosed('up at the top', false);
           if (valLower === 'left' || valLower === 'right') {
             pushClosed(`${valLower}-hand side`, false);
             pushClosed(`${valLower} hand side`, false);
             pushClosed(`the ${valLower}-hand side`, false);
+            pushClosed(`far ${valLower}`, false);
+            pushClosed(`far ${valLower} end`, false);
           }
+        }
+        if (name === 'node.edge' && ['left', 'right', 'top', 'bottom'].includes(valLower)) {
+          pushClosed(`${valLower} line`, false);
+          pushClosed(`same ${valLower} line`, false);
+          pushClosed(`${valLower} edge`, false);
+          pushClosed(`same ${valLower} edge`, false);
+        }
+        if (name === 'link.route' && valLower === 'curved') {
+          for (const syn of ['curve', 'smooth curve', 'bend']) pushClosed(syn, false);
+        }
+        if (name === 'chart.orientation') {
+          if (valLower === 'horizontal') pushClosed('horizontally', false);
+          else if (valLower === 'vertical') pushClosed('vertically', false);
+        }
+        if (name === 'chart.horizontal' && (valLower === 'on' || valLower === 'true')) {
+          pushClosed('horizontally', false);
         }
         if (name === 'node.axis') {
           if (valLower === 'vertical') {

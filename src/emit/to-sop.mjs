@@ -245,9 +245,10 @@ export function modelToSop(model, lattice, meta) {
       const op = spec.operator ?? 'eq';
       const on = spec.on ?? defaultOnFor(attr, op);
 
-      const rawVals = (spec.value === undefined || spec.value === null
+      const srcVal = Array.isArray(spec.values) && spec.values.length > 0 ? spec.values : spec.value;
+      const rawVals = (srcVal === undefined || srcVal === null
         ? []
-        : (Array.isArray(spec.value) ? spec.value : [spec.value]).map((v) => String(v))
+        : (Array.isArray(srcVal) ? srcVal : [srcVal]).map((v) => String(v))
       ).filter((v) => v.length > 0);
 
       // Grounding rule (check.mjs lines 142-147):

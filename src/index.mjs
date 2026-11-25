@@ -201,7 +201,7 @@ export async function createFormaliser({
     const clauseResults = [];
     let totalObjective = 0;
     let hasObj = false;
-    const perClauseTimeout = Math.max(800, Math.floor(timeout / Math.min(4, segRes.segments.length)));
+    const perClauseTimeout = Math.max(1500, Math.floor(timeout * 0.75));
 
     for (const seg of segRes.segments) {
       const subText = seg.text.trim();

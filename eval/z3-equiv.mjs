@@ -53,8 +53,8 @@ const TOGGLE_SHORTS = new Set([
   'trend',
   'labels',
 ]);
-const TOGGLE_ON = new Set(['on', 'show', 'true', 'yes', 'visible', 'shown']);
-const TOGGLE_OFF = new Set(['off', 'hide', 'false', 'no', 'none', 'hidden']);
+const TOGGLE_ON = new Set(['on', 'show', 'true', 'yes', 'visible', 'shown', 'stacked']);
+const TOGGLE_OFF = new Set(['off', 'hide', 'false', 'no', 'none', 'hidden', 'unstacked']);
 
 function normToken(s) {
   const unq = unquoteSop(String(s ?? '')).trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -250,6 +250,20 @@ function extractVirtualConstraints(req) {
         return v;
       });
     }
+    if (short === 'id' && values.length > 1) {
+      for (const v of values) {
+        list.push({
+          short,
+          rawAttr,
+          values: [v],
+          unit: c.unit ?? '',
+          operator: c.operator ?? 'eq',
+          step: c.step ?? 'none',
+          want: c.want ?? 'yes',
+        });
+      }
+      continue;
+    }
     list.push({
       short,
       rawAttr,
@@ -301,10 +315,18 @@ function areConstraintsSemanticallyCompat(gc, pc, uf, kb = null) {
   if (!areShortSlotsCompat(gc.short, pc.short, gc, pc)) return false;
 
   if (gc.operator === 'delta' || pc.operator === 'delta') {
-    if (gc.operator !== pc.operator) return false;
-    const gDir = gc.step?.includes('less') ? 'less' : 'more';
-    const pDir = pc.step?.includes('less') ? 'less' : 'more';
-    return gDir === pDir;
+    const DELTA_MORE_WORDS = new Set(['bigger', 'larger', 'wider', 'thicker', 'taller', 'longer', 'higher', 'more', 'brighter', 'lighter', 'later', 'clearer']);
+    const DELTA_LESS_WORDS = new Set(['smaller', 'tinier', 'narrower', 'thinner', 'shorter', 'lower', 'less', 'darker', 'fainter', 'earlier']);
+    const inferDir = (c) => {
+      if (c.operator === 'delta') return c.step?.includes('less') ? 'less' : 'more';
+      const v0 = normToken(c.values?.[0] ?? '');
+      if (DELTA_MORE_WORDS.has(v0)) return 'more';
+      if (DELTA_LESS_WORDS.has(v0)) return 'less';
+      return null;
+    };
+    const gDir = inferDir(gc);
+    const pDir = inferDir(pc);
+    return Boolean(gDir && pDir && gDir === pDir);
   }
   // Unit-aware temporal duration comparison (e.g. 1 hour === 60 minutes)
   if (gc.short === 'length') {
