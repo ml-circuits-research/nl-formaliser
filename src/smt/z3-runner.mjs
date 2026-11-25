@@ -171,13 +171,20 @@ export async function createZ3Runner({ module: explicitModule, timeoutMs = 4000 
       ].join('\n');
 
       const raw = await Z3.eval_smtlib2_string(ctx.ptr, script);
-      if (/\(error\b/.test(String(raw))) {
-        // Recover clean stack in case push succeeded before error.
-        try { await Z3.eval_smtlib2_string(ctx.ptr, '(pop 1)'); } catch {}
+      const parsed = parseSmtValues(raw);
+      const diagnostics = String(raw).split(/\r?\n/).filter((line) => /^\s*\(error\b/.test(line));
+      // The batch still asks for a model after a non-satisfiable check. This
+      // diagnostic is expected when the last available proposal was blocked.
+      const unexpected = diagnostics.some((line) => parsed.status === 'sat' ||
+        !/: model is not available"\)\s*$/.test(line));
+      if (unexpected) {
+        // The evaluator may already have run the scripted pop. Recreate the
+        // private context instead of popping an unknown stack depth.
+        ctx = new Context(`nl_formaliser_recover_${solveCount}`);
+        initialised = false;
         return { ok: false, status: 'error', error: String(raw).trim(), solutions, objectives };
       }
 
-      const parsed = parseSmtValues(raw);
       if (parsed.status !== 'sat') {
         if (solutions.length > 0) break;
         return { ok: false, status: parsed.status, solutions, objectives, raw };

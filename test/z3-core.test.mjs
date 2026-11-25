@@ -33,6 +33,23 @@ function makeMockKb() {
 const runner = await createZ3Runner({ timeoutMs: 4000 });
 const kb = makeMockKb();
 
+test('Z3 keeps the available proposal when the requested alternatives are exhausted', async () => {
+  const unique = '(declare-const choice Bool)\n(assert choice)';
+  const result = await runner.solve(unique, ['choice'], { topK: 2, blockVars: ['choice'] });
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.status, 'sat');
+  assert.deepEqual(result.solutions.map((model) => model.get('choice')), [true]);
+
+  const unavailable = await runner.solve(`${unique}\n(assert (not choice))`, ['choice']);
+  assert.equal(unavailable.status, 'unsat', unavailable.error);
+  const malformed = await runner.solve('(assert undeclared_choice)', []);
+  assert.equal(malformed.status, 'error');
+  assert.match(malformed.error, /undeclared_choice/);
+  const next = await runner.solve('(declare-const choice Bool)\n(assert (not choice))', ['choice']);
+  assert.equal(next.ok, true, next.error);
+  assert.equal(next.solutions[0].get('choice'), false);
+});
+
 test('Z3 disambiguates "make a blue house" (act=make, mode=new) vs "make the house blue" (act=change, mode=existing)', async () => {
   // 1. "make a blue house"
   const text1 = 'make a blue house';

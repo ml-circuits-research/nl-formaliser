@@ -58,7 +58,7 @@ test('context property typing preserves literal and object readings', async (t) 
     ['diagram', 'Make the label Save and Close', 'node.label', 'Save and Close'],
     ['drawing', 'Make the orange red', 'drawn.colour', 'red'],
     ['diagram', 'make all corners rounded', 'node.effect', 'rounded'],
-    ['drawing', 'change the time to after sunset', 'page.time', 'sunset'],
+    ['drawing', 'change the time to at sunset', 'page.time', 'sunset'],
   ];
   for (const [tab, text, attribute, operand] of cases) {
     await t.test(text, async () => {

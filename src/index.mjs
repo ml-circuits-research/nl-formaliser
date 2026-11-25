@@ -242,7 +242,10 @@ export async function createFormaliser({
     if (clock && (kb.tabs?.[tab]?.keys?.has('meeting.date') || kb.tabs?.[tab]?.keys?.has('meeting.day') || kb.tabs?.[tab]?.keys?.has('event.date'))) {
       exclusiveHits += 3;
     }
-    const score = sortToks.size * 3 + famToks.size * 3 + kwToks.size * 2.5 + consToks.size * 1.5 + exclusiveHits * 4;
+    // A written property with a recognized temporal landmark is stronger
+    // domain evidence than isolated words such as "time" or "after".
+    const relativeTimeEvidence = lattice.frameMatches.some((frame) => frame.contextProperty?.groundedRelativeTime) ? 20 : 0;
+    const score = sortToks.size * 3 + famToks.size * 3 + kwToks.size * 2.5 + consToks.size * 1.5 + exclusiveHits * 4 + relativeTimeEvidence;
     return { score, exclusiveHits };
   }
 

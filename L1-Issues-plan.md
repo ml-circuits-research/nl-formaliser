@@ -38,6 +38,7 @@ Progres validat pe circuite complete în Q-NL-010–017. Frame-urile păstrează
 
 2. **Dezambiguizarea în Z3 a cheilor cu `key_words` multiplu (`src/smt/encode.mjs`)**
    - **Livrat în Q-NL-022**. În construcțiile cu proprietate scrisă și țintă din context, rezultatul tipizat trebuie să aparțină cheii și familiei compatibile. O valoare nerezolvată a unei proprietăți explicit numerice păstrează expresia exactă și frame-ul de origine.
+   - **Livrat în Q-NL-026**. O proprietate temporală explicită cu limită relativă păstrează relația și reperul în expresia nerezolvată. Reperul tipizat susține ordinea propunerilor în modul fără tab selectat. Legarea rezultatului relativ în schema nativă rămâne deschisă în Q-NL-025.
    - **Problema**: Cuvinte precum `label` (8 chei în `diagram`), `name` (6 chei), `width` (4 chei), `size` (3 chei) produc coliziuni frecvente între familii și sub-atribute.
    - **Acțiune**:
      - Preferință soft uniformă în Z3 pentru: (a) potrivire exactă de familie (`attr.family == fam_r`), (b) potrivire exactă de sub-cheie (`attr.shortName == kw.text`), (c) coerență cu verbul/frame-ul activ (`rename`/`label` → `*.label`/`*.name`, `resize`/`widen` → `*.width`/`*.size`).

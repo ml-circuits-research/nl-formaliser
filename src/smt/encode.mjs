@@ -346,6 +346,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     });
     const owners = frames.map((fm) => `(and sel_fr_${fm.id} (= own_${qualifier.id} own_fr_${fm.id}))`);
     emit(`(assert (=> sel_${qualifier.id} ${smtOr(owners)}))`);
+    if (qualifier.requiredRelativeTime) emit(`(assert sel_${qualifier.id})`);
   }
 
   // Pre-compute compatible KEY_WORDs and NEGs for each CONSTRAINT (elide unused Z3 variables!)

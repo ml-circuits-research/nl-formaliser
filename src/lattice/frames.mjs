@@ -75,7 +75,8 @@ function getCompiledFrames(kb) {
       parts.some((p) => p.role === 'value' && p.takes === 'words');
 
     // Collect quick-filter anchor tokens from the first required literal/lexicon part
-    const reqWordParts = parts.filter((p) => !p.optional && p.is === 'word' && p.wordSeqs.length > 0);
+    const reqWordParts = parts.filter((p, index) => !p.optional && p.is === 'word' && p.wordSeqs.length > 0 &&
+      !(contextProperty && parts[index - 1]?.role === 'attribute' && parts[index + 1]?.role === 'value'));
     const reqLexParts = parts.filter((p) => !p.optional && p.is === 'role' && p.takes === 'lexicon' && p.lexicon);
 
     compiled.push({
@@ -274,7 +275,8 @@ function structuredContextKeys(span, tokens, candidates, kb, tabSpec) {
   const matched = [...propertyAttributes(span, kb, tabSpec)].map((name) => tabSpec.keys.get(name)).filter(Boolean);
   const direct = matched.filter((key) => key.literalKeyWords?.has(span.text.toLowerCase()));
   const keys = direct.length ? direct : matched;
-  if (keys.some((key) => key.head === 'span') || !keys.some((key) => key.head.startsWith('number') || key.values?.size)) return [];
+  if (keys.some((key) => key.head === 'span') || !keys.some((key) =>
+    key.head.startsWith('number') || key.values?.size || key.name === 'meeting.time')) return [];
   const head = candidates.some((c) => [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(c.kind) &&
     c.startTok === span.startTok && c.endTok === span.endTok);
   return head ? [] : keys;
@@ -295,6 +297,28 @@ function hasExactNumericKey(keys, span) {
 function contextValues(candidates, keys, span) {
   return candidates.filter((c) => c.startTok === span.startTok && c.endTok === span.endTok &&
     keys.some((key) => key.name === c.attribute && isStructuredPropertyValue(c, key)));
+}
+
+function relativeTimeOperand(keys, tokens, start, end, kb, candidates) {
+  const timeKeys = keys.filter((key) => ['page.time', 'meeting.time'].includes(key.name));
+  if (!timeKeys.length || !kb.grammar.constructions?.has('pp.time')) return null;
+  let grammarPrefix = true;
+  for (let first = start; first < end; first++) {
+    for (let last = first; last < Math.min(end, first + 3); last++) {
+      const phrase = tokens.slice(first, last + 1).map((t) => t.lower).join(' ');
+      const prep = kb.grammar.prepositions.get(phrase);
+      if (prep?.isTime && ['before', 'after', 'since', 'until', 'between'].includes(prep.rel) &&
+          !tokens[last + 1].isPunct) {
+        const grounded = candidates.some((c) => c.kind === HYP_KINDS.CONSTRAINT && c.startTok > last && c.endTok === end &&
+          !c.openValue && !c.requiresKeyWord && timeKeys.some((key) => key.name === c.attribute));
+        // Calendar also has a native meeting-to-meeting relation. Restrict
+        // this fallback there to independently identified time-of-day anchors.
+        if (grounded || (grammarPrefix && timeKeys.some((key) => key.name === 'page.time'))) return { grounded };
+      }
+    }
+    grammarPrefix &&= tokens[first].isGrammar;
+  }
+  return null;
 }
 
 /**
@@ -384,13 +408,15 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
             let rem = tIdx;
             while (rem <= clEnd && (tokens[rem].isPunct || tokens[rem].isFiller)) rem++;
             let contextKeys;
+            let relativeTime;
             if (frame.contextProperty) {
               const value = roles.get('value');
               const attribute = roles.get('attribute');
               const keys = structuredContextKeys(attribute, tokens, candidates, kb, tabSpec);
-              if (value && keys.length && (hasExactNumericKey(keys, attribute) || contextValues(candidates, keys, value).length)) {
+              relativeTime = value && relativeTimeOperand(keys, tokens, value.startTok, value.endTok, kb, candidates);
+              if (value && keys.length && (relativeTime || hasExactNumericKey(keys, attribute) || contextValues(candidates, keys, value).length)) {
                 if (rem <= clEnd || splitPoints.some((cut) => cut.startTok >= value.startTok && cut.endTok < tIdx &&
-                  (cut.isStrong || predicates.some((p) => p.startTok === cut.endTok + 1)))) return;
+                  ((!relativeTime && cut.isStrong) || predicates.some((p) => p.startTok === cut.endTok + 1)))) return;
                 contextKeys = keys;
               }
             }
@@ -414,6 +440,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                   wordAnchors: [...wordAnchors],
                   predSpan,
                   contextKeys,
+                  relativeTime,
                 };
               }
             }
@@ -464,6 +491,13 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                 }];
                 dfs(pIdx + 1, nxt, roles, nextAnchors, nextPred);
               }
+            }
+            // A canonical time phrase can directly follow an explicit time
+            // property. Keep the relative scope without supplying a missing connector.
+            if (frame.contextProperty && parts[pIdx - 1]?.role === 'attribute' && parts[pIdx + 1]?.role === 'value' &&
+                relativeTimeOperand(structuredContextKeys(roles.get('attribute'), tokens, candidates, kb, tabSpec),
+                  tokens, tIdx, clEnd, kb, candidates)) {
+              dfs(pIdx + 1, tIdx, roles, wordAnchors, predSpan);
             }
             if (part.optional) dfs(pIdx + 1, tIdx, roles, wordAnchors, predSpan);
             return;
@@ -657,11 +691,12 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
           }
         }
       }
-      const valid = contextValues(candidates, keys, valSpan);
+      const valid = fm.relativeTime ? [] : contextValues(candidates, keys, valSpan);
       for (const c of valid) expectedAttrs.add(c.attribute);
       const unresolved = valid.length ? null : { startTok: attrSpan.startTok, endTok: valSpan.endTok };
-      if (unresolved) emit({ kind: HYP_KINDS.UNREAD, ...unresolved, propertyQualifier: true, note: fm.frameName, cost: 9 });
-      contextProperty = { families, unresolved };
+      if (unresolved) emit({ kind: HYP_KINDS.UNREAD, ...unresolved, propertyQualifier: true,
+        note: fm.relativeTime ? 'pp.time' : fm.frameName, requiredRelativeTime: Boolean(fm.relativeTime), cost: 9 });
+      contextProperty = { families, unresolved, groundedRelativeTime: fm.relativeTime?.grounded ?? false };
     }
 
     // 1. Property-owner-value frame (`acts.change.property.on`: "Set the width on the node to 15",
