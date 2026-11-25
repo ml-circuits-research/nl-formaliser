@@ -555,24 +555,30 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
   }
-  const axisAssignments = preds.filter(({ axisAssignment }) => axisAssignment);
-  for (const predicate of axisAssignments) {
-    const operands = activeCandidates.filter((candidate) => candidate.axisPredicate === predicate.startTok);
+  const chartEdits = activeCandidates.filter(({ chartEditEnd }) => chartEditEnd !== undefined);
+  for (const anchor of chartEdits) {
+    const start = anchor.chartEditStart ?? anchor.startTok;
+    const operands = activeCandidates.filter((candidate) => candidate.chartEditPredicate === start);
     if (!operands.some((candidate) => candidate.kind === HYP_KINDS.CONSTRAINT)) continue;
-    if (axisAssignments.length + outputPredicates.length <= R) {
-      emit(`(assert sel_${predicate.id})`);
+    if (chartEdits.length + outputPredicates.length <= R) {
+      emit(`(assert sel_${anchor.id})`);
     } else {
-      emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+      emit(`(assert-soft sel_${anchor.id} :weight ${W.predicateRole})`);
     }
     for (let r = 1; r <= R; r++) {
       const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
-      const otherHeads = outputHeads.filter((candidate) => candidate.axisPredicate !== predicate.startTok);
+      const otherHeads = outputHeads.filter((candidate) => candidate.chartEditPredicate !== start);
       const roles = operands.filter((candidate) => candidate.kind === HYP_KINDS.CONSTRAINT)
         .map((candidate) => `(= ${phaseExprOf.get(candidate.id)} PH_RESULT)`);
-      emit(`(assert (=> ${owns(predicate)} (and (= fam_${r} ${famToId.get('chart')})
-        (<= rend_${r} ${predicate.axisAssignment}) ${roles.join(' ')} ${operands.map(owns).join(' ')}
+      const implicit = anchor.chartEditStart === undefined ? '' :
+        `(= act_${r} ACT_CHANGE) (= mood_${r} MOOD_DO) (= ppos_${r} (- 1))`;
+      const owner = operands.find(({ kind }) => kind === HYP_KINDS.TARGET_REF);
+      const fill = owner?.description ? 'TF_DESCRIPTION' : owner?.name ? 'TF_WRITTEN' : 'TF_CONTEXT';
+      emit(`(assert (=> ${owns(anchor)} (and (= fam_${r} ${famToId.get('chart')})
+        (= tmode_${r} TM_EXISTING) (= tfill_${r} ${fill})
+        (<= rend_${r} ${anchor.chartEditEnd}) ${implicit} ${roles.join(' ')} ${operands.map(owns).join(' ')}
         (not ${smtOr(otherHeads.map(owns))}))))`);
-      for (const operand of operands) emit(`(assert (=> ${owns(operand)} ${owns(predicate)}))`);
+      for (const operand of operands) emit(`(assert (=> ${owns(operand)} ${owns(anchor)}))`);
     }
   }
   const modalWants = preds.filter(({ modalWantHeads }) => modalWantHeads);

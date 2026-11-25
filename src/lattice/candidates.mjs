@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchChartFieldAssignments, matchFrames, matchModalWants, matchOptionQuestions, matchOutputOperands, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { matchChartDisplayEdits, matchChartFieldAssignments, matchFrames, matchModalWants, matchOptionQuestions, matchOutputOperands, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -946,7 +946,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       requiresKeyWord: Boolean(extra.requiresKeyWord),
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       predicateRole: extra.predicateRole ?? null,
-      axisPredicate: extra.axisPredicate ?? null,
+      chartEditPredicate: extra.chartEditPredicate ?? null,
       predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -3664,22 +3664,33 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     }
   }
 
-  const chartAssignments = catalog ? matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb) : [];
-  for (const { startTok, endTok, fields, owner, limit } of chartAssignments) {
-    emit({
-      kind: HYP_KINDS.PREDICATE, startTok, endTok, axisAssignment: limit - 1,
-      licensed: [{ act: 'change', mode: 'none', mood: 'do' }], cost: 0,
-    });
-    for (const field of fields) {
+  const chartAssignments = catalog ? [
+    ...matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb),
+    ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb),
+  ] : [];
+  for (const { startTok, endTok, fields, owner, limit, fragment } of chartAssignments) {
+    if (!fragment) {
       emit({
-        kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd,
-        attrs: [field.attribute], families: ['chart'], cost: 0,
+        kind: HYP_KINDS.PREDICATE, startTok, endTok, chartEditEnd: limit - 1,
+        licensed: [{ act: 'change', mode: 'none', mood: 'do' }], cost: 0,
       });
+    }
+    for (const field of fields) {
+      const hasCue = field.cueStart !== undefined;
+      if (hasCue) {
+        emit({
+          kind: HYP_KINDS.KEY_WORD, startTok: field.cueStart, endTok: field.cueEnd,
+          attrs: [field.attribute], families: ['chart'], cost: 0,
+          ...(fragment ? { chartEditEnd: limit - 1, chartEditStart: startTok } : {}),
+        });
+      }
       const valueToken = tokens[field.startTok];
-      const value = valueToken.kind === 'quote' && field.startTok === field.endTok ? valueToken.inner :
-        src.slice(valueToken.start, tokens[field.endTok].end);
+      const end = tokens[field.endTok].end;
+      const value = field.value ?? (valueToken.kind === 'quote' && field.startTok === field.endTok
+        ? valueToken.inner : src.slice(valueToken.start, end));
+      const words = field.wordsStart === undefined ? null : src.slice(tokens[field.wordsStart].start, end);
       emitConstraint(field.attribute, value, field.startTok, field.endTok, {
-        phase: 'result', requiresKeyWord: true, axisPredicate: startTok, cost: 1,
+        phase: 'result', words, requiresKeyWord: hasCue, chartEditPredicate: startTok, cost: 1,
       });
     }
     if (owner) {
@@ -3692,13 +3703,13 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         kind: HYP_KINDS.TARGET_REF, ...owner, family: 'chart', families: ['chart'],
         ...(reference ? { isPronoun: true } : description ? { description: written } : { name }),
         fill: reference ? 'context' : description ? 'description' : 'written',
-        det: 'definite', axisPredicate: startTok, cost: 0,
+        det: 'definite', chartEditPredicate: startTok, cost: 0,
       });
     }
   }
 
   if (catalog) {
-    const modalOutputs = new Set(rawCandidates.filter(({ modalOutput, axisAssignment }) => modalOutput || axisAssignment).map(({ startTok }) => startTok));
+    const modalOutputs = new Set(rawCandidates.filter(({ modalOutput, chartEditEnd }) => modalOutput || chartEditEnd).map(({ startTok }) => startTok));
     for (const { startTok, endTok, act, heads } of matchModalWants(tokens, splitPoints, writtenPredicates, rawCandidates, kb)) {
       if (modalOutputs.has(startTok)) continue;
       emit({
@@ -3940,8 +3951,8 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.rolePredicate ?? '',
-      c.axisPredicate ?? '',
-      c.axisAssignment ? 1 : 0,
+      c.chartEditPredicate ?? '',
+      c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
       c.modalWantHeads ? 1 : 0,
       c.predicateRole ?? '',

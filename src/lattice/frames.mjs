@@ -253,6 +253,100 @@ export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) 
   return [...byStart.values()];
 }
 
+export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
+  const { catalog } = kb;
+  const grid = catalog.keys.get('chart.grid');
+  const gridStyle = catalog.keys.get('chart.gridStyle');
+  const labels = catalog.keys.get('chart.show_values');
+  if (!grid || !gridStyle || !labels) return [];
+
+  const cues = [grid, gridStyle, labels].flatMap((key) => [...key.keyWords].map((phrase) =>
+    ({ attribute: key.name, phrase, words: phrase.split(' ') })))
+    .sort((a, b) => b.words.length - a.words.length);
+  if (!cues.some(({ words }) => tokens.some(({ lower }) => lower === words[0]))) return [];
+  const leads = modalHaveLeads(kb.grammar);
+  const wish = kb.grammar.frames?.get('acts.more.change.would');
+  const wishLeads = wish?.parts.find((part) => part.is === 'word')?.words.map((phrase) => phrase.split(' ')) ?? [];
+  const isChartNoun = ({ kind, lower }) => {
+    const families = catalog.familyWords.get(lower);
+    return kind === 'word' && families?.size === 1 && families.has('chart');
+  };
+  const byStart = new Map();
+  for (const window of frameWindows(tokens, splitPoints, predicates)) {
+    if (window.internalJoiners) continue;
+    let clauseStart = window.startTok;
+    while (['and', 'then'].includes(tokens[clauseStart]?.lower)) clauseStart++;
+    for (const start of [clauseStart, ...matchLeadAt(tokens, clauseStart, kb)]) {
+      const direct = predicates.find((p) => p.startTok === start && p.licensed?.some(({ act }) => act === 'change') &&
+        ['show', 'hide', 'make', 'set'].includes(p.text.toLowerCase()));
+      const lead = leads.find((words) => tokens[matchWordSeqAt(tokens, start, words)]?.lower === 'have');
+      const wishEnd = wishLeads.map((words) => matchWordSeqAt(tokens, start, words))
+        .find((next) => next > start);
+      const end = direct?.endTok ?? (lead ? start + lead.length : (wishEnd ?? start) - 1);
+      const fragment = end < start;
+      const verb = direct?.text.toLowerCase();
+      const visibility = labels.values.has(verb);
+      let limit = end + 1;
+      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      while (limit > end + 1 && tokens[limit - 1].isFiller) limit--;
+
+      let cueStart = end + 1;
+      if (DET_WORDS.has(tokens[cueStart]?.lower)) cueStart++;
+      let styleAt;
+      if (!visibility && verb !== 'set' && gridStyle.values.has(tokens[cueStart]?.lower)) styleAt = cueStart++;
+      const cue = cues.find(({ attribute, words }) => {
+        if (attribute === (visibility ? gridStyle.name : labels.name)) return false;
+        const next = matchWordSeqAt(tokens, cueStart, words);
+        return next > cueStart && next <= limit;
+      });
+      if (!cue) continue;
+
+      const cueEnd = cueStart + cue.words.length - 1;
+      let cursor = cueEnd + 1;
+      if (!visibility && styleAt === undefined && gridStyle.values.has(tokens[cursor]?.lower)) styleAt = cursor++;
+      let owner;
+      if (['on', 'of'].includes(tokens[cursor]?.lower)) {
+        const first = ++cursor;
+        while (cursor < limit && (visibility || styleAt !== undefined ||
+          (!['to', 'should'].includes(tokens[cursor].lower) && !gridStyle.values.has(tokens[cursor].lower)))) cursor++;
+        if (cursor <= first) continue;
+        owner = { startTok: first, endTok: cursor - 1 };
+      }
+      let styleStart;
+      if (!visibility && styleAt === undefined) {
+        if (tokens[cursor]?.lower === 'to') cursor++;
+        if (fragment && tokens[cursor]?.lower === 'should' && tokens[cursor + 1]?.lower === 'be') {
+          styleStart = cursor;
+          cursor += 2;
+        }
+        if (!gridStyle.values.has(tokens[cursor]?.lower)) continue;
+        styleAt = cursor++;
+      }
+      if (cursor !== limit) continue;
+
+      const ownerWords = owner ? tokens.slice(owner.startTok, owner.endTok + 1) : [];
+      const chartOwner = ownerWords.some(isChartNoun);
+      const differentOwner = ownerWords.some(({ kind, lower }) => kind === 'word' &&
+        ['sheet', 'spreadsheet', 'canvas', 'page', 'document', 'table'].includes(lower));
+      if (differentOwner && !chartOwner) continue;
+      // Bare “values” and “grid” are also used outside charts.
+      const weakCue = ['values', 'numbers', 'grid'].includes(cue.phrase);
+      const ownerIsPronoun = ownerWords.length === 1 && kb.grammar.pronouns?.has(ownerWords[0].lower);
+      const nearbyChart = (!owner || ownerIsPronoun) && tokens.slice(0, start).some(isChartNoun);
+      if (weakCue && !chartOwner && !nearbyChart) continue;
+
+      const field = visibility
+        ? { attribute: cue.attribute, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
+        : { attribute: gridStyle.name, value: tokens[styleAt].lower, startTok: styleStart ?? styleAt,
+          endTok: styleAt, wordsStart: styleStart, cueStart, cueEnd };
+      if (!byStart.has(start) || byStart.get(start).limit > limit) {
+        byStart.set(start, { startTok: start, endTok: end, owner, limit, fields: [field], fragment });
+      }
+    }
+  }
+  return [...byStart.values()];
+}
+
 export function matchModalWants(tokens, splitPoints, predicates, candidates, kb) {
   const frame = kb.grammar.frames?.get('acts.data.change.want');
   if (!frame || frame.act !== 'change' || !frame.roles.includes('thing') || !frame.roles.includes('value')) return [];

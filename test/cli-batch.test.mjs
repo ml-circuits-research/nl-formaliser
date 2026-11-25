@@ -618,6 +618,8 @@ test('chart axis fields and axis titles keep their respective values and owners'
     assert.match(named.sop, /@r1\.t .*name="Monthly sales"/);
     assert.match(named.sop, /@r1\.c\d+ .*attribute=chart\.yField value=Revenue operator=eq phase=result/);
     assert.match(named.sop, /@r2 w\.request\.request .*predicate=show/);
+    assert.match(named.sop, /@r2\.c\d+ .*attribute=chart\.show_values value=show .*phase=result/);
+    assert.doesNotMatch(named.sop, /attribute=page\.style|fill=journal_step|from=previous/);
 
     const both = (await reader.propose('Put profit on the horizontal axis and sales on the y-axis')).candidates[0];
     assert.equal(both.check.ok, true);
@@ -638,6 +640,43 @@ test('chart axis fields and axis titles keep their respective values and owners'
     for (const text of ['Put the legend on the x axis', 'Could you set the y axis to linear?']) {
       const result = await reader.propose(text);
       assert.ok(result.candidates.every(({ sop }) => !/attribute=chart\.[xy]Field\b/.test(sop)));
+    }
+  } finally {
+    await reader.close();
+  }
+});
+
+test('chart display edits bind label and grid visibility separately from grid style', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    for (const [text, effect, owner] of [
+      ['Hide the data labels on Monthly sales.', /chart\.show_values value=hide/, /name="Monthly sales"/],
+      ['Hide the grid on the chart.', /chart\.grid value=hide/, /description="the chart"/],
+      ['Can I have the gridlines dotted on the chart?', /chart\.gridStyle value=dotted/, /description="the chart"/],
+      ["I'd like the grid lines dashed on the profit chart", /chart\.gridStyle value=dashed/, /description="the profit chart"/],
+      ['The grid lines on Monthly profit should be dashed.', /chart\.gridStyle value=dashed/, /name="Monthly profit"/],
+      ['Grid lines dashed', /chart\.gridStyle value=dashed/, /key=thing from=any/],
+      ['Set the gridline style of it to solid.', /chart\.gridStyle value=solid/, /from=any words=it\b/],
+    ]) {
+      const { sop, check } = (await reader.propose(text)).candidates[0];
+      assert.ok(check.ok, sop);
+      assert.match(sop, effect);
+      assert.match(sop, owner);
+      assert.match(sop, /phase=result/);
+      assert.doesNotMatch(sop, /attribute=page\.style|fill=journal_step|from=previous/);
+      if (effect.source.includes('gridStyle')) assert.doesNotMatch(sop, /attribute=chart\.grid(?:lines)? /);
+    }
+
+    const compound = (await reader.propose('Create a bar chart of sales; and show the values on it.')).candidates[0];
+    assert.ok(compound.check.ok, compound.sop);
+    assert.match(compound.sop, /@r2\.l\d+ .*from=any words=it/);
+    assert.match(compound.sop, /@r2\.c\d+ .*chart\.show_values value=show/);
+    assert.doesNotMatch(compound.sop, /attribute=page\.style|from=previous/);
+
+    for (const text of ['Show the values in the spreadsheet.', 'Draw boxes on a grid.']) {
+      const result = await reader.propose(text);
+      assert.ok(result.candidates.length);
+      assert.doesNotMatch(result.candidates[0].sop, /attribute=chart\.(?:show_values|grid|gridStyle)\b/);
     }
   } finally {
     await reader.close();

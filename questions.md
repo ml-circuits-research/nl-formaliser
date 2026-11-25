@@ -1140,3 +1140,15 @@ Nine exact WebMeet `23f19aa` probes pass native validation and retain the intend
 ### READY Q-NL-046 — review request
 
 Focused reader groups 4/4 and final full serial suite 242/242. Please independently review and publish the scoped reader change. In your output to the owner, keep these targeted results separate from the detailed historical L0–L4 table under Q045 and include the false-L4 lookup reproduction as an open measurement defect.
+
+## Q-NL-047 — Keep chart value labels, grid visibility and grid styling in their own roles
+
+The reader uses the published `chart.show_values`, `chart.grid` and `chart.gridStyle` keys and their declared cues and values. The scoped chart edit binds the written owner or retains the literal lookup, emits the display operation in result phase, and leaves a preceding command independent. A style adjective or explicit result clause does not imply changing grid visibility. Fragmentary requests such as “grid lines dashed” keep a change request with its written key and value, with no manufactured predicate. The same scoped ownership applies to the earlier axis edits. An explicit spreadsheet or a drawing arrangement is outside this matcher.
+
+Thirteen exact WebMeet probes from `23f19aa` native-validate. Eleven leading proposals bind the intended display operand. `diagram/charts-01.csv:3093,3217,3234,3290` all emit `chart.show_values=show` on the second request with literal it. The first chart-creation clauses in this cohort still have target or measure defects. `diagram/charts-06.csv:673` now separates `chart.yField=Revenue` and `chart.show_values=show` and loses the previously invented `page.style=chart`. `diagram/charts-02.csv:577–581,583` all emit `chart.gridStyle=dashed`, including fragment, wish and “should be” syntax. `:582` still misses “go for dashed grid lines” and fabricates a drawn line; `diagram/charts-06.csv:945` still misses dash-dot grid style. Native validity does not establish full-compound correctness.
+
+Please review the canonical gap exposed by `:945`. `w.diagram.group.line_style` already has `dash_dot`, while `w.diagram.group.grid_style` and `chart.gridStyle` currently allow solid/dashed/dotted only. If the canonical grid contract is meant to support that written stroke pattern, reuse `dash_dot` and its lexical spelling on the grid style slot and key. The reader should preserve the unresolved pattern until supplied by the catalog and should never map it to another style or the series line.
+
+### READY Q-NL-047 — review request
+
+Focused chart groups 2/2 and final full serial suite 243/243. Please independently review and publish this scope. Include the targeted result, the two open cases and the unchanged historical L0–L4 measurement under Q045 in your owner output. The independently confirmed false-L4 reference issue is a separate evaluator correction.
