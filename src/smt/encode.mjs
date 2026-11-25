@@ -81,12 +81,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const tabSpec = kb.tabs[tab];
   if (!tabSpec) throw new Error(`Unknown tab: ${tab}`);
 
-  // Skip single-token GRAMMAR and multi-token UNREAD candidates from Z3 variables:
+  // Skip GRAMMAR and general multi-token UNREAD candidates from Z3 variables:
   // - GRAMMAR tokens are non-content and never emit wires.
   // - 1-token UNREAD covers every content token; adjacent unread tokens are merged cleanly in to-sop.mjs.
   const activeCandidates = rawCandidates.filter((c) => {
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
-    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok) return false;
+    if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier) return false;
     return true;
   });
 
@@ -325,6 +325,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     emit(`(assert (and (<= 0 own_fr_${fm.id}) (<= own_fr_${fm.id} ${R})))`);
     emit(`(assert (=> (not sel_fr_${fm.id}) (= own_fr_${fm.id} 0)))`);
     emit(`(assert (=> sel_fr_${fm.id} (>= own_fr_${fm.id} 1)))`);
+  }
+  const qualifierCandidates = byKind[HYP_KINDS.UNREAD].filter((c) => c.propertyQualifier);
+  for (const qualifier of qualifierCandidates) {
+    const frames = frameMatches.filter((fm) => fm.unresolvedDuration && sameSpan(qualifier, fm.unresolvedDuration));
+    const owners = frames.map((fm) => `(and sel_fr_${fm.id} (= own_${qualifier.id} own_fr_${fm.id}))`);
+    emit(`(assert (=> sel_${qualifier.id} ${smtOr(owners)}))`);
   }
 
   // Pre-compute compatible KEY_WORDs and NEGs for each CONSTRAINT (elide unused Z3 variables!)
@@ -1091,6 +1097,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const blockedSpatialSet = new Set(fm.blockedSpatialToks ?? []);
     const blockedEndpointSet = new Set(fm.blockedEndpointToks ?? []);
     const ownerMarker = fm.propertyOwnerMarker;
+    const qualifier = fm.unresolvedDuration && qualifierCandidates.find((c) => sameSpan(c, fm.unresolvedDuration));
     const spatialBlockedCands = ownerMarker || blockedSpatialSet.size > 0
       ? constraints.filter((c) => {
           const sk = c.attribute?.split('.').slice(1).join('.');
@@ -1170,6 +1177,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       if (fm.clauseWindow) {
         const { startTok, endTok } = fm.clauseWindow;
         emit(`(assert (=> ${frInR} (and (>= rstart_${r} ${startTok}) (<= rend_${r} ${endTok}))))`);
+      }
+      if (qualifier) {
+        emit(`(assert (=> ${frInR} (and sel_${qualifier.id} (= own_${qualifier.id} ${r}))))`);
       }
       if (fm.mode && FINER_ACT_MODES.has(fm.mode)) {
         emit(`(assert (=> ${frInR} (= amode_${r} ${modeToSmt(fm.mode)})))`);

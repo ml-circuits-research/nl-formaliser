@@ -2775,29 +2775,31 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     }
 
     // Compound English multi-word numbers ("four hundred" = 400, "twenty five" = 25, "two hundred and fifty" = 250)
+    let compoundValue = null;
+    let compoundEnd = i;
     if (tok.kind === 'word' && (numberWords.has(tok.lower) || tok.lower === 'a') && i + 1 < T && tokens[i + 1].kind === 'word') {
       const n0 = tok.lower === 'a' ? 1 : numberWords.get(tok.lower);
       const n1 = numberWords.get(tokens[i + 1].lower);
-      let compVal = null;
-      let compEnd = i + 1;
       if (n0 >= 1 && n0 <= 19 && tokens[i + 1].lower === 'hundred') {
-        compVal = n0 * 100;
+        compoundValue = n0 * 100;
+        compoundEnd = i + 1;
         if (i + 2 < T && tokens[i + 2].lower === 'and' && i + 3 < T && numberWords.has(tokens[i + 3].lower)) {
-          compVal += numberWords.get(tokens[i + 3].lower);
-          compEnd = i + 3;
+          compoundValue += numberWords.get(tokens[i + 3].lower);
+          compoundEnd = i + 3;
         } else if (i + 2 < T && numberWords.has(tokens[i + 2].lower) && numberWords.get(tokens[i + 2].lower) < 100) {
-          compVal += numberWords.get(tokens[i + 2].lower);
-          compEnd = i + 2;
+          compoundValue += numberWords.get(tokens[i + 2].lower);
+          compoundEnd = i + 2;
         }
       } else if (n0 >= 20 && n0 <= 90 && n0 % 10 === 0 && n1 >= 1 && n1 <= 9) {
-        compVal = n0 + n1;
+        compoundValue = n0 + n1;
+        compoundEnd = i + 1;
       }
-      if (compVal !== null) {
+      if (compoundValue !== null) {
         const hasApprox = i > 0 && ['about', 'around', 'roughly', 'approximately'].includes(tokens[i - 1].lower);
         const startC = hasApprox ? i - 1 : i;
         for (const attr of resolveAttrShortNames(tabKeys, ['size', 'width', 'height', 'words', 'distance'])) {
           const sk = attr.split('.').slice(1).join('.');
-          emitConstraint(attr, String(compVal), startC, compEnd, {
+          emitConstraint(attr, String(compoundValue), startC, compoundEnd, {
             requiresKeyWord: !['size', 'distance'].includes(sk),
             cost: sk === 'size' ? 2 : 4.5,
           });
@@ -2814,14 +2816,16 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
     const isArticleUnit = tok.kind === 'word' && (tok.lower === 'a' || tok.lower === 'an') && i + 1 < T && UNIT_CANON.has(tokens[i + 1].lower);
     const numVal = isArticleUnit ? 1 : parseNumeric(tok);
-    if (numVal !== null) {
-      // Check [num, unit]
+    if (numVal !== null || compoundValue !== null) {
+      // Check an atomic or compound number followed by a unit.
       let matchedUnit = false;
-      if (i + 1 < T && UNIT_CANON.has(tokens[i + 1].lower)) {
-        const unit = UNIT_CANON.get(tokens[i + 1].lower);
-        const mWords = src.slice(tok.start, tokens[i + 1].end);
+      const unitTok = compoundEnd + 1;
+      if (unitTok < T && UNIT_CANON.has(tokens[unitTok].lower)) {
+        const unit = UNIT_CANON.get(tokens[unitTok].lower);
+        const quantity = compoundValue ?? numVal;
+        const mWords = src.slice(tok.start, tokens[unitTok].end);
         const isDurationFor = i > 0 && ['for', 'of'].includes(tokens[i - 1].lower);
-        const isShiftTrail = i + 2 < T && ['later', 'earlier', 'ahead', 'back', 'forward'].includes(tokens[i + 2].lower);
+        const isShiftTrail = unitTok + 1 < T && ['later', 'earlier', 'ahead', 'back', 'forward'].includes(tokens[unitTok + 1].lower);
         let unitTargets = [];
         if (['minute', 'hour'].includes(unit)) {
           unitTargets = isShiftTrail ? ['shift', 'length', 'duration'] : isDurationFor ? ['length', 'duration'] : ['length', 'duration', 'shift'];
@@ -2849,18 +2853,18 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             : shortK === 'length' ? 1.5
             : shortK === 'duration' ? 3
             : 2;
-          emitConstraint(attr, String(numVal), i, i + 1, {
-            measure: numVal,
+          emitConstraint(attr, String(quantity), i, unitTok, {
+            measure: quantity,
             unit,
             measureWords: mWords,
             requiresKeyWord: false,
             cost: unitCost,
           });
           if (hasApproxBefore) {
-            emitConstraint(attr, String(numVal), i - 1, i + 1, {
-              measure: numVal,
+            emitConstraint(attr, String(quantity), i - 1, unitTok, {
+              measure: quantity,
               unit,
-              measureWords: tok.text,
+              measureWords: src.slice(tok.start, tokens[compoundEnd].end),
               character: 'preference',
               requiresKeyWord: false,
               cost: unitCost - 0.5,
@@ -2896,7 +2900,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       }
 
       // Bare number constraints for number keys on the tab (NEVER allow bare word "pair"/"one" as x/y coordinates!)
-      if (!matchedUnit || tok.kind === 'number') {
+      if (numVal !== null && (!matchedUnit || tok.kind === 'number')) {
         const isFractionalUnit = tok.kind === 'number' && numVal > 0 && numVal <= 1 && tok.text.includes('.');
         const isPartIndex = i > 0 && tokens[i - 1].lower === 'part' && Number.isInteger(numVal);
         if (isPartIndex && tabKeys.has('part.index')) {

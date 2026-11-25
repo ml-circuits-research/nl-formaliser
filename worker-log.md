@@ -15,3 +15,5 @@
 - 2026-11-25 — Q-NL-011 grounds numeric property roles in recognized scalars and measures and preserves following undo commands. Focused tests 8/8, `npm test` 102/102. Dev L1c 65/250, L3+L4 125/250. Exact circuits and remaining qualitative gap are in `questions.md`.
 
 - 2026-11-25 — Q-NL-012 uses a complete spatial description to select the target of a resultative change. Five Diagram and Drawing probes, named edit and placement controls passed. Final `npm test` 110/110, `git diff --check` clean. Requested review in `questions.md`.
+
+- 2026-11-25 — Q-NL-013 binds complete compound measures and preserves a numeric change's unsupported duration as exact unread text. Named page/meeting durations, named chart and following count controls pass. `npm test` 119/119. Requested review in `questions.md`.

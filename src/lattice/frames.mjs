@@ -482,6 +482,8 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const attrSpan = fm.roles.get('attribute');
     const thingSpan = fm.roles.get('thing');
     const valSpan = fm.roles.get('value');
+    let resultSpan = valSpan;
+    let unresolvedDuration = null;
     const oldSpan = fm.roles.get('old');
     const topicSpan = fm.roles.get('topic');
     const wholeSpan = fm.roles.get('whole');
@@ -520,9 +522,30 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
           const key = tabKeys.get(attr);
           if (key.head === 'number' && key.literalKeyWords?.has(surface)) numericPropertyFamilies.add(key.family);
         }
+        if (propertyOwnerMarker && numericPropertyFamilies.size > 0) {
+          // A duration following a complete numeric property value qualifies the
+          // change. The request schema has no slot for this duration.
+          const duration = candidates.find((c) => c.measure != null && ['second', 'minute', 'hour'].includes(c.unit) &&
+            c.startTok > valSpan.startTok + 1 && c.endTok === valSpan.endTok && tokens[c.startTok - 1].lower === 'for');
+          if (duration) {
+            const endTok = duration.startTok - 2;
+            const hasValue = candidates.some((c) => matchedAttrs.has(c.attribute) &&
+              numericPropertyFamilies.has(c.family) && c.startTok === valSpan.startTok && c.endTok === endTok &&
+              c.value.trim() !== '' && Number.isFinite(Number(c.value)) && !c.pairedConstraints?.length);
+            if (hasValue) {
+              resultSpan = {
+                startTok: valSpan.startTok,
+                endTok,
+                text: text.slice(tokens[valSpan.startTok].start, tokens[endTok].end),
+              };
+              unresolvedDuration = { startTok: duration.startTok - 1, endTok: duration.endTok };
+              emit({ kind: HYP_KINDS.UNREAD, ...unresolvedDuration, propertyQualifier: true, cost: 8 });
+            }
+          }
+        }
         // Ordinary numbers and measures already have structured lattice candidates.
         // A quoted scalar is numeric here only when the complete inner text is one number.
-        const quoted = valSpan.startTok === valSpan.endTok ? tokens[valSpan.startTok] : null;
+        const quoted = resultSpan.startTok === resultSpan.endTok ? tokens[resultSpan.startTok] : null;
         const inner = quoted?.kind === 'quote' ? tokenize(quoted.inner, kb) : [];
         const quotedNumber = inner.length === 1 && inner[0].kind === 'number' ? parseNumeric?.(inner[0]) : null;
         for (const attr of matchedAttrs) {
@@ -530,7 +553,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
           const key = tabKeys.get(attr);
           const numeric = key.head === 'number' || numericPropertyFamilies.has(key.family);
           if (numeric && quotedNumber == null) continue;
-          emitConstraint(attr, numeric ? String(quotedNumber) : valSpan.text, valSpan.startTok, valSpan.endTok, {
+          emitConstraint(attr, numeric ? String(quotedNumber) : resultSpan.text, resultSpan.startTok, resultSpan.endTok, {
             phase: 'result',
             requiresKeyWord: true,
             allowOpen: true,
@@ -677,10 +700,11 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       clauseWindow: fm.clauseWindow,
       propertyOwnerMarker,
       describedOwner,
+      unresolvedDuration,
       blockedSpatialToks: [...blockedSpatialToks],
       blockedEndpointToks: [...blockedEndpointToks],
       oldSpan: oldSpan ? { startTok: oldSpan.startTok, endTok: oldSpan.endTok } : null,
-      valSpan: valSpan ? { startTok: valSpan.startTok, endTok: valSpan.endTok } : (arrSpan ? { startTok: arrSpan.startTok, endTok: arrSpan.endTok } : null),
+      valSpan: resultSpan ? { startTok: resultSpan.startTok, endTok: resultSpan.endTok } : (arrSpan ? { startTok: arrSpan.startTok, endTok: arrSpan.endTok } : null),
       attrSpan: attrSpan ? { startTok: attrSpan.startTok, endTok: attrSpan.endTok } : null,
       thingSpan: thingSpan ? { startTok: thingSpan.startTok, endTok: thingSpan.endTok } : null,
       endsSpan: endsSpan ? { startTok: endsSpan.startTok, endTok: endsSpan.endTok } : null,
