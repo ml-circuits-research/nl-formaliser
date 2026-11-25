@@ -543,6 +543,26 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
   }
+  const axisAssignments = preds.filter(({ axisAssignment }) => axisAssignment);
+  for (const predicate of axisAssignments) {
+    const operands = activeCandidates.filter((candidate) => candidate.axisPredicate === predicate.startTok);
+    if (!operands.some((candidate) => candidate.kind === HYP_KINDS.CONSTRAINT)) continue;
+    if (axisAssignments.length + outputPredicates.length <= R) {
+      emit(`(assert sel_${predicate.id})`);
+    } else {
+      emit(`(assert-soft sel_${predicate.id} :weight ${W.predicateRole})`);
+    }
+    for (let r = 1; r <= R; r++) {
+      const owns = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} ${r}))`;
+      const otherHeads = outputHeads.filter((candidate) => candidate.axisPredicate !== predicate.startTok);
+      const roles = operands.filter((candidate) => candidate.kind === HYP_KINDS.CONSTRAINT)
+        .map((candidate) => `(= ${phaseExprOf.get(candidate.id)} PH_RESULT)`);
+      emit(`(assert (=> ${owns(predicate)} (and (= fam_${r} ${famToId.get('chart')})
+        (<= rend_${r} ${predicate.axisAssignment}) ${roles.join(' ')} ${operands.map(owns).join(' ')}
+        (not ${smtOr(otherHeads.map(owns))}))))`);
+      for (const operand of operands) emit(`(assert (=> ${owns(operand)} ${owns(predicate)}))`);
+    }
+  }
   const modalWants = preds.filter(({ modalWantHeads }) => modalWantHeads);
   for (const predicate of modalWants) {
     const artifact = outputHeads.filter((candidate) => predicate.modalWantHeads.some((head) =>

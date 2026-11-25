@@ -558,3 +558,44 @@ test('modal wants bind an explicit new object or an existing property owner with
     await reader.close();
   }
 });
+
+test('chart axis fields and axis titles keep their respective values and owners', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const modal = (await reader.propose('Can we have Orders on the y axis of the Revenue by region chart, because the numbers in the sheet are still moving')).candidates[0];
+    assert.equal(modal.check.ok, true);
+    assert.match(modal.sop, /act=change mood=do .*predicate="Can we have"/);
+    assert.match(modal.sop, /family=chart .*description="the Revenue by region chart"/);
+    assert.match(modal.sop, /attribute=chart\.yField value=Orders operator=eq phase=result/);
+    assert.doesNotMatch(modal.sop, /family=drawn|name=Orders/);
+
+    const named = (await reader.propose('Put Revenue on the y axis of Monthly sales, and show the values on the chart.')).candidates[0];
+    assert.equal(named.check.ok, true);
+    assert.match(named.sop, /@r1\.t .*name="Monthly sales"/);
+    assert.match(named.sop, /@r1\.c\d+ .*attribute=chart\.yField value=Revenue operator=eq phase=result/);
+    assert.match(named.sop, /@r2 w\.request\.request .*predicate=show/);
+
+    const both = (await reader.propose('Put profit on the horizontal axis and sales on the y-axis')).candidates[0];
+    assert.equal(both.check.ok, true);
+    assert.match(both.sop, /@r1\.c\d+ .*attribute=chart\.xField value=profit/);
+    assert.match(both.sop, /@r1\.c\d+ .*attribute=chart\.yField value=sales/);
+
+    const title = (await reader.propose('Now set the y axis title on Monthly sales to Sales.')).candidates[0];
+    assert.equal(title.check.ok, true);
+    assert.match(title.sop, /name="Monthly sales"/);
+    assert.match(title.sop, /attribute=chart\.yLabel value=Sales operator=eq phase=result/);
+    assert.doesNotMatch(title.sop, /attribute=chart\.(?:yField|invert)/);
+
+    const pronoun = (await reader.propose('Put Revenue on the y axis of it')).candidates[0];
+    assert.equal(pronoun.check.ok, true);
+    assert.match(pronoun.sop, /from=any words=it\b/);
+    assert.doesNotMatch(pronoun.sop, /name=it\b/);
+
+    for (const text of ['Put the legend on the x axis', 'Could you set the y axis to linear?']) {
+      const result = await reader.propose(text);
+      assert.ok(result.candidates.every(({ sop }) => !/attribute=chart\.[xy]Field\b/.test(sop)));
+    }
+  } finally {
+    await reader.close();
+  }
+});

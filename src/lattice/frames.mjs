@@ -164,6 +164,94 @@ function modalHaveLeads(grammar) {
   return [...modals].flatMap((modal) => subjects.map((subject) => [modal, subject]));
 }
 
+export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) {
+  const keys = kb.catalog?.keys;
+  const axisForms = ['x', 'y'].flatMap((axis) => {
+    if (!keys?.has(`chart.${axis}Field`)) return [];
+    const words = [...(keys.get(`chart.${axis}Label`)?.keyWords ?? [])].filter((word) =>
+      /^(?:[xy][ -]axis|horizontal axis|vertical axis)$/.test(word));
+    return words.flatMap((word) => [word.split(' '), [word.replace(' ', '-')]])
+      .map((words) => ({ attribute: `chart.${axis}Field`, words }));
+  });
+  if (!axisForms.some(({ words }) => tokens.some(({ lower }) => lower === words[0]))) return [];
+
+  const modalLeads = modalHaveLeads(kb.grammar);
+  const byStart = new Map();
+  for (const window of frameWindows(tokens, splitPoints, predicates)) {
+    if (window.internalJoiners) continue;
+    const starts = [window.startTok, ...matchLeadAt(tokens, window.startTok, kb)];
+    for (const start of starts) {
+      const direct = predicates.find((p) => p.startTok === start && p.text.toLowerCase() === 'put' &&
+        p.licensed?.some(({ act }) => act === 'place'));
+      const label = predicates.find((p) => p.startTok === start && p.text.toLowerCase() === 'set' &&
+        p.licensed?.some(({ act }) => act === 'change'));
+      const lead = modalLeads.find((words) => tokens[matchWordSeqAt(tokens, start, words)]?.lower === 'have');
+      if (!direct && !lead && !label) continue;
+      const end = direct?.endTok ?? label?.endTok ?? start + lead.length;
+      let limit = end + 1;
+      while (limit <= window.endTok && !tokens[limit].isPunct) limit++;
+      if (label) {
+        let axisStart = end + 1;
+        if (DET_WORDS.has(tokens[axisStart]?.lower)) axisStart++;
+        const axis = axisForms.find(({ words }) => matchWordSeqAt(tokens, axisStart, words) > axisStart);
+        if (!axis) continue;
+        const cueEnd = axisStart + axis.words.length;
+        if (!['title', 'label'].includes(tokens[cueEnd]?.lower)) continue;
+        let to = cueEnd + 1;
+        let owner;
+        if (['on', 'of'].includes(tokens[to]?.lower)) {
+          const ownerStart = ++to;
+          while (to < limit && tokens[to].lower !== 'to') to++;
+          if (to <= ownerStart) continue;
+          owner = { startTok: ownerStart, endTok: to - 1 };
+        }
+        if (to + 1 >= limit || tokens[to].lower !== 'to') continue;
+        const attribute = axis.attribute.replace(/Field$/, 'Label');
+        if (!keys.has(attribute)) continue;
+        if (!byStart.has(start) || byStart.get(start).limit > limit) {
+          byStart.set(start, { startTok: start, endTok: end, owner, limit, fields: [
+            { attribute, startTok: to + 1, endTok: limit - 1, cueStart: axisStart, cueEnd },
+          ] });
+        }
+        continue;
+      }
+      const fields = [];
+      let fieldStart = end + 1;
+      let owner;
+      let cursor = fieldStart;
+      while (cursor < limit) {
+        while (cursor < limit && tokens[cursor].lower !== 'on') cursor++;
+        if (cursor >= limit || cursor <= fieldStart) break;
+        const marker = cursor++;
+        if (DET_WORDS.has(tokens[cursor]?.lower)) cursor++;
+        const axis = axisForms.find(({ words }) => matchWordSeqAt(tokens, cursor, words) > cursor);
+        if (!axis) break;
+        cursor += axis.words.length;
+        const field = tokens.slice(fieldStart, marker);
+        if (cursor > limit || !field.some((token) => token.kind === 'word' || token.kind === 'quote') ||
+            field.some((token) => token.kind !== 'quote' &&
+              /^(?:legend|gridlines?|ticks?|axis|labels?|titles?|scale)$/.test(token.lower))) break;
+        if (fields.some(({ attribute }) => attribute === axis.attribute)) break;
+        fields.push({ attribute: axis.attribute, startTok: fieldStart, endTok: marker - 1,
+          cueStart: marker, cueEnd: cursor - 1 });
+        if (cursor === limit) break;
+        if (['of', 'on'].includes(tokens[cursor].lower) && cursor + 1 < limit) {
+          owner = { startTok: cursor + 1, endTok: limit - 1 };
+          cursor = limit;
+          break;
+        }
+        if (tokens[cursor].lower !== 'and') break;
+        fieldStart = ++cursor;
+      }
+      if (!fields.length || cursor !== limit || fields.at(-1).cueEnd < fieldStart) continue;
+      if (!byStart.has(start) || byStart.get(start).limit > limit) {
+        byStart.set(start, { startTok: start, endTok: end, fields, owner, limit });
+      }
+    }
+  }
+  return [...byStart.values()];
+}
+
 export function matchModalWants(tokens, splitPoints, predicates, candidates, kb) {
   const frame = kb.grammar.frames?.get('acts.data.change.want');
   if (!frame || frame.act !== 'change' || !frame.roles.includes('thing') || !frame.roles.includes('value')) return [];

@@ -75,3 +75,5 @@
 - 2026-11-25 — Q-NL-043 links explicit first-person file-form requests to the named/pronominal artifact, retaining delivery and permission readings and exact unread form. Full serial suite 239/239. Related modal property requests were inventoried in `questions.md`.
 
 - 2026-11-25 — Q-NL-044 composes modal subjects and separates desired creation, existing property edits and file requests. Eight published WebMeet probes validate, with the remaining three semantic families and a partial axis result documented. Full serial suite 240/240. See `questions.md`.
+
+- 2026-11-25 — Q-NL-045 binds written chart data fields and axis titles to distinct result keys. Seven published WebMeet probes bind the requested axis operands, with compound show-values/gridline/scale/styling defects recorded separately. Full serial suite 241/241. Review request and the historical L0–L4 table are in `questions.md`.

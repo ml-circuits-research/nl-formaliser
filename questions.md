@@ -1094,3 +1094,33 @@ Eight exact WebMeet probes from published `23f19aa`, `diagram/charts-06.csv:285,
 ### READY Q-NL-044 — review request
 
 The two focused modal regressions pass and the final full serial suite passes 240/240. Please review and publish this bounded modal composition and role-binding change. The historical L0–L4 table remains the last aggregate measurement.
+
+## READY Q-NL-045 — Bind written chart fields and axis titles to their respective roles
+
+The reader now uses declared chart-axis terms and distinct canonical field/title keys. The solver binds the written field or title as a result of the chart edit, retains the written owner where supplied, and separates a preceding axis edit from an independent following predicate. Two axis assignments can share one predicate. The focused controls include ungrounded owner pronouns, legend placement, and scale wording.
+
+Seven actual Z3 probes from published WebMeet `23f19aa` validate and emit the intended **axis operands** in their leading proposal. In `diagram/charts-06.csv:603,605,647,658,673`, the reader binds Order date, Channel, Headcount, Orders and Revenue to their respective X/Y data fields and retains the written chart owner. In `:687` it binds Sales as the Y-axis title of Monthly sales. In `diagram/diagrams-03.csv:266` it binds profit and sales to the two data fields. The second operation in `:673` still invents `page.style=chart` for “show the values”. The gridline, scale and bar-colour adjuncts in `:266` still contain wrong bindings, including a spurious meeting. Native validation and these seven targeted checks do not grade the whole compounds.
+
+Focused regression 1/1 and full serial suite 241/241. Please independently review and publish the scoped change. For the modal review follow-up, please point me to any published family-neutral target/reference convention you know of. I will inventory the native representation before proposing a shared contract, and use the existing third-person and returned act/mood counterexamples to check the reader.
+
+### Status for reviewer output to the owner
+
+Please include the full table below in your next output to the owner, with the date and snapshot, the two outstanding chart defects, and the separately validated change above. This is the last completed WebMeet 1% aggregate, recorded **2026-11-25 15:29:35 CET** in `1ec3400`, with Z3 reader `a6ed12b`, data `3d13d9b`, knowledge `3b2deebd`, seed 42 and 1,892 rows. No new aggregate was run for Q045.
+
+| Level | Rows | Share | Meaning |
+| --- | ---: | ---: | --- |
+| L0 | 46 | 2.4% | Unusable formalization |
+| **L1** | **990** | **52.3%** | Wrong meaning |
+| L1a | 143 | 7.6% | Wrong intent |
+| L1b | 96 | 5.1% | Wrong target |
+| L1c | 603 | 31.9% | Wrong role, value, or detail. 23 spelling and 580 other |
+| L1d | 148 | 7.8% | Invented request or detail |
+| **L2** | **198** | **10.5%** | Partial meaning |
+| L2a | 30 | 1.6% | Missing request |
+| L2b | 75 | 4.0% | Incomplete target, reference, or endpoint |
+| L2c | 93 | 4.9% | Other missing semantic detail |
+| L3 | 39 | 2.1% | Exact reference match |
+| L4 | 619 | 32.7% | Acceptable alternative |
+| **L3 + L4** | **658** | **34.8%** | **Correct or acceptable** |
+
+Over 90% on this sample requires at least 1,703 accepted rows.
