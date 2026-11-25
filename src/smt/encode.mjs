@@ -10,6 +10,7 @@ import {
   ACTS,
   CREATION_TYPE_KEYS,
   HYP_KINDS,
+  isIndependentValueCandidate,
   DEFAULT_TAB_FAMILY,
   COMPAT_FAMILIES,
   actToSmt,
@@ -20,6 +21,7 @@ import {
   phaseToSmt,
   wantToSmt,
 } from '../contracts.mjs';
+import { findOwnerSelectors } from '../lattice/frames.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_WEIGHTS = JSON.parse(readFileSync(join(HERE, 'weights.json'), 'utf8'));
@@ -1032,6 +1034,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   }
 
   const anchoredRelations = constraints.filter((c) => c.needsAnchor);
+  const landmarkCandidates = constraints.filter((c) => c.isAnchor);
   const relationValueAlternatives = new Map();
   for (const rel of anchoredRelations) {
     const anchors = constraints.filter(
@@ -1133,21 +1136,15 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
           .filter((keyword) => sameSpan(keyword, fm.attrSpan) && sameSpan(value, fm.valSpan))
           .map((keyword) => ({ value, keyword })))
       : [];
+    const describedOwnerResults = fm.describedOwner
+      ? valCands.filter((c) => sameSpan(c, fm.valSpan) && isIndependentValueCandidate(c))
+      : [];
 
     // A relation inside the owner role needs a head before the cue and a landmark
     // that completes the owner phrase. Keep all compatible tuples for the solver.
-    const ownerSelectors = [];
-    if (ownerMarker) {
-      for (const relation of constraints.filter((c) => c.needsAnchor && inSpan(c, fm.thingSpan))) {
-        const heads = ownerCands.filter((c) => c.endTok < relation.startTok &&
-          tokens.slice(c.endTok + 1, relation.startTok).every((token) => token.isGrammar));
-        if (heads.length === 0) continue;
-        const anchors = constraints.filter((c) => c.isAnchor && c.family === relation.family &&
-          c.startTok > relation.endTok && c.startTok - relation.endTok <= 3 && c.endTok === fm.thingSpan.endTok &&
-          tokens.slice(relation.endTok + 1, c.startTok).every((token) => token.isGrammar));
-        for (const anchor of anchors) ownerSelectors.push({ heads, relation, anchor });
-      }
-    }
+    const ownerSelectors = ownerMarker || fm.describedOwner
+      ? findOwnerSelectors(fm.thingSpan, tokens, ownerCands, anchoredRelations, landmarkCandidates)
+      : [];
 
     const oldCands = fm.oldSpan
       ? constraints.filter(
@@ -1183,7 +1180,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       for (const c of endpointBlockedCands) {
         emit(`(assert (=> ${frInR} (not (and sel_${c.id} (= own_${c.id} ${r})))))`);
       }
-      if (ownerMarker) {
+      if (ownerMarker || fm.describedOwner) {
         const selected = (c) => `(and sel_${c.id} (= own_${c.id} ${r}))`;
         const headInR = (c) => `(and ${selected(c)} (= tpos_${r} ${c.startTok}))`;
         const phaseInR = (c, phase) => `(and ${selected(c)} (= ${phaseExprOf.get(c.id)} ${phase}))`;
@@ -1191,8 +1188,21 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
           `(and ${phaseInR(value, 'PH_RESULT')} (= ${kwExprOf.get(value.id)} ${keyword.id}))`;
         const selectors = ownerSelectors.map(({ heads, relation, anchor }) =>
           `(and ${smtOr(heads.map(headInR))} ${phaseInR(relation, 'PH_SELECTOR')} ${phaseInR(anchor, 'PH_SELECTOR')})`);
-        emit(`(assert (=> ${frInR} ${smtOr(selectors.length ? selectors : ownerCands.map(headInR))}))`);
-        emit(`(assert (=> ${frInR} ${smtOr(propertyResults.map(binding))}))`);
+        const owners = selectors.length || fm.describedOwner ? selectors : ownerCands.map(headInR);
+        const results = fm.describedOwner
+          ? describedOwnerResults.map((c) => phaseInR(c, 'PH_RESULT'))
+          : propertyResults.map(binding);
+        emit(`(assert (=> ${frInR} ${smtOr(owners)}))`);
+        emit(`(assert (=> ${frInR} ${smtOr(results)}))`);
+
+        if (fm.describedOwner) {
+          const sameFamily = ownerSelectors.flatMap(({ relation }) => describedOwnerResults
+            .filter((c) => c.family === relation.family)
+            .map((c) => `(and ${phaseInR(relation, 'PH_SELECTOR')} ${phaseInR(c, 'PH_RESULT')})`));
+          if (sameFamily.length > 0) {
+            emit(`(assert-soft (=> ${frInR} ${smtOr(sameFamily)}) :weight 12)`);
+          }
+        }
 
         // Resolve keyword aliases and spatial homonyms using the declared slots.
         const directProperties = propertyResults.filter(({ value, keyword }) =>
@@ -1208,7 +1218,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       } else if (ownerCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(ownerCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}))`))}))`);
       }
-      if (!ownerMarker && valCands.length > 0) {
+      if (!ownerMarker && !fm.describedOwner && valCands.length > 0) {
         emit(`(assert (=> ${frInR} ${smtOr(valCands.map((c) => `(and sel_${c.id} (= own_${c.id} ${r}) (= ${phaseExprOf.get(c.id)} PH_RESULT))`))}))`);
       }
       if (oldCands.length > 0) {
@@ -1222,7 +1232,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
       }
     }
 
-    const frWeight = 24 + Math.min(16, Math.max(0, Math.round(fm.priority ?? 10)));
+    const frWeight = 24 + Math.min(16, Math.max(0, Math.round(fm.priority ?? 10))) +
+      (fm.describedOwner ? W.describedOwnerFrame : 0);
     emit(`(assert-soft sel_fr_${fm.id} :weight ${frWeight})`);
   }
 

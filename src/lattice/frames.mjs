@@ -6,7 +6,7 @@
 // Zero hardcoded sentence templates: every frame pattern, lexicon, role, and fixed slot
 // is read dynamically from `sop-knowledge-worlds`.
 
-import { HYP_KINDS, ACTS, ACT_MODES } from '../contracts.mjs';
+import { HYP_KINDS, ACTS, ACT_MODES, isIndependentValueCandidate } from '../contracts.mjs';
 import { lemmatiseVerb, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
 
@@ -212,17 +212,48 @@ function frameWindows(tokens, splitPoints, predicates) {
   return windows;
 }
 
+export function findOwnerSelectors(thing, tokens, heads, relations, anchors) {
+  const selectors = [];
+  const grammarGap = (left, right) => tokens.slice(left.endTok + 1, right.startTok).every((token) => token.isGrammar);
+  for (const relation of relations) {
+    if (relation.startTok <= thing.startTok || relation.endTok >= thing.endTok) continue;
+    const ownerHeads = heads.filter((head) => head.startTok >= thing.startTok &&
+      head.endTok < relation.startTok && grammarGap(head, relation));
+    if (ownerHeads.length === 0) continue;
+    for (const anchor of anchors) {
+      if (anchor.family === relation.family && anchor.endTok === thing.endTok &&
+          anchor.startTok > relation.endTok && anchor.startTok - relation.endTok <= 3 && grammarGap(relation, anchor)) {
+        selectors.push({ heads: ownerHeads, relation, anchor });
+      }
+    }
+  }
+  return selectors;
+}
+
 /**
  * Match declared frames within hard punctuation boundaries. Candidate clause
  * separators also license local windows when they precede a predicate.
  */
-export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], predicates = [] }) {
+export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], predicates = [], candidates = [] }) {
   if (!tokens?.length || !kb?.grammar?.frames) return [];
   const compiled = getCompiledFrames(kb);
   if (compiled.length === 0) return [];
 
   const tokenLowSet = new Set(tokens.map((t) => t.lower));
   const windows = frameWindows(tokens, splitPoints, predicates);
+  const relations = candidates.filter((c) => c.needsAnchor);
+  const anchors = candidates.filter((c) => c.isAnchor);
+  const heads = candidates.filter((c) =>
+    [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_REF].includes(c.kind));
+  const valueEnds = new Map();
+  // The grammar's value slot can use typed values already recognised in this tab.
+  // Use this evidence for changes with a relational description of the owner.
+  if (relations.length > 0 && anchors.length > 0) {
+    for (const c of candidates.filter(isIndependentValueCandidate)) {
+      if (!valueEnds.has(c.startTok)) valueEnds.set(c.startTok, new Set());
+      valueEnds.get(c.startTok).add(c.endTok + 1);
+    }
+  }
 
   const rawMatches = [];
 
@@ -329,7 +360,17 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
 
           if (part.is === 'role') {
             if (part.takes === 'lexicon') {
-              for (const nxt of matchLexiconAt(tokens, tIdx, part.lexicon, kb, tabSpec)) {
+              let ends = matchLexiconAt(tokens, tIdx, part.lexicon, kb, tabSpec);
+              const thing = roles.get('thing');
+              const localValues = frame.act === 'change' && part.role === 'value' && part.lexicon === 'value' &&
+                thing && !roles.has('attribute') && valueEnds.has(tIdx) &&
+                findOwnerSelectors(thing, tokens, heads, relations, anchors).length > 0
+                ? valueEnds.get(tIdx)
+                : null;
+              if (localValues) {
+                ends = [...new Set([...ends, ...localValues])].sort((a, b) => b - a);
+              }
+              for (const nxt of ends) {
                 if (nxt <= clEnd + 1) {
                   const nextRoles = new Map(roles);
                   nextRoles.set(part.role, {
@@ -337,6 +378,7 @@ export function matchFrames(tokens, text, { tab, kb, tabSpec, splitPoints = [], 
                     endTok: nxt - 1,
                     text: text.slice(tokens[tIdx].start, tokens[nxt - 1].end),
                     lexicon: part.lexicon,
+                    describedOwner: localValues?.has(nxt) ?? false,
                   });
                   dfs(pIdx + 1, nxt, nextRoles, wordAnchors, predSpan);
                 }
@@ -452,6 +494,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     const propertyOwnerMarker = attrSpan && thingSpan && valSpan
       ? fm.wordAnchors.find((wa) => wa.afterRole === 'attribute' && wa.beforeRole === 'thing')
       : null;
+    const describedOwner = Boolean(valSpan?.describedOwner && !attrSpan);
 
     // 1. Property-owner-value frame (`acts.change.property.on`: "Set the width on the node to 15",
     //    `acts.ask.property.have`: "What width does the node have?"):
@@ -617,6 +660,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
     // Only emit Z3 frame constraints for structurally informative argument-structure frames
     // (skip generic 1-role <verb> <thing> frames from frames-acts.sop that carry no argument-attachment structure).
     const hasArgumentStructure =
+      describedOwner ||
       blockedSpatialToks.size > 0 ||
       blockedEndpointToks.size > 0 ||
       Boolean(attrSpan || oldSpan || topicSpan || wholeSpan || critSpan || endsSpan || arrSpan || matSpan || replSpan);
@@ -632,6 +676,7 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       endTok: fm.endTok,
       clauseWindow: fm.clauseWindow,
       propertyOwnerMarker,
+      describedOwner,
       blockedSpatialToks: [...blockedSpatialToks],
       blockedEndpointToks: [...blockedEndpointToks],
       oldSpan: oldSpan ? { startTok: oldSpan.startTok, endTok: oldSpan.endTok } : null,

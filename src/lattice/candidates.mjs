@@ -918,6 +918,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       phase,
       step,
       openValue,
+      valueEvidence: Boolean(extra.valueEvidence),
       requiresKeyWord: Boolean(extra.requiresKeyWord),
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -2496,6 +2497,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           }
           emitConstraint(h.attr, h.value, i, e, {
             requiresKeyWord: needsToggleKw,
+            valueEvidence: true,
             cost: closedCost,
           });
         }
@@ -2526,6 +2528,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
           );
           emitConstraint(attr, val, i, e, {
             requiresKeyWord: !isPrimaryColour && ['titleColour', 'barEdgeColour', 'textColour', 'gradient', 'highlight_colour'].includes(shortKey),
+            valueEvidence: true,
             cost: isGradientContext ? 1.2 : isPrimaryColour ? (len === 2 ? 3 : 4) : 8,
           });
         }
@@ -3579,7 +3582,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
   // -------------------------------------------------------------------------
   const rawFrameMatches = matchFrames(tokens, src, {
-    tab, kb, tabSpec: kb.tabs[tab], splitPoints,
+    tab, kb, tabSpec: kb.tabs[tab], splitPoints, candidates: rawCandidates,
     predicates: rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE && c.licensed?.length),
   });
   const frameMatches = applyFrameMatchesToLattice(rawFrameMatches, {
@@ -3652,7 +3655,10 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
 
     const prev = deduped.get(key);
     if (!prev || c.cost < prev.cost) {
+      if (prev?.valueEvidence) c.valueEvidence = true;
       deduped.set(key, c);
+    } else if (c.valueEvidence) {
+      prev.valueEvidence = true;
     }
   }
 

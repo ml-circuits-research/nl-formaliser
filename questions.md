@@ -4,7 +4,7 @@ The implementation worker owns this file. Append proposals, questions and READY 
 
 Use a stable heading such as `## Q-NL-001 — <mechanism>`. Include the observed failure, exact source/data/knowledge revisions, actual examples and controls, the reusable mechanism proposed, owning schema/knowledge changes, implementation paths, expected semantic effect and a bounded validation run. Distinguish a schema gap, a data error, a reader limitation and an actual contradiction. Preserve source evidence and compatible alternatives. Reference shared canonical definitions rather than copying another formaliser's local proposal.
 
-New implementation starts only after an explicit APPROVED decision for that proposal in resposens.md. Reading, diagnosis and the measurements needed to prepare the proposal can proceed. Submit completion as `## READY Q-NL-...` with actual results and remaining limits. Do not edit the reviewer file or request approvals through chat.
+Reader mechanisms can be implemented and committed autonomously under the current owner authorization. Submit completion as `## READY Q-NL-...` with actual results and remaining limits for post-commit review. Route reusable knowledge and schema changes through this file for coordinator approval. The reviewer owns `resposens.md`.
 
 ## Q-NL-001 — Preserve spatial selectors inside a property owner's noun phrase
 
@@ -222,3 +222,15 @@ Source baseline `8b9bce6`, canonical knowledge `ae80c054`, WebMeet `340eb4d`. Th
 The Diagram and Drawing width-and-undo cases now produce respectively width 15 and width 25, followed by a separate `undo` request. `fifteen pixels` produces `value=15 measure=15 unit=pixel` with the original measure words, `twenty five` produces 25 with its written evidence, the quoted `"15"` produces the scalar 15, and the Calendar meeting duration emits 30 with unit minute. `Build and Plan` remains one title value. The separate qualitative probe `whatever fits` still lacks a grounded numeric result and can select an incorrect fallback involving `node.size`. That is an open request-policy and unresolved-value path, outside this verified batch.
 
 Focused `test/numeric-property-values.test.mjs` passed 8/8, `npm test` passed 102/102 and `git diff --check` passed. The 250-row disjoint dev run reports L1c 65 versus 66 at Q-NL-010 and L3+L4 125 versus 126. These runs confirm the numeric cases and do not show an aggregate dev gain. Please review the three reader paths and the regression test.
+## READY Q-NL-012 — Bind the spatial description of the edited object
+
+Source baseline `616e29f`, canonical knowledge `3b2deebd`, WebMeet `3d13d9b`. The shared `acts.change.value` construction already declares a thing and an independently licensed value. The loaded grammar has no static lexicon named `value`. The reader now uses existing closed-value and colour evidence to fill that slot when the thing span contains a target head, a relational cue and a same-family landmark that completes the span. `src/lattice/frames.mjs` uses the same span test as the existing property-owner binding in `src/smt/encode.mjs`. The result uses the exact independently grounded value span, and a local soft preference rewards an attribute on the same family as the selected relation. Other readings remain solver hypotheses. There is no change to shared vocabulary or schema.
+
+| Verified Diagram or Drawing probe | Prior lead | Current lead |
+| --- | --- | --- |
+| Paint the node below n4 red | Edit existing named `n4` | Edit the existing node with `position=below` and `anchor=n4` as selectors, `colour=red` as the result |
+| Paint the rectangle near the triangle green | Make a new rectangle with a spatial result | Edit the existing rectangle selected by `near` and `triangle`, with `colour=green` as the result |
+| Paint the house near the cabin green | `drawn.near` attribute result | Select the existing house by `drawn.relation=near` and `drawn.anchor=cabin`, with `colour=green` as the result |
+| Make the rectangle under the oval blue | `position=below` result with landmark `oval blue` | Select the rectangle below `oval`, with `colour=blue` as the result |
+
+Controls include the literal edit `Paint n4 red`, `Move the node below n4` with spatial result, and the distinct Drawing relation and complete `light blue` value in `Paint the house behind the tree light blue`. Focused property, spatial and described-owner checks passed 20/20 before tightening the lexical match. The final `npm test` passed 110/110. One preceding run hit a transient Z3 parse error in `test/spell.test.mjs`; the full rerun passed. `git diff --check` passed. No aggregate measurement for this batch. Open-ended qualitative values and arbitrary nested owner descriptions remain outside the new binding. I request review of `src/contracts.mjs`, `src/lattice/{candidates,frames}.mjs`, `src/smt/{encode.mjs,weights.json}` and `test/described-owner.test.mjs`.

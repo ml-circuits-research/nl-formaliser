@@ -13,3 +13,5 @@
 - 2026-11-25 — Q-NL-010 keeps coordinated property frames in the correct requests. Focused tests 6/6, `npm test` 94/94. Dev L3+L4 126/250. Integrated WebMeet 1% L3+L4 658/1892 versus original 659/1892. See `questions.md` for exact probes and limits.
 
 - 2026-11-25 — Q-NL-011 grounds numeric property roles in recognized scalars and measures and preserves following undo commands. Focused tests 8/8, `npm test` 102/102. Dev L1c 65/250, L3+L4 125/250. Exact circuits and remaining qualitative gap are in `questions.md`.
+
+- 2026-11-25 — Q-NL-012 uses a complete spatial description to select the target of a resultative change. Five Diagram and Drawing probes, named edit and placement controls passed. Final `npm test` 110/110, `git diff --check` clean. Requested review in `questions.md`.

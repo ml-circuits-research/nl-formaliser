@@ -93,6 +93,13 @@ export const HYP_KINDS = Object.freeze({
   UNREAD: 'UNREAD',
 });
 
+export function isIndependentValueCandidate(candidate) {
+  return candidate.kind === HYP_KINDS.CONSTRAINT &&
+    !candidate.requiresKeyWord && !candidate.openValue &&
+    !candidate.isAnchor && !candidate.needsAnchor && !candidate.pairedConstraints?.length &&
+    candidate.valueEvidence;
+}
+
 // Default target family per tab when no explicit sort or family word is present.
 export const DEFAULT_TAB_FAMILY = Object.freeze({
   drawing: 'drawn',
