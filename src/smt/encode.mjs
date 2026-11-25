@@ -690,7 +690,13 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         emit(`(assert (=> (and sel_${ref.id} (= own_${ref.id} ${r})) ${smtOr(fids.map((id) => `(= fam_${r} ${id})`))}))`);
       }
       if (ref.isPronoun) {
-        emit(`(assert (=> (and sel_${ref.id} (= own_${ref.id} ${r})) (and (not (= tmode_${r} TM_NEW)) (= tfill_${r} TF_CONTEXT))))`);
+        const overtTarget = smtOr([...sInR, ...fInR]);
+        emit(`(assert (=> (and sel_${ref.id} (= own_${ref.id} ${r})) (and (= tmode_${r} TM_EXISTING) (= tfill_${r} TF_CONTEXT) (not ${overtTarget}))))`);
+        if (ref.isPropertyOwner) {
+          const owners = propertyFrames.filter((fm) => fm.contextProperty?.ownerToken === ref.startTok)
+            .map((fm) => `(and sel_fr_${fm.id} (= own_fr_${fm.id} ${r}))`);
+          emit(`(assert (=> (and sel_${ref.id} (= own_${ref.id} ${r})) ${smtOr(owners)}))`);
+        }
       } else if (ref.fill === 'all') {
         emit(`(assert (=> (and sel_${ref.id} (= own_${ref.id} ${r}) (not (= tmode_${r} TM_NEW))) (= tfill_${r} TF_ALL)))`);
       } else if (ref.fill === 'journal_step') {
@@ -1038,12 +1044,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   for (const ref of tRefs) {
     if (ref.fill === 'all') {
       emit(`(assert-soft sel_${ref.id} :weight 18)`);
-    } else if (ref.isPronoun && /^(it|them|this one|that one|these|those)$/i.test(ref.text)) {
+    } else if (ref.isPronoun && !ref.isPropertyOwner && ref.text.toLowerCase() !== 'one') {
       // Object pronouns ("make it bold", "move it left", "delete them") are isGrammar=true in w.lang.en;
       // reward grounding them when immediately after a verb/predicate so Z3 does not silently drop "it" into mode=new!
       const afterVerb = ref.startTok > 0 && preds.some((p) => p.endTok === ref.startTok - 1);
       if (afterVerb) {
-        emit(`(assert-soft sel_${ref.id} :weight 24)`);
+        emit(`(assert-soft sel_${ref.id} :weight ${W.pronounAfterVerbReward})`);
       }
     }
   }
@@ -1057,6 +1063,16 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   const anchoredRelations = constraints.filter((c) => c.needsAnchor);
   const landmarkCandidates = constraints.filter((c) => c.isAnchor);
+  const referenceLandmarks = new Map();
+  for (const anchor of landmarkCandidates.filter((c) => c.anchorReference)) {
+    const key = `${anchor.startTok}:${anchor.endTok}`;
+    const bindings = anchoredRelations.filter((rel) => rel.family === anchor.family && rel.endTok + 1 === anchor.startTok)
+      .map((rel) => `(and sel_${rel.id} sel_${anchor.id} (= own_${rel.id} own_${anchor.id}))`);
+    if (bindings.length) referenceLandmarks.set(key, [...(referenceLandmarks.get(key) ?? []), ...bindings]);
+  }
+  for (const bindings of referenceLandmarks.values()) {
+    emit(`(assert-soft ${smtOr(bindings)} :weight ${W.referenceLandmark})`);
+  }
   const selectingActs = new Set(['ask', 'pick', 'remove']);
   // An interior homonym such as 'Focus' in 'book Focus Room' cannot license a selector.
   const clauseStarts = [0, ...(lattice.splitPoints ?? []).map(({ endTok }) => endTok + 1)];
@@ -1153,6 +1169,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     const blockedEndpointSet = new Set(fm.blockedEndpointToks ?? []);
     const ownerMarker = fm.propertyOwnerMarker;
     const context = fm.contextProperty;
+    const contextOwners = context?.ownerToken == null ? [] : tRefs.filter((c) => c.isPropertyOwner && c.startTok === context.ownerToken);
     const unresolved = fm.unresolvedDuration ?? context?.unresolved;
     const qualifier = unresolved && qualifierCandidates.find((c) => sameSpan(c, unresolved));
     const spatialBlockedCands = ownerMarker || blockedSpatialSet.size > 0
@@ -1257,7 +1274,8 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
         const bindings = propertyResults.map(({ value, keyword }) =>
           `(and ${selected(value)} (= ${phaseExprOf.get(value.id)} PH_RESULT) (= ${kwExprOf.get(value.id)} ${keyword.id}) (= fam_${r} ${famToId.get(value.family)}))`);
         const result = qualifier ? selected(qualifier) : smtOr(bindings);
-        emit(`(assert (=> ${frInR} (and (= tmode_${r} TM_EXISTING) (= tpos_${r} (- 1)) ${smtOr(families)} ${result})))`);
+        const owner = context.ownerToken == null ? `(= tpos_${r} (- 1))` : smtOr(contextOwners.map(selected));
+        emit(`(assert (=> ${frInR} (and (= tmode_${r} TM_EXISTING) ${owner} ${smtOr(families)} ${result})))`);
         for (const c of contextCompetingValues) {
           emit(`(assert (=> ${frInR} (not ${selected(c)})))`);
         }

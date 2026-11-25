@@ -12,6 +12,7 @@ const PHRASES = {
   'w.request.request': ['words', 'predicate', 'asked_words'],
   'w.request.target': ['sort_words', 'name', 'name_words', 'description', 'count_words', 'code_words', 'ids', 'family_words'],
   'w.request.constraint': ['words', 'key_words', 'measure_words'],
+  'w.request.lookup': ['words'],
   'w.request.unread': ['text'],
   'w.request.filler': ['text'],
 };
@@ -251,6 +252,12 @@ export async function createVerifier({ knowledgeDir } = {}) {
               out.push({ type: w.type, key: k, why: "outside its request's words (evidence of another request?)" });
             }
           }
+        }
+      }
+      for (const lookup of wires.filter((w) => w.type === 'w.request.lookup' && String(w.attrs.request?.[0]) === '$' + r.id)) {
+        const evidence = one(lookup, 'words');
+        if (evidence && !words.includes(evidence)) {
+          out.push({ type: lookup.type, key: 'words', why: "outside its request's words (evidence of another request?)" });
         }
       }
       for (const c of wires.filter((x) => x.type === 'w.request.constraint' && String(x.attrs.request?.[0]) === '$' + r.id && !x.attrs.words)) {

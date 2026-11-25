@@ -696,7 +696,15 @@ export function applyFrameMatchesToLattice(frameMatches, { tokens, text, tab, kb
       const unresolved = valid.length ? null : { startTok: attrSpan.startTok, endTok: valSpan.endTok };
       if (unresolved) emit({ kind: HYP_KINDS.UNREAD, ...unresolved, propertyQualifier: true,
         note: fm.relativeTime ? 'pp.time' : fm.frameName, requiredRelativeTime: Boolean(fm.relativeTime), cost: 9 });
-      contextProperty = { families, unresolved, groundedRelativeTime: fm.relativeTime?.grounded ?? false };
+      const beforeAttribute = attrSpan.startTok - 1;
+      const determiner = tokens[beforeAttribute];
+      const ownerToken = beforeAttribute >= fm.startTok && determiner?.kind === 'word' &&
+        kb.grammar.determiners?.get(determiner.lower)?.kind === 'possessive' ? beforeAttribute : null;
+      if (ownerToken !== null) {
+        emit({ kind: HYP_KINDS.TARGET_REF, startTok: ownerToken, endTok: ownerToken,
+          isPronoun: true, isPropertyOwner: true, fill: 'context', det: 'possessive', families, cost: 3 });
+      }
+      contextProperty = { families, ownerToken, unresolved, groundedRelativeTime: fm.relativeTime?.grounded ?? false };
     }
 
     // 1. Property-owner-value frame (`acts.change.property.on`: "Set the width on the node to 15",

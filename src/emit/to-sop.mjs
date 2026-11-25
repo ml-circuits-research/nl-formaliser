@@ -226,15 +226,21 @@ export function modelToSop(model, lattice, meta) {
 
     lines.push(wireLine(`${rId}.t`, 'w.request.target', tPairs));
 
-    // Lookup wire
-    if (hasLookup) {
-      const fromWhere = (previous || tfill === 'journal_step') ? 'previous' : 'page';
-      lines.push(wireLine(`${rId}.l1`, 'w.request.lookup', [
-        ['request', { ref: '$' + rId }],
-        ['target', { ref: `$${rId}.t` }],
+    let lookupIndex = 0;
+    const emitThingLookup = (owner, wireId, from, words) => {
+      lines.push(wireLine(`${rId}.l${++lookupIndex}`, 'w.request.lookup', [
+        ['request', { ref: `$${rId}` }],
+        [owner, { ref: `$${wireId}` }],
         ['key', 'thing'],
-        ['from', fromWhere],
+        ['from', from],
+        ['words', words],
       ]));
+    };
+
+    if (hasLookup) {
+      const reference = tRef?.isPronoun && scopeText.includes(tRef.text) ? tRef.text : null;
+      const fromWhere = previous || tfill === 'journal_step' ? 'previous' : (reference ? 'any' : 'page');
+      emitThingLookup('target', `${rId}.t`, fromWhere, reference);
     }
 
     // Constraint wires (including atomic pairedConstraints like coord x,y)
@@ -313,7 +319,11 @@ export function modelToSop(model, lattice, meta) {
         if (kw.text && scopeText.includes(kw.text)) cPairs.push(['key_words', kw.text]);
       }
 
-      lines.push(wireLine(`${rId}.c${++cIdx}`, 'w.request.constraint', cPairs));
+      const constraintId = `${rId}.c${++cIdx}`;
+      lines.push(wireLine(constraintId, 'w.request.constraint', cPairs));
+      if (spec.anchorReference && spec.text && scopeText.includes(spec.text)) {
+        emitThingLookup('constraint', constraintId, previous ? 'previous' : 'any', spec.text);
+      }
     };
 
     for (const c of cons) {

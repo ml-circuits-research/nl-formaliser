@@ -874,7 +874,7 @@ function loadGrammar(parse, worldsDir) {
         const kind = one(w, 'refers') ?? one(w, 'case') ?? 'pronoun';
         const num = one(w, 'number');
         for (const t of texts) {
-          const info = { kind };
+          const info = { kind, cases: many(w, 'case'), person: one(w, 'person') };
           if (num) info.number = num;
           pronouns.set(t, info);
         }

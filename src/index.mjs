@@ -78,23 +78,19 @@ function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse,
       subCounters.set(k, n);
       return `${newR}.${prefix}${n}`;
     };
+    const wireIdMap = new Map([...reqIdMap, ...targetIdMap]);
+    for (const w of wires) {
+      if (wireIdMap.has(w.id) || w.type === 'w.request.previous' || w.type === 'w.request.clock' || w.type === 'w.request.filler') continue;
+      const reqRef = String(w.attrs.request?.[0] ?? '').replace(/^\$/, '');
+      const newR = reqIdMap.get(reqRef);
+      if (!newR) continue;
+      const prefix = w.type === 'w.request.lookup' ? 'l' : w.type === 'w.request.constraint' ? 'c' : 'u';
+      wireIdMap.set(w.id, nextSub(newR, prefix));
+    }
 
     const multiTotal = clauseResults.length > 1;
     for (const w of wires) {
-      if (w.type === 'w.request.previous' || w.type === 'w.request.clock' || w.type === 'w.request.filler') continue;
-
-      let newId = w.id;
-      if (w.type === 'w.request.request') {
-        newId = reqIdMap.get(w.id);
-      } else if (w.type === 'w.request.target') {
-        newId = targetIdMap.get(w.id);
-      } else {
-        const reqRef = String(w.attrs.request?.[0] ?? '').replace(/^\$/, '');
-        const newR = reqIdMap.get(reqRef);
-        if (!newR) continue;
-        const pfx = w.type === 'w.request.lookup' ? 'l' : w.type === 'w.request.constraint' ? 'c' : 'u';
-        newId = nextSub(newR, pfx);
-      }
+      const newId = wireIdMap.get(w.id);
       if (!newId) continue;
 
       const pairs = [];
@@ -104,11 +100,8 @@ function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse,
             (k === 'words' || (k === 'predicate' && newId !== 'r1'))) continue;
         if (k === 'words') hasWords = true;
         for (const rawV of vals) {
-          if (k === 'request' && String(rawV).startsWith('$')) {
-            const mapped = reqIdMap.get(String(rawV).slice(1));
-            if (mapped) pairs.push([k, `$${mapped}`]);
-          } else if (k === 'target' && String(rawV).startsWith('$')) {
-            const mapped = targetIdMap.get(String(rawV).slice(1));
+          if (['request', 'target', 'constraint'].includes(k) && String(rawV).startsWith('$')) {
+            const mapped = wireIdMap.get(String(rawV).slice(1));
             if (mapped) pairs.push([k, `$${mapped}`]);
           } else {
             pairs.push([k, rawV]);

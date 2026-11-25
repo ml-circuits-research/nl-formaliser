@@ -198,6 +198,10 @@ function getKbHelpers(kb) {
   for (const [w, info] of mapEntries(kb?.grammar?.determiners)) {
     if (info?.det) detMap.set(String(w).toLowerCase(), info.det);
   }
+  const pronounRefs = new Map(PRONOUN_REFS);
+  for (const [word, info] of mapEntries(kb?.grammar?.pronouns)) {
+    if (info.person === '3' && info.cases?.includes('object')) pronounRefs.set(word, 'definite');
+  }
 
   // Dynamically build spatial & temporal relations from `w.lang.en/shards/prepositions.sop` + `hand-joins.sop`
   // + `w.reader.en.requests` (fallback to SPATIAL_RELATIONS / TEMPORAL_RELATIONS for mock KBs)
@@ -245,6 +249,7 @@ function getKbHelpers(kb) {
     redoCuePhrases,
     layoutCuePhrases,
     detMap,
+    pronounRefs,
     spatialRels,
     temporalRels,
     rolePreps,
@@ -850,6 +855,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     redoCuePhrases,
     layoutCuePhrases,
     detMap,
+    pronounRefs,
     spatialRels,
     temporalRels,
     rolePreps,
@@ -924,6 +930,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       needsAnchor: Boolean(extra.needsAnchor),
       isAnchor: Boolean(extra.isAnchor),
+      anchorReference: Boolean(extra.anchorReference),
       pairedConstraints: extra.pairedConstraints ?? null,
       measure: extra.measure ?? null,
       unit: extra.unit ?? null,
@@ -1926,26 +1933,41 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
   // -------------------------------------------------------------------------
   // 8. TARGET_REF (pronouns, universal, journal_step, codes, proper names, quotes)
   // -------------------------------------------------------------------------
+  const nominalDeterminers = new Set(rawCandidates.filter((c) =>
+    [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(c.kind) && c.detTok >= 0).map((c) => c.detTok));
+  const referenceAt = (i) => {
+    if (i >= T || tokens[i].kind !== 'word') return null;
+    for (const length of [2, 1]) {
+      const end = i + length - 1;
+      if (end >= T || (length === 1 && nominalDeterminers.has(i))) continue;
+      const pronoun = spanTextLower(tokens, i, end);
+      const det = pronounRefs.get(pronoun);
+      if (det) return { end, det };
+    }
+    return null;
+  };
   for (let i = 0; i < T; i++) {
     const tok = tokens[i];
 
-    // Pronouns (1..2 tokens)
+    const reference = referenceAt(i);
+    if (reference) {
+      emit({
+        kind: HYP_KINDS.TARGET_REF,
+        startTok: i,
+        endTok: reference.end,
+        fill: 'context',
+        isPronoun: true,
+        det: reference.det,
+        families: tabFamilies,
+        cost: 3,
+      });
+    }
+
+    // Universal references (1..2 tokens)
     for (let len = 1; len <= 2 && i + len <= T; len++) {
       const e = i + len - 1;
       if (hasPunctInSpan(tokens, i, e)) break;
       const ph = spanTextLower(tokens, i, e);
-      if (PRONOUN_REFS.has(ph)) {
-        emit({
-          kind: HYP_KINDS.TARGET_REF,
-          startTok: i,
-          endTok: e,
-          fill: 'context',
-          isPronoun: true,
-          det: PRONOUN_REFS.get(ph),
-          families: tabFamilies,
-          cost: 3,
-        });
-      }
       if (UNIVERSAL_REFS.has(ph)) {
         emit({
           kind: HYP_KINDS.TARGET_REF,
@@ -3381,7 +3403,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       const rStart = i - rLen + 1;
       if (hasPunctInSpan(tokens, rStart, i)) break;
       const rPh = spanTextLower(tokens, rStart, i);
-      if ((spatialRels.has(rPh) || temporalRels.has(rPh)) && nextStart < T) {
+      if ((spatialRels.has(rPh) || temporalRels.has(rPh)) && i + 1 < T) {
         if (anchorKeys.length > 0) {
           emitOpenSpansStartingAt(nextStart, anchorKeys, {
             phase: 'selector',
@@ -3389,15 +3411,15 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
             isAnchor: true,
             cost: 2.5,
           });
-          // Pronoun anchor ("on it", "above it", "next to them", "behind her") where isGrammar=true blocked open-span emission!
-          const pronTok = tokens[nextStart];
-          if (pronTok.kind === 'word' && ['it', 'them', 'him', 'her', 'this', 'that'].includes(pronTok.lower)) {
+          const reference = referenceAt(i + 1);
+          if (reference) {
             for (const ak of anchorKeys) {
               if (tabKeys.has(ak)) {
-                emitConstraint(ak, pronTok.lower, nextStart, nextStart, {
+                emitConstraint(ak, src.slice(tokens[i + 1].start, tokens[reference.end].end), i + 1, reference.end, {
                   phase: 'selector',
                   operator: 'relation',
                   isAnchor: true,
+                  anchorReference: true,
                   cost: 2.0,
                 });
               }
@@ -3653,6 +3675,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
       c.step ?? '',
       c.phase ?? '',
       c.isAnchor ? 1 : 0,
+      c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.creationOnly ? 1 : 0,
       c.pairedConstraints ? JSON.stringify(c.pairedConstraints) : '',
