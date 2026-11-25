@@ -176,7 +176,7 @@ function matchVerbAt(tokens, pos, reqAct, kb) {
   return out;
 }
 
-function matchLeadAt(tokens, pos, kb) {
+export function matchLeadAt(tokens, pos, kb) {
   const fillerPhrases = kb?.grammar?.fillerPhrases;
   const fillerWords = kb?.grammar?.fillerWords;
   const T = tokens.length;

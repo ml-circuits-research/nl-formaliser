@@ -22,6 +22,7 @@ import {
   wantToSmt,
 } from '../contracts.mjs';
 import { findOwnerSelectors, findSpatialOwners, isStructuredPropertyValue } from '../lattice/frames.mjs';
+import { overlapsProhibition } from '../lattice/prohibitions.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_WEIGHTS = JSON.parse(readFileSync(join(HERE, 'weights.json'), 'utf8'));
@@ -78,7 +79,9 @@ function fillerHasHiddenContent(ft, kb) {
 export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4, weights = null } = {}) {
   const W = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
   const { tab, tokens, candidates: rawCandidates, hasQuestionMark } = lattice;
-  const coordinatedChanges = lattice.coordinatedChanges ?? [];
+  const prohibitions = lattice.prohibitions ?? [];
+  const prohibited = (span) => overlapsProhibition(span, prohibitions);
+  const coordinatedChanges = (lattice.coordinatedChanges ?? []).filter((parts) => !parts.some(prohibited));
   const tabSpec = kb.tabs[tab];
   if (!tabSpec) throw new Error(`Unknown tab: ${tab}`);
 
@@ -87,6 +90,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // - 1-token UNREAD covers every content token; adjacent unread tokens are merged cleanly in to-sop.mjs.
   const activeCandidates = rawCandidates.filter((c) => {
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
+    if (c.kind !== HYP_KINDS.SEP && prohibited(c)) return false;
     if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier) return false;
     return true;
   });
@@ -159,7 +163,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const tSorts = byKind[HYP_KINDS.TARGET_SORT];
   const tFams = byKind[HYP_KINDS.TARGET_FAMILY];
   const tRefs = byKind[HYP_KINDS.TARGET_REF];
-  const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act));
+  const frameMatches = (lattice.frameMatches ?? []).filter((fm) => VALID_ACT_SET.has(fm.act) && !prohibited(fm));
   const propertyFrames = frameMatches.filter((fm) => fm.propertyOwnerMarker || fm.contextProperty);
   const grammarBetween = (left, right) => tokens.slice(left.endTok + 1, right.startTok)
     .every((token) => token.isGrammar && !token.isPunct);
@@ -221,6 +225,9 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     } else {
       emit(`(assert (and (= rstart_${r} 0) (= rend_${r} 0)))`);
     }
+    for (const scope of prohibitions) {
+      emit(`(assert (=> active_${r} (or (< rend_${r} ${scope.startTok}) (> rstart_${r} ${scope.endTok}))))`);
+    }
     emit(`(assert (=> (not active_${r}) (and (= rstart_${r} 0) (= rend_${r} 0) (= tpos_${r} (- 1)) (= ppos_${r} (- 1)) (= asked_${r} (- 1)) (not lookup_${r}) (not ident_${r}))))`);
 
     // Core w.request axioms from smt/axioms.smt2
@@ -238,9 +245,12 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // Allow 0-request pure-filler conversational circuits ("thanks, that works", "no problem, cheers")
   // ONLY when every content token is covered by FILLER; otherwise activate @r1.
   const canBeZeroReq = T > 0 && tokens.every((tok, idx) =>
-    !tok.isContent || tokCover[idx].some((c) => c.kind === HYP_KINDS.FILLER)
+    !tok.isContent || tokCover[idx].some((c) => c.kind === HYP_KINDS.FILLER) || prohibitions.some((span) =>
+      span.startTok <= idx && idx <= span.endTok)
   );
-  if (canBeZeroReq) {
+  if (prohibitions.length && !activeCandidates.some((c) => c.kind !== HYP_KINDS.FILLER && c.kind !== HYP_KINDS.SEP)) {
+    emit('(assert (not active_1))');
+  } else if (canBeZeroReq) {
     emit(`(assert-soft active_1 :weight ${W.zeroReqActivate})`);
   } else {
     emit(`(assert active_1)`);
@@ -1346,6 +1356,6 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     queryVars,
     blockVars,
     semanticBlockVars,
-    meta: { R, T, M, F, K, tab, tabSpec, previous, clock, elided, activeCandidates, outerFillerIds },
+    meta: { R, T, M, F, K, tab, tabSpec, previous, clock, elided, activeCandidates, outerFillerIds, prohibitions },
   };
 }

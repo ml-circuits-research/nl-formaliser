@@ -61,6 +61,10 @@ if (opts.dumpSmt && res.smt) {
   console.log('; === OUTPUT ===');
 }
 
+for (const scope of res.unresolved ?? []) {
+  console.error(`[unresolved ${scope.kind}] ${scope.text}`);
+}
+
 if (!res.ok) {
   console.error(`ERROR (${res.status}): ${res.error}`);
   process.exit(1);

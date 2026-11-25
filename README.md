@@ -26,6 +26,8 @@ node eval/benchmark.mjs --source test --limit 500 --seed 42 --workers 10 --spell
 node eval/benchmark.mjs --source keys --workers 10
 ```
 
+The result includes `unresolved` when the reader detects a directive prohibition that the current `w.request` contract cannot represent. Each entry carries its exact text and half-open character offsets in the original input. `status: "partial"` accompanies independently formalised clauses. When only the prohibition remains, the result has `status: "unknown"` and no SOP proposal. The text CLI prints this diagnostic to standard error.
+
 ## Documentation
 
 Full technical documentation lives in [`docs/`](docs/index.html) (static multi-page HTML, open directly in any browser):

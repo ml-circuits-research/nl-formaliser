@@ -5,14 +5,27 @@
 import { loadKnowledge } from './kb/load-worlds.mjs';
 import { buildLattice } from './lattice/candidates.mjs';
 import { independentChange, sharedResultReadings } from './lattice/shared-result.mjs';
+import { findDirectiveProhibitions, overlapsProhibition } from './lattice/prohibitions.mjs';
+import { tokenize } from './lattice/tokenize.mjs';
 import { encodeProblem } from './smt/encode.mjs';
 import { createZ3Runner } from './smt/z3-runner.mjs';
 import { shouldUseHierarchicalSegmenter, segmentClausesZ3 } from './smt/segment.mjs';
 import { modelToSop } from './emit/to-sop.mjs';
 import { createVerifier } from './verify/check.mjs';
-import { regroundSopToRaw } from './pipeline.mjs';
+import { buildCleanToRawAlignment, regroundSopToRaw } from './pipeline.mjs';
 import { estimateConfidence } from './confidence.mjs';
 import { fmtSopValue, unquoteSop } from './contracts.mjs';
+
+function unresolvedProhibitions(scopes, rawText, alignment) {
+  return scopes.map(({ start, end }) => {
+    if (alignment) {
+      const aligned = alignment.filter((token) => token.cleanStart < end && start < token.cleanEnd);
+      start = aligned[0]?.rawStart ?? 0;
+      end = aligned.at(-1)?.rawEnd ?? rawText.length;
+    }
+    return { kind: 'directive-prohibition', start, end, text: rawText.slice(start, end) };
+  });
+}
 
 /**
  * Join separately solved circuits. Ordinary clauses keep their own spans;
@@ -156,7 +169,7 @@ export async function createFormaliser({
   }
 
   async function solveSharedResult(lattice, { tab, previous, clock, maxRequests, timeout, effWeights }) {
-    if (!verifier) return null;
+    if (!verifier || lattice.prohibitions.length) return null;
     const keys = kb.tabs[tab].keys;
     for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests)) {
       const results = [];
@@ -193,6 +206,7 @@ export async function createFormaliser({
     const exclusiveToks = new Set();
 
     for (const c of lattice.candidates) {
+      if (overlapsProhibition(c, lattice.prohibitions)) continue;
       if (c.kind === 'TARGET_SORT') {
         for (let t = c.startTok; t <= c.endTok; t++) sortToks.add(t);
       } else if (c.kind === 'TARGET_FAMILY') {
@@ -233,6 +247,7 @@ export async function createFormaliser({
   }
 
   async function solveHierarchical(text, lattice, { tab, previous, clock, timeout, effWeights }) {
+    if (lattice.prohibitions.length) return null;
     const segRes = await segmentClausesZ3(lattice, { kb, runner, timeout: Math.min(1500, timeout) });
     if (!segRes.ok || segRes.segments.length <= 1) return null;
 
@@ -296,15 +311,32 @@ export async function createFormaliser({
     const t0 = performance.now();
     const rawText = String(text ?? '');
     const effWeights = callWeights ?? weights;
+    const rawTokens = tokenize(rawText, kb);
+    const prohibitions = findDirectiveProhibitions(rawTokens, kb);
+    let unresolved = unresolvedProhibitions(prohibitions, rawText);
+    const unresolvedFields = () => unresolved.length ? { unresolved } : {};
+    const isAutoTab = tab === null || tab === 'auto';
+    const unresolvedOnly = () => ({
+      ok: false, status: 'unknown', error: 'Unresolved directive prohibition', tab: isAutoTab ? null : tab,
+      sop: '', alternatives: [], proposals: [], objectives: [], elapsedMs: performance.now() - t0,
+      ...unresolvedFields(),
+    });
+    const entirelyProhibited = (tokens, scopes) => scopes.length && tokens.every((token, index) =>
+      !token.isContent || token.isFiller || overlapsProhibition({ startTok: index, endTok: index }, scopes));
+    if (entirelyProhibited(rawTokens, prohibitions)) {
+      return unresolvedOnly();
+    }
+    // Treat the raw prohibition as a scope boundary before any spelling rewrite.
+    const allowSpell = useSpell && prohibitions.length === 0;
 
     // Tab-agnostic multi-proposal mode (tab === null || tab === 'auto'):
     // Discovers all tabs dynamically from kb.tabs, ranks compatible worlds by lexical evidence,
     // solves each compatible world with Z3 using semantic blocking (diverse act/mood/family/mode),
     // and returns a ranked set of valid proposals without ever needing a tab hint!
-    if (tab === null || tab === 'auto') {
+    if (isAutoTab) {
       let preSpellRes = null;
       let cleanInput = rawText;
-      if (useSpell) {
+      if (allowSpell) {
         const checker = await getSpellChecker();
         preSpellRes = await checker.normalise(rawText, { topK: 2, timeout: Math.min(1800, timeout) });
         if (preSpellRes.ok && preSpellRes.changed && preSpellRes.cleanText) {
@@ -343,6 +375,7 @@ export async function createFormaliser({
           timeout: perTabTimeout,
           _useSemanticBlock: true,
         });
+        if (sub.unresolved?.length) unresolved = sub.unresolved;
         if (!sub.ok) continue;
 
         const subCircuits = [sub.sop, ...(sub.alternatives ?? [])].filter(Boolean);
@@ -368,13 +401,14 @@ export async function createFormaliser({
               warnings: warnCount,
               domainScore,
               rankInTab: ci,
+              ...unresolvedFields(),
             });
           }
         }
 
         // Dual-path spellcheck safety in multi-proposal mode: when Layer 1 edited the text,
         // also keep the raw-text #1 reading for the top 2 worlds so valid OOV nouns are never lost!
-        if (preSpellRes?.changed && ti < 2) {
+        if (preSpellRes?.changed && ti < 2 && !unresolved.length) {
           const rawSub = await formalise(rawText, {
             tab: candTab,
             previous,
@@ -443,9 +477,11 @@ export async function createFormaliser({
       }
 
       const top = proposals[0];
+      if (!top && unresolved.length) return unresolvedOnly();
       return {
         ok: Boolean(top),
-        status: top ? 'sat' : 'unknown',
+        status: top ? (unresolved.length ? 'partial' : 'sat') : 'unknown',
+        ...unresolvedFields(),
         sop: top?.sop ?? '',
         tab: top?.tab ?? null,
         alternatives: proposals.slice(1).map((p) => p.sop),
@@ -459,13 +495,13 @@ export async function createFormaliser({
     const useSemanticBlock = arguments[1]?._useSemanticBlock === true || topK > 1;
 
     // Optional Layer 1: Standalone Z3 Spellchecker (0.04 ms fast-path on clean inputs!)
-    let spellRes = arguments[1]?._preSpellRes ?? null;
+    let spellRes = prohibitions.length ? null : (arguments[1]?._preSpellRes ?? null);
     let workingText = rawText;
     if (spellRes) {
       if (spellRes.ok && spellRes.changed && spellRes.cleanText) {
         workingText = spellRes.cleanText;
       }
-    } else if (useSpell) {
+    } else if (allowSpell) {
       const checker = await getSpellChecker();
       spellRes = await checker.normalise(rawText, { topK: 2, timeout: Math.min(2000, timeout) });
       if (spellRes.ok && spellRes.changed && spellRes.cleanText) {
@@ -477,6 +513,13 @@ export async function createFormaliser({
     const effTopK = computeConf && topK < 2 && workingText.length <= 160 ? 2 : topK;
 
     const initialLattice = buildLattice(workingText, { tab, kb, previous, clock });
+    if (workingText !== rawText && initialLattice.prohibitions.length) {
+      const alignment = buildCleanToRawAlignment(workingText, spellRes.tokens);
+      unresolved = unresolvedProhibitions(initialLattice.prohibitions, rawText, alignment);
+      if (!alignment.length || !verifier || entirelyProhibited(initialLattice.tokens, initialLattice.prohibitions)) {
+        return unresolvedOnly();
+      }
+    }
     let sop = '';
     let alternatives = [];
     let objectives = [];
@@ -550,6 +593,7 @@ export async function createFormaliser({
             sop: '',
             alternatives: [],
             objectives: [],
+            ...unresolvedFields(),
             spell: spellRes,
             elapsedMs: performance.now() - t0,
             smt: dumpSmt ? runner.fullSmtDump(encoded.smtBody, encoded.queryVars) : undefined,
@@ -597,6 +641,7 @@ export async function createFormaliser({
           }),
         );
       } else {
+        if (unresolved.length) return unresolvedOnly();
         // Safety fallback: never violate 100% formal validity against rawText!
         let rawFallback = await solveSinglePass(rawText, {
           tab,
@@ -631,7 +676,7 @@ export async function createFormaliser({
     const checkResult = needCheck && verifier ? verifier.check(rawText, sop, tab) : undefined;
 
     const contentTokens = initialLattice.tokens.filter((tok) => tok.isContent && !tok.isFiller).length;
-    const confidence = computeConf
+    const confidence = computeConf && !unresolved.length
       ? estimateConfidence({
           text: rawText,
           sop,
@@ -650,11 +695,13 @@ export async function createFormaliser({
       sop: pSop,
       tab,
       objective: typeof objectives[idx] === 'number' ? objectives[idx] : null,
+      ...unresolvedFields(),
     }));
 
     return {
       ok: true,
-      status: 'sat',
+      status: unresolved.length ? 'partial' : 'sat',
+      ...unresolvedFields(),
       sop,
       tab,
       alternatives: emittedAlts,

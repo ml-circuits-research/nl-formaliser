@@ -776,6 +776,7 @@ function loadGrammar(parse, worldsDir) {
   const whWords = new Map();
   const auxiliaries = new Set();
   const negations = new Map();
+  const negativeImperative = { leads: [], skip: new Set() };
   const cues = [];
   const numbers = new Map();
   const ordinals = new Map();
@@ -929,6 +930,10 @@ function loadGrammar(parse, worldsDir) {
 
       if (w.type === 'w.lang.en.neg') {
         for (const t of texts) negations.set(t, { want: 'no' });
+      } else if (w.type === 'w.lang.en.neg.imperative') {
+        negativeImperative.leads.push(...texts.map((text) => text.split(/\s+/)));
+      } else if (w.type === 'w.lang.en.neg.imperative.skip') {
+        for (const t of texts) negativeImperative.skip.add(t);
       }
 
       if (w.type === 'w.lang.en.arrangement' && texts[0]) {
@@ -1196,6 +1201,7 @@ function loadGrammar(parse, worldsDir) {
     whWords,
     auxiliaries,
     negations,
+    negativeImperative,
     cues,
     numbers,
     ordinals,

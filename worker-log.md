@@ -33,3 +33,5 @@
 - 2026-11-25 — Q-NL-021 preserves individual existing targets under one shared trailing result. Seven emitted circuits round-trip through PSys2, including WebMeet `drawing/people-01.csv:46`. Serial suite 168/168. Review and the remaining proper-name hull issue are in `questions.md`.
 
 - 2026-11-25 — Q-NL-022 binds context properties to compatible typed results and preserves exact unsupported numeric operands. Five circuits round-trip through PSys2. Serial suite 182/182. The pinned 26-row dev cohort stays at 17/26 L3+L4. Requested review for Q022 and routed the Q023 negation scopes in `questions.md`.
+
+- 2026-11-25 — Q-NL-024 preserves unresolved directive prohibitions in the reader response and keeps independent affirmative requests in native SOP. Four WebMeet probes and the 195/195 serial suite pass their stated checks. Owner exclusion and native prohibition representation remain open. Requested review in `questions.md`.

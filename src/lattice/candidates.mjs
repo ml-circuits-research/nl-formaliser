@@ -14,6 +14,7 @@ import {
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
 import { matchFrames, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { findDirectiveProhibitions } from './prohibitions.mjs';
 
 // ---------------------------------------------------------------------------
 // Polymorphic KB accessors (compatible with Map, Set, Array, or plain Object)
@@ -3683,6 +3684,7 @@ export function buildLattice(text, { tab = 'drawing', kb = null, previous = null
     candidates,
     frameMatches,
     coordinatedChanges: pairResultativeFrames(rawFrameMatches),
+    prohibitions: findDirectiveProhibitions(tokens, kb),
     splitPoints,
     hasQuestionMark: src.includes('?'),
   };
