@@ -756,6 +756,16 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   const predicateRoles = new Map();
   const makePredicates = preds.filter((p) => p.declaredMake);
 
+  for (const dictated of constraints.filter((candidate) => candidate.dictatedContent)) {
+    const unanchored = constraints.filter((candidate) =>
+      candidate.attribute === dictated.attribute && !candidate.requiresKeyWord);
+    for (const candidate of unanchored) {
+      // A lexical fallback cannot append content to the same request when
+      // a selected dictation cue already supplies that property's value.
+      emit(`(assert (not (and sel_${dictated.id} sel_${candidate.id} (= own_${dictated.id} own_${candidate.id}))))`);
+    }
+  }
+
   for (const c of constraints) {
     const cFam = c.attrFamily ?? c.family ?? (c.attribute ? c.attribute.split('.')[0] : null);
     const cFamId = cFam ? famToId.get(cFam) : undefined;

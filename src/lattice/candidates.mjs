@@ -269,7 +269,7 @@ function normalizeCatalog(tabObj = {}) {
     const family = spec?.family ?? (k.includes('.') ? k.split('.')[0] : '');
     const head = spec?.head ?? 'span';
     const values = spec?.values ? new Set([...toArray(spec.values)].map((v) => String(v).toLowerCase())) : null;
-    keys.set(k, { name: k, family, head, values });
+    keys.set(k, { name: k, family, head, values, means: spec?.means });
   }
 
   const families = new Set(toArray(tabObj.families));
@@ -942,6 +942,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       requiresKeyWord: Boolean(extra.requiresKeyWord),
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       predicateRole: extra.predicateRole ?? null,
+      dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
       isAnchor: Boolean(extra.isAnchor),
       lookupWords: extra.lookupWords ?? null,
@@ -3672,8 +3673,40 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   const dictationCues = textCreationFrame?.parts[valueSlot - 1]?.words
     .filter((cue) => /^(?:that (?:says|reads)|says|with the text)$/.test(cue)) ?? [];
   if (dictationCues.length) {
-    const typedHeads = rawCandidates.filter(({ kind, family }) =>
-      [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(kind) && tabKeys.has(`${family}.content`));
+    const nounHeads = rawCandidates.filter(({ kind }) =>
+      [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(kind));
+    const nounStartOf = ({ detTok, startTok }) => detTok >= 0 ? detTok : startTok;
+    const bodyText = tabKeys.get('text.content')?.means;
+    const declaredContent = (head) => {
+      const content = `${head.family}.content`;
+      if (tabKeys.has(content)) return content;
+      const text = `${head.family}.text`;
+      return bodyText && tabKeys.get(text)?.means === bodyText ? text : null;
+    };
+    const contentAttribute = (head) => {
+      const content = declaredContent(head);
+      if (content) return content;
+      // In a compound such as "text box", a textual modifier licenses
+      // the declared written label of the selected diagram node.
+      if (head.family === 'node' && tabKeys.has('node.label') &&
+          !nounHeads.some((other) => other.startTok === head.startTok && other.endTok === head.endTok && declaredContent(other)) &&
+          nounHeads.some((modifier) => modifier.endTok + 1 === head.startTok &&
+            nounStartOf(modifier) === nounStartOf(head) && declaredContent(modifier))) return 'node.label';
+      return null;
+    };
+    const typedHeads = nounHeads.flatMap((head) => {
+      const attribute = contentAttribute(head);
+      return attribute ? [{ ...head, attribute }] : [];
+    });
+    const namedRefs = rawCandidates.filter(({ kind, name, isPronoun }) =>
+      kind === HYP_KINDS.TARGET_REF && name && !isPronoun);
+    const cues = new Map();
+    for (let start = 0; start < T; start++) {
+      for (const phrase of dictationCues) {
+        const length = phrase.split(' ').length;
+        if (spanTextLower(tokens, start, start + length - 1) === phrase) cues.set(start, length);
+      }
+    }
     const predicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
     const creations = predicates.filter(({ licensed }) => licensed?.some(({ act }) => act === 'make'));
     const targetStarts = new Set(rawCandidates.filter(({ kind }) =>
@@ -3684,17 +3717,19 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         (targetStarts.has(candidate.endTok + 1) || candidate.licensed?.some(({ act }) => ['undo', 'redo'].includes(act)))) ||
       typedHeads.some(({ detTok }) => detTok === cut.endTok + 1)).map(({ startTok }) => startTok));
     for (const head of typedHeads) {
-      const cueStart = head.endTok + 1;
-      const cue = dictationCues.find((phrase) => {
-        const length = phrase.split(' ').length;
-        return spanTextLower(tokens, cueStart, cueStart + length - 1) === phrase;
-      });
-      if (!cue) continue;
-      const nounStart = head.detTok >= 0 ? head.detTok : head.startTok;
+      let cueStart = head.endTok + 1;
+      let parent;
+      const parentKey = `${head.family}.parent`;
+      if (!cues.has(cueStart) && tabKeys.has(parentKey) && tokens[cueStart]?.lower === 'under') {
+        parent = namedRefs.find((ref) => ref.startTok === cueStart + 1 && cues.has(ref.endTok + 1));
+        if (parent) cueStart = parent.endTok + 1;
+      }
+      if (!cues.has(cueStart)) continue;
+      const nounStart = nounStartOf(head);
       const predicate = creations.find((candidate) => candidate.endTok < nounStart &&
         tokens.slice(candidate.endTok + 1, nounStart).every((token) => token.isGrammar && !token.isPunct));
       if (!predicate) continue;
-      const valStart = cueStart + cue.split(' ').length;
+      const valStart = cueStart + cues.get(cueStart);
       if (valStart >= T || tokens[valStart].isPunct) continue;
       let valEnd = valStart;
       if (tokens[valStart].kind !== 'quote') {
@@ -3702,7 +3737,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
           valEnd++;
         }
       }
-      const attr = `${head.family}.content`;
+      const attr = head.attribute;
       emit({
         kind: HYP_KINDS.KEY_WORD,
         startTok: cueStart,
@@ -3715,8 +3750,13 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
         src.slice(tokens[valStart].start, tokens[valEnd].end);
       if (!value.trim()) continue;
       emitConstraint(attr, value, valStart, valEnd, {
-        phase: 'result', requiresKeyWord: true, predicateRole: predicate.startTok, cost: 1,
+        phase: 'result', requiresKeyWord: true, predicateRole: predicate.startTok, dictatedContent: true, cost: 1,
       });
+      if (parent) {
+        emitConstraint(parentKey, parent.name, head.endTok + 1, parent.endTok, {
+          phase: 'result', words: parent.text, cost: 1,
+        });
+      }
     }
   }
 
@@ -3792,6 +3832,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.isPropertyOwner ? 1 : 0,
       c.requiresKeyWord ? 1 : 0,
       c.predicateRole ?? '',
+      c.dictatedContent ? 1 : 0,
       c.creationOnly ? 1 : 0,
       c.pairedConstraints ? JSON.stringify(c.pairedConstraints) : '',
       c.attrs ? c.attrs.join(',') : '',

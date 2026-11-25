@@ -185,7 +185,8 @@ test('declared dictation cues bind literal contents without swallowing names or 
     for (const [text, value, cue] of cases) {
       const best = (await reader.propose(text)).candidates[0];
       assert.equal(best.check.ok, true, text);
-      assert.ok(best.sop.includes(`attribute=section.content value=${value} operator=eq phase=result key_words="${cue}"`), best.sop);
+      assert.ok(['section.content', 'block.text'].some((attribute) =>
+        best.sop.includes(`attribute=${attribute} value=${value} operator=eq phase=result key_words="${cue}"`)), best.sop);
     }
     const named = (await reader.propose('Add a heading called Scope.')).candidates[0];
     assert.match(named.sop, /attribute=(?:section|block)\.name value=Scope\b/);
@@ -193,14 +194,38 @@ test('declared dictation cues bind literal contents without swallowing names or 
 
     const compound = (await reader.propose('Add a page and a heading that says Scope, flush with the top edge')).candidates[0];
     assert.equal(compound.check.ok, true);
-    assert.match(compound.sop, /@r2\.c\d+ .*attribute=section\.content value=Scope\b/);
+    assert.match(compound.sop, /@r2\.c\d+ .*attribute=(?:section\.content|block\.text) value=Scope\b/);
     assert.match(compound.sop, /@r2\.c\d+ .*attribute=section\.order value=top\b/);
     assert.doesNotMatch(compound.sop, /attribute=section\.(?:name|id)\b/);
 
     const later = (await reader.propose('Add a paragraph that says Welcome and delete the heading')).candidates[0];
     assert.equal(later.check.ok, true);
-    assert.match(later.sop, /attribute=section\.content value=Welcome\b/);
+    assert.match(later.sop, /attribute=(?:section\.content|block\.text) value=Welcome\b/);
     assert.match(later.sop, /@r2 w\.request\.request act=remove\b/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('dictation follows the declared text carrier and keeps an explicit parent separate', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const block = (await reader.propose('insert a paragraph block under Intro that says Main, level 3, and answers to the parent name')).candidates[0];
+    assert.equal(block.check.ok, true);
+    assert.match(block.sop, /attribute=block\.parent value=Intro\b/);
+    assert.match(block.sop, /attribute=block\.text value=Main\b/);
+    assert.match(block.sop, /attribute=block\.level value="3"/);
+    assert.equal((block.sop.match(/attribute=block\.text\b/g) ?? []).length, 1);
+
+    const box = (await reader.propose('add a text box that says served by the morning crew')).candidates[0];
+    assert.equal(box.check.ok, true);
+    assert.match(box.sop, /attribute=node\.label value="served by the morning crew"/);
+    assert.doesNotMatch(box.sop, /attribute=block\.text\b/);
+
+    const heading = (await reader.propose('start a new page, add a heading box that says Scopa, and put it on the top edge')).candidates[0];
+    assert.equal(heading.check.ok, true);
+    assert.match(heading.sop, /@r2\.c\d+ .*attribute=node\.label value=Scopa\b/);
+    assert.match(heading.sop, /@r3\.l\d+ .*from=any words=it\b/);
   } finally {
     await reader.close();
   }
