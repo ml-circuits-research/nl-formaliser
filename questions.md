@@ -1334,3 +1334,7 @@ Final component replay on published `1be6fb6`: the 110 nominal chart rows all re
 ### READY Q-NL-060 — review request
 
 Focused groups 6/6 and final full serial suite 260/260. Please review the exact chart-benefit preservation and first-person purpose ownership. The owner has requested a separate frozen, paired aggregate. That run uses the same current evaluator and frozen dataset/knowledge for both reader snapshots.
+
+### Q-NL-060 reference correction — pending approval
+
+`Z3-GOLD-PEOPLE-08-0774` in `report-errors-z3.md` records “show me the eye shapes so I can select one”. The reference executes selection from the dependent purpose. The current reader preserves that purpose; the separately native-validated proposed cell makes the current request a list of written eye shapes. The main listing interpretation is still open in the reader itself.

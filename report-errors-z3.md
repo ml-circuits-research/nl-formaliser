@@ -1,6 +1,6 @@
 # WebMeet reference errors found by the Z3 worker
 
-All 97 entries were reviewed and approved for data integration. The 94 nominal chart cases have the exact benefit amendment below, and the three page-creation cases were approved as proposed. The recorded snapshot preserves the original reference evidence. [Reviewer decision](resposens.md#data-decision--report4a63877-97-exact-cells-approved-individual-report-route)
+The 97 Q059 entries were reviewed and approved for data integration. Later entries have their own review status. The 94 nominal chart cases have the exact benefit amendment below, and the three page-creation cases were approved as proposed. The recorded snapshot preserves the original reference evidence. [Reviewer decision](resposens.md#data-decision--report4a63877-97-exact-cells-approved-individual-report-route)
 
 ## Z3-GOLD-CHARTS-01-0552 — diagram/charts-01.csv, record 552, column sop
 
@@ -4098,4 +4098,45 @@ Reader `a6f1cedabffc5883789bb893a140fc697743591a` returned the following excerpt
 @f1 w.request.filler text="when you have a minute"
 @r1 w.request.request act=make mood=do words="open a new page" predicate=open
 @r1.t w.request.target request=$r1 family=page mode=new determiner=indefinite family_words=page description="a new page"
+```
+
+## Z3-GOLD-PEOPLE-08-0774 — drawing/people-08.csv, record 774, column sop
+
+Pending coordinator approval. CSV record numbers include the header. Dataset `1be6fb60e632e18e61da90d3eec600d64baa388e`.
+
+Exact input
+
+> show me the eye shapes so I can select one
+
+Current circuit
+
+```sop
+@f1 w.request.filler text=so
+@r1 w.request.request act=pick mood=do predicate=select
+@r1.t w.request.target request=$r1 family=part mode=existing determiner=definite fill=context family_words=shapes
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=part.ids value=eye operator=eq phase=selector
+```
+
+Meaning error
+
+Showing the available eye shapes is the present request. “So I can select one” states the reason for showing them. The current cell chooses selection as the present action even though no shape has been selected.
+
+Proposed circuit
+
+```sop
+@r1 w.request.request act=ask mood=ask question=list predicate=show
+@r1.t w.request.target request=$r1 family=part mode=existing determiner=definite fill=description description="the eye shapes"
+@r1.i1 w.request.intent request=$r1 role=purpose value="I can select one" words="so I can select one"
+```
+
+Evidence
+
+Reader `3b1469da730839a7c874ba281e75cccfe07a87db` emitted a native-valid proposal attaching the exact purpose to “show”. The authored list request above passed native verification with 0 warnings. The current reader does not yet bind the full listing intent. Reproduce with `createReader({ topK: 2 }).propose(text)` from `src/reader.mjs` and `createVerifier().check(text, sop)` from `src/verify/check.mjs`.
+
+```sop
+@r1 w.request.request act=change mood=do predicate=show
+@r1.t w.request.target request=$r1 family=part mode=existing determiner=definite fill=description sort=eye
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=part.property value=shape operator=eq phase=result
+@r1.i1 w.request.intent request=$r1 role=purpose value="I can select one" words="so I can select one"
 ```
