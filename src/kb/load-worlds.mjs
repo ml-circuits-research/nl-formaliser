@@ -786,6 +786,7 @@ function loadGrammar(parse, worldsDir) {
   const lexicons = new Map(); // name -> Set<string>
   const phraseGroups = new Map(); // group -> Set<string>
   const frames = new Map(); // name -> { name, act, mode, priority, roles, parts, fixed, sourceShard }
+  const constructions = new Set();
   const roleMaps = new Map(); // `${act}.${role}` -> { act, role, actRole, marker, takes }
   const modeMaps = new Map(); // `${act}.${mode}` -> meansAct
   const ellipsis = {
@@ -1062,6 +1063,9 @@ function loadGrammar(parse, worldsDir) {
         for (const canonical of many(w, 'canonical')) addToSetMap(ellipsis.verbVariants, frame, canonical);
       } else if (w.type === 'w.lang.en.coord.sep' && many(w, 'in').includes('things')) {
         for (const text of texts) coordinators.add(text);
+      } else if (w.type === 'w.lang.en.construction') {
+        const name = one(w, 'name');
+        if (name) constructions.add(name);
       }
 
       if (w.type === 'w.lang.en.calc' && texts[0]) {
@@ -1201,6 +1205,7 @@ function loadGrammar(parse, worldsDir) {
     lexicons,
     phraseGroups,
     frames,
+    constructions,
     roleMaps,
     modeMaps,
     ellipsis,

@@ -4,6 +4,7 @@
 
 import { loadKnowledge } from './kb/load-worlds.mjs';
 import { buildLattice } from './lattice/candidates.mjs';
+import { independentChange, sharedResultReadings } from './lattice/shared-result.mjs';
 import { encodeProblem } from './smt/encode.mjs';
 import { createZ3Runner } from './smt/z3-runner.mjs';
 import { shouldUseHierarchicalSegmenter, segmentClausesZ3 } from './smt/segment.mjs';
@@ -14,10 +15,10 @@ import { estimateConfidence } from './confidence.mjs';
 import { fmtSopValue, unquoteSop } from './contracts.mjs';
 
 /**
- * Stitch multiple per-clause SOP circuits (from Stage-1 Z3 hierarchical segmentation)
- * into a single canonical multi-request SOP Lang circuit with non-overlapping tight `words="..."`.
+ * Join separately solved circuits. Ordinary clauses keep their own spans;
+ * clauses with a shared result use their source hulls.
  */
-function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse }) {
+function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse, sharedHull = false }) {
   const outLines = [];
   if (previous) outLines.push(`@prev w.request.previous text=${fmtSopValue(previous)}`);
   if (clock?.now && clock?.timezone) {
@@ -86,6 +87,8 @@ function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse 
       const pairs = [];
       let hasWords = false;
       for (const [k, vals] of Object.entries(w.attrs)) {
+        if (sharedHull && w.type === 'w.request.request' &&
+            (k === 'words' || (k === 'predicate' && newId !== 'r1'))) continue;
         if (k === 'words') hasWords = true;
         for (const rawV of vals) {
           if (k === 'request' && String(rawV).startsWith('$')) {
@@ -99,8 +102,13 @@ function stitchClauseCircuits(clauseResults, { fullText, previous, clock, parse 
           }
         }
       }
-      if (w.type === 'w.request.request' && multiTotal && !hasWords && cr.clauseText && cr.clauseText !== fullText && fullText.includes(cr.clauseText)) {
-        pairs.push(['words', fmtSopValue(cr.clauseText)]);
+      if (w.type === 'w.request.request') {
+        if (sharedHull) {
+          if (cr.requestWords !== fullText) pairs.push(['words', fmtSopValue(cr.requestWords)]);
+          pairs.push(['words_origin', 'hull']);
+        } else if (multiTotal && !hasWords && cr.clauseText && cr.clauseText !== fullText && fullText.includes(cr.clauseText)) {
+          pairs.push(['words', fmtSopValue(cr.clauseText)]);
+        }
       }
       outLines.push(`@${newId} ${w.type} ${pairs.map(([k, v]) => `${k}=${v}`).join(' ')}`);
     }
@@ -145,6 +153,36 @@ export async function createFormaliser({
       timeout,
     });
     return { lattice, encoded, solved };
+  }
+
+  async function solveSharedResult(lattice, { tab, previous, clock, maxRequests, timeout, effWeights }) {
+    if (!verifier) return null;
+    const keys = kb.tabs[tab].keys;
+    for (const { heads, predicate, values } of sharedResultReadings(lattice, kb.grammar, keys, maxRequests)) {
+      const results = [];
+      const targets = new Set();
+      let first;
+      for (const { owners, start, projectedText } of heads) {
+        const part = await solveSinglePass(projectedText, { tab, previous, clock, maxRequests: 1, topK: 1, timeout, effWeights });
+        if (!part.solved.ok) break;
+        const sop = modelToSop(part.solved.solutions[0], part.lattice, part.encoded.meta);
+        const check = verifier.check(projectedText, sop, tab);
+        if (!check.ok || check.warnings.length) break;
+        const change = independentChange(verifier.parse(sop), { owners, predicate, values, keys });
+        if (!change || targets.has(change.target)) break;
+        if (first && (first.effect !== change.effect || (first.property.shortName !== change.property.shortName &&
+            !(first.property.means && first.property.means === change.property.means)))) break;
+        targets.add(change.target);
+        first ??= change;
+        const hullStart = results.length === 0 ? predicate.start : start;
+        results.push({ sop, requestWords: lattice.text.slice(hullStart, change.resultEnd) });
+      }
+      if (results.length !== heads.length) continue;
+      const sop = stitchClauseCircuits(results, { fullText: lattice.text, previous, clock, parse: verifier.parse, sharedHull: true });
+      const check = verifier.check(lattice.text, sop, tab);
+      if (check.ok && !check.warnings.length) return { sop, requestCount: results.length };
+    }
+    return null;
   }
 
   function scoreTabLattice(lattice, tab, { clock } = {}) {
@@ -526,6 +564,16 @@ export async function createFormaliser({
         finalStats = { tokens: lattice.tokens.length, candidates: lattice.candidates.length, maxR: encoded.meta.R };
         if (dumpSmt) smtDump = runner.fullSmtDump(encoded.smtBody, encoded.queryVars);
       }
+    }
+
+    const shared = await solveSharedResult(initialLattice, { tab, previous, clock, maxRequests, timeout, effWeights });
+    if (shared) {
+      alternatives.unshift(sop);
+      sop = shared.sop;
+      // The projected requests have separate optimization objectives. The
+      // unchanged model keeps its own objective as an alternative.
+      objectives = [null, ...objectives];
+      finalStats.maxR = Math.max(finalStats.maxR, shared.requestCount);
     }
 
     // If Layer 1 Spellchecker edited the text, project all emitted surface spans back to exact rawText substrings

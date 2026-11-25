@@ -29,3 +29,5 @@
 - 2026-11-25 — The pinned WebMeet 1% run through Q-NL-017 has 658/1892 L3+L4 versus 656/1892 through Q014. L1c is 603 versus 610 and L1b is 96 versus 89. Full table in the plan and review notes in `questions.md`.
 
 - 2026-11-25 — Q-NL-020 grounds written spatial selectors for existing owners and keeps `remove` distinct from `move`. Serial suite 151/151. In the 18 affected rows of the pinned 300-row dev sample, L3+L4 stayed 8/18 and one row moved from L1d to L1c. Requested review in `questions.md`.
+
+- 2026-11-25 — Q-NL-021 preserves individual existing targets under one shared trailing result. Seven emitted circuits round-trip through PSys2, including WebMeet `drawing/people-01.csv:46`. Serial suite 168/168. Review and the remaining proper-name hull issue are in `questions.md`.
