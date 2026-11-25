@@ -941,3 +941,63 @@ test('chart field roles distinguish primary grouping, series and colour encoding
     await reader.close();
   }
 });
+
+test('scatter against binds both written axes and keeps chart qualifiers separate', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    const fields = (await reader.propose('Display profit against sales, coloured by region in a scatter plot')).candidates[0];
+    assert.ok(fields.check.ok, fields.sop);
+    assert.match(fields.sop, /family=chart mode=new/);
+    assert.match(fields.sop, /@r1\.c\d+ .*chart\.yField value=profit .*phase=result/);
+    assert.match(fields.sop, /@r1\.c\d+ .*chart\.xField value=sales .*phase=result/);
+    assert.match(fields.sop, /@r1\.c\d+ .*chart\.colourBy value=region/);
+    assert.doesNotMatch(fields.sop, /chart\.dimension value=sales|chart\.measure value=profit/);
+
+    const restricted = await reader.propose('Make a scatter plot of profit plotted against sales for the north region only');
+    assert.equal(restricted.status, 'partial');
+    const qualified = restricted.candidates[0];
+    assert.ok(qualified.check.ok, qualified.sop);
+    assert.match(qualified.sop, /chart\.xField value=sales [^\n]+key_words="plotted against"/);
+    assert.match(qualified.sop, /text="for the north region only" note="scatter qualifier"/);
+    assert.doesNotMatch(qualified.sop, /chart\.measure value="north region only"/);
+
+    const quoted = (await reader.propose('Create a scatter plot of "Profit and Margin" against "Net sales"; then draw a dog')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /@r1\.c\d+ .*chart\.yField value="Profit and Margin"/);
+    assert.match(quoted.sop, /@r1\.c\d+ .*chart\.xField value="Net sales"/);
+    assert.match(quoted.sop, /@r2\.t .*sort=dog/);
+
+    const other = (await reader.propose('Create a bar chart of profit against sales')).candidates[0];
+    assert.ok(other.check.ok, other.sop);
+    assert.doesNotMatch(other.sop, /attribute=chart\.[xy]Field/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('hierarchical segmentation retains a dependent read clause on its chart edit', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    const dependent = await reader.propose('Put the legend on the left side of the Revenue by region chart, so the manager can read it, then draw a dog.');
+    assert.equal(dependent.status, 'partial');
+    const result = dependent.candidates[0];
+    assert.ok(result.check.ok, result.sop);
+    assert.match(result.sop, /@r1\.t .*description="the Revenue by region chart"/);
+    assert.match(result.sop, /@r1\.c\d+ .*chart\.legend value=left words="left side"/);
+    assert.match(result.sop, /@r1\.u\d+ .*text="so the manager can read it"/);
+    assert.match(result.sop, /@r2\.t .*sort=dog/);
+    assert.doesNotMatch(result.sop, /act=load|@r3 w\.request/);
+
+    const independent = (await reader.propose('Put the legend on the left side of the Revenue by region chart, then read the Sales report, then draw a dog.')).candidates[0];
+    assert.ok(independent.check.ok, independent.sop);
+    assert.match(independent.sop, /@r2 w\.request\.request act=load .*predicate=read/);
+    assert.match(independent.sop, /@r3\.t .*sort=dog/);
+
+    const quoted = (await reader.propose('Add a heading called "so the manager can read it"; then draw a dog.')).candidates[0];
+    assert.ok(quoted.check.ok, quoted.sop);
+    assert.match(quoted.sop, /value="so the manager can read it"/);
+    assert.doesNotMatch(quoted.sop, /act=load|w\.request\.unread/);
+  } finally {
+    await reader.close();
+  }
+});

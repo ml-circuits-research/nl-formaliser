@@ -74,7 +74,7 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     if (c.kind === HYP_KINDS.GRAMMAR) return false;
     if (c.kind !== HYP_KINDS.SEP && excluded(c)) return false;
     if (c.kind === HYP_KINDS.UNREAD && c.endTok > c.startTok && !c.propertyQualifier &&
-        c.rolePredicate === undefined && c.chartEditPredicate === undefined) return false;
+        c.rolePredicate === undefined && c.chartEditPredicate === undefined && c.chartAxisPair == null) return false;
     return true;
   });
 
@@ -954,6 +954,26 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
 
   for (const readings of partOwners.values()) {
     emit(`(assert-soft ${smtOr(readings)} :weight ${W.partOwner})`);
+  }
+  const chartAxisPairs = new Map();
+  for (const candidate of activeCandidates) {
+    if (candidate.chartAxisPair == null) continue;
+    const pair = chartAxisPairs.get(candidate.chartAxisPair) ?? [];
+    pair.push(candidate);
+    chartAxisPairs.set(candidate.chartAxisPair, pair);
+  }
+  for (const pair of chartAxisPairs.values()) {
+    const axes = pair.filter(({ kind }) => kind === HYP_KINDS.CONSTRAINT);
+    if (axes.length !== 2) {
+      for (const candidate of pair) emit(`(assert (not sel_${candidate.id}))`);
+      continue;
+    }
+    const [left] = axes;
+    for (const operand of pair) {
+      if (operand === left) continue;
+      emit(`(assert (= sel_${left.id} sel_${operand.id}))`);
+      emit(`(assert (=> sel_${left.id} (= own_${left.id} own_${operand.id})))`);
+    }
   }
   for (const [startTok, readings] of predicateRoles) {
     const writtenPredicate = smtOr(Array.from({ length: R }, (_, i) => `(= ppos_${i + 1} ${startTok})`));

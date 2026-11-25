@@ -86,12 +86,23 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
   }
 
   const joiners = kb?.grammar?.joiners;
+  // Keep a scoped edit intact before re-reading the extracted sentence slices.
+  // A cut inside it would discard the field or turn a dependent verb into a command.
+  const chartScopes = candidates.filter((candidate) => candidate.chartEditEnd !== undefined)
+    .map((candidate) => ({ start: candidate.chartEditStart ?? candidate.startTok, end: candidate.chartEditEnd }));
+  for (const candidate of candidates) {
+    if (candidate.chartCreationScope) {
+      const [start, end] = candidate.chartCreationScope;
+      chartScopes.push({ start, end });
+    }
+  }
+  const cutsChartScope = (start, end) => chartScopes.some((scope) => start <= scope.end && end >= scope.start);
 
   // Collect atomic candidate split points (merging multi-token joins like ", and", ", then", "; then", "and then")
   const splitPoints = [];
   const usedTok = new Set();
   for (let i = 1; i < T - 1; i++) {
-    if (usedTok.has(i)) continue;
+    if (usedTok.has(i) || cutsChartScope(i, i)) continue;
     const tok = tokens[i];
     const next = tokens[i + 1];
 
@@ -102,6 +113,7 @@ export async function segmentClausesZ3(lattice, { kb, runner, timeout = 1500 } =
     if (
       next &&
       i + 1 < T - 1 &&
+      !cutsChartScope(i, i + 1) &&
       (((tok.text === ',' || tok.text === ';') && ['and', 'then', 'also', 'next', 'finally', 'plus', 'but'].includes(next.lower) && !(next.lower === 'next' && tokens[i + 2]?.lower === 'to')) ||
         (tok.lower === 'and' && ['then', 'also', 'next', 'finally'].includes(next.lower) && !(next.lower === 'next' && tokens[i + 2]?.lower === 'to')))
     ) {

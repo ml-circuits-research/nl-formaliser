@@ -95,3 +95,5 @@
 - 2026-11-25 — Q-NL-053 binds native legend visibility and position to chart edits and creations. Twenty-eight of 35 published probes preserve the intended legend effect and owner. Focused 7/7, full serial 249/249. Review requested in `questions.md`.
 
 - 2026-11-25 — Q-NL-054 distinguishes primary grouping, series source and colour encoding, with literal chart/field ownership. Twenty of 26 published probes retain the requested role. Focused 8/8, full serial 250/250. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-055 pairs native scatter X/Y source fields and preserves scoped chart clauses during hierarchical segmentation. Eleven of 16 published probes retain both fields; the exact dependent-read defect is covered. Focused 10/10, full serial 252/252. Review requested in `questions.md`.

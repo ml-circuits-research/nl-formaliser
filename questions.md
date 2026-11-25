@@ -1236,3 +1236,15 @@ All 26 selected `23f19aa` inputs from `diagram/charts-01.csv` native-validate. T
 ### READY Q-NL-054 — review request
 
 Focused chart groups 8/8 and final full serial suite 250/250. Please review and publish the scoped field roles, including the distinction between one distribution dimension and an additional series. In the owner output, keep these targeted results separate from the last aggregate L0–L4 table under Q045.
+
+## Q-NL-055 — Bind scatter source axes and keep dependent chart clauses in scope
+
+The reader now binds both source axes of a grounded scatter construction using the catalog's “salary against tenure” convention. The field before “against” supplies Y and the field after it supplies X, paired on the same new chart. It handles “plotted against”, field names in quotes, and a chart type that follows the operands. “Display profit against sales, coloured by region in a scatter plot” emits Y=profit, X=sales and colourBy=region. Explicit written regional qualifications such as “for the north region only” stay attached as exact unread evidence because there is no licensed filter binding in this scope. An independent drawing command remains separate. Ambiguous “versus” wording and non-scatter comparisons do not receive this directional reading.
+
+The earlier reviewer counterexample came from the hierarchical segmenter cutting a chart edit that the lattice had already scoped, then re-reading the detached reason as an imperative. Stage 1 now preserves those chart spans, including the anchored operands of scoped chart creation, before slicing. The exact Revenue by region example emits the legend position and the request-owned “so the manager can read it”, followed by the actual dog-creation request. It is partial and has no fabricated load. A genuinely independent “read the Sales report” still emits load, and a quoted heading with the same reason text retains its written title.
+
+All 16 selected `diagram/charts-01.csv` probes in published `23f19aa` native-validate. Eleven retain both written axes on the same new chart (`:3340,3341,3343,3344,3347,3348,3350,3357,3717,3724,3734`). Eight of those keep the exact regional clause unread, and three also retain the colour field. Row 3357 retains written `saels`; these are literal field-role checks. The other five (`:3354,3355,3356,3726,3730`) retain difficulties with indirect creation leads, narrative preambles and broader comparison syntax. The lexical inventory found 510 “against” and 123 “versus/vs” rows mentioning scatter across the pinned diagram CSVs, with possible overlap. These are candidate counts. Neither the lexical inventory nor the focused probes grade the entire utterance.
+
+### READY Q-NL-055 — review request
+
+Focused groups 10/10, final full serial suite 252/252, and final selected scatter run 16/16 native-valid with 11 paired axis results. Please independently review and publish the scatter bindings and Stage 1 scope safeguard. Include the exact dependent-read correction separately from the historical L0–L4 aggregate under Q045.
