@@ -282,3 +282,497 @@ Reader baseline `7ff9a64`, canonical `3b2deebd`, WebMeet `3d13d9b`. The loader r
 The targeted disjoint comparison excluded every seed-42 holdout text, used the same committed WebMeet revision for both readers, and selected records matching the new candidate shape before grading. Five Drawing records matched the filter after screening 11,205 distinct candidate utterances across Drawing and Diagram. No Diagram row met that filter. Existing tab-agnostic Z3 grading improved from 0/5 to 3/5 L3+L4. `drawing/people-03.csv#46`, `drawing/scenes-03.csv#792` and `drawing/scenes-03.csv#1114` move L1d→L4. The pink/orange gradient and the smile/frown case retain their grades. This is a targeted comparison. The latest 1% score is still the earlier 656/1,892 measurement through Q014.
 
 The final `npm test` passed 141/141, and `git diff --check` passed. One earlier run hit an intermittent SMT parser error in an unchanged numeric control and a fresh full run passed. Shared trailing values, longer nested selectors and open-valued effects remain open. I request review of `src/kb/load-worlds.mjs`, `src/lattice/{candidates,frames}.mjs`, `src/smt/{encode.mjs,weights.json}`, `src/emit/to-sop.mjs` and `test/coordinated-frames.test.mjs`.
+
+## Q-NL-018 — Preserve both targets when one written value applies to them
+
+`Paint the door and the window blue` currently leads with a single edit on the door. `coord.shared-suffix` already declares the grammatical reading of one shared trailing result per coordinated owner. I tested two representations with the reader at `a6ed12b`, canonical `3b2deebd` and PSys2 `c6b87bb09`.
+
+One `change` request with two distinct `w.request.target` wires (`sort=door`, `sort=window`) and one owned `drawn.colour=blue` result passes `createVerifier().check` with zero errors or warnings. I round-tripped that exact circuit through `psys2/official-dataset/sop_dataset.py` using `parse` and `render`. The parsed singleton `target` contains only `window`, and the rendered circuit drops `door`. Two independent narrow request spans with the shared value copied into both fail verification because `blue` is outside the first request's written span.
+
+Please route the multi-target interpretation through the shared request, codec and executor owners. Confirm the intended representation and preserve each target and the scope of its shared result through a codec round trip and actual application. Include the same effect on two IDs, distinct owner types, and one owner with separate modifiers as controls. The reader can then implement the canonical interpretation and its evidence rules. I did not modify either repository or publish an executable multi-target request. Q017 already handles two owner/value pairs whose results each have their own written evidence.
+
+## EVIDENCE Q-NL-016 — Twelve disjoint development cases for independent review
+
+Reader commit `7ff9a64`, canonical `3b2deebd`, published WebMeet `3d13d9b`. The existing dev selection uses seed 1337, first 250 after excluding every exact text in the seed-42 1% holdout. The existing tab-agnostic Z3 grader selected the displayed emitted proposal, with up to eight proposals and two per tab. File identities use CSV record numbers including the header. These are reviewer inputs. Flag names and grades are automatic diagnostics awaiting independent adjudication. Some cases have grade L4 because semantic equivalence can accept a proposal while the reference diagnostics still flag its comparison.
+
+### Case 1 — `diagram/nodes-02.csv#3458`
+
+Stratum `gold_hull_overlap`. Grade `L1b`. Flags `gold_left_unread`, `gold_hull_overlap`.
+
+Original utterance
+
+````text
+use two-line spacing for the body content, then group it with the box
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text=then
+@r1 w.request.request act=change mood=do predicate=use
+@r1.t w.request.target request=$r1 family=node mode=existing determiner=definite fill=description sort=text sort_words=content description="the body content"
+@r1.u1 w.request.unread request=$r1 text="two-line spacing" note=node.lineSpacing value=double
+@r2 w.request.request act=group mood=do words="then group it with the box" predicate=group
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=definite fill=description description=it family_words=box
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=place mode=arrange mood=do words="use two-line spacing for the body content" predicate=spacing
+@r1.t w.request.target request=$r1 family=chart mode=existing determiner=definite fill=context
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="body content" operator=eq phase=result
+@r1.u1 w.request.unread request=$r1 text="use two-line"
+@r2 w.request.request act=group mood=do words="group it with the box" predicate=group
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=definite fill=context family_words=box
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+````
+
+### Case 2 — `diagram/nodes-04.csv#111`
+
+Stratum `gold_hull_overlap`. Grade `L1c`. Flags `gold_uncovered_words`, `gold_hull_overlap`.
+
+Original utterance
+
+````text
+here is the plan: a braid diagram with over and under crossings, plus label the two strands, so it still fits on a single slide without crowding
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text=so
+@r1 w.request.request act=make mood=do predicate=label
+@r1.t w.request.target request=$r1 family=diagram mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=diagram.kind value=braid words="braid diagram" operator=eq phase=result open_value=true
+@r2 w.request.request act=change mood=do predicate=label
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=quantified fill=all
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=node.label value=strand words=strands operator=eq phase=result
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do words="here is the plan: a braid diagram with over and under crossings"
+@r1.t w.request.target request=$r1 family=diagram mode=new determiner=indefinite family_words=diagram description="a braid diagram"
+@r1.c1 w.request.constraint request=$r1 on=place attribute=node.position value=below words=under operator=relation phase=result
+@r1.c2 w.request.constraint request=$r1 on=place attribute=node.anchor value=crossings operator=relation phase=selector
+@r1.u1 w.request.unread request=$r1 text=plan
+@r2 w.request.request act=change mood=do words="label the two strands"
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=definite fill=context
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=node.label value="two strands" operator=eq phase=result key_words=label
+@r3 w.request.request act=place mood=do words="so it still fits on a single slide without crowding"
+@r3.t w.request.target request=$r3 family=node mode=existing determiner=definite fill=context
+@r3.l1 w.request.lookup request=$r3 target=$r3.t key=thing from=page
+@r3.c1 w.request.constraint request=$r3 on=place attribute=node.position value=on operator=relation phase=result
+@r3.c2 w.request.constraint request=$r3 on=place attribute=node.anchor value="single slide without crowding" operator=relation phase=selector
+@r3.u1 w.request.unread request=$r3 text="still fits"
+````
+
+### Case 3 — `diagram/diagrams-03.csv#3571`
+
+Stratum `gold_hull_overlap`. Grade `L1c`. Flags `gold_left_unread`, `gold_hull_overlap`.
+
+Original utterance
+
+````text
+insert a picture, set height 6 cm, place it in the right corner and keep everything inside the page margins
+````
+
+Published reference
+
+````sop
+@r1 w.request.request act=make mood=do predicate=insert
+@r1.t w.request.target request=$r1 family=node mode=new determiner=indefinite sort=picture description="a picture"
+@r2 w.request.request act=change mood=do words="set height 6 cm" predicate=set
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=definite fill=context
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=node.height value="6 cm" operator=eq phase=result key_words=height
+@r3 w.request.request act=place mode=arrange mood=do words="place it in the right corner" predicate=place
+@r3.t w.request.target request=$r3 family=node mode=existing determiner=definite fill=context
+@r3.l1 w.request.lookup request=$r3 target=$r3.t key=thing from=page
+@r3.c1 w.request.constraint request=$r3 on=attribute attribute=node.x value=right words="the right corner" operator=eq phase=result
+@r3.c2 w.request.constraint request=$r3 on=attribute attribute=node.y value=top words="the right corner" operator=eq phase=result
+@r4 w.request.request act=place mode=arrange mood=do words="and keep everything inside the page margins" predicate=keep
+@r4.t w.request.target request=$r4 family=page mode=existing determiner=definite fill=context family_words=page
+@r4.l1 w.request.lookup request=$r4 target=$r4.t key=thing from=page
+@r4.u1 w.request.unread request=$r4 text="the page margins" note=node.margin value="page margins"
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do words="insert a picture" predicate=insert
+@r1.t w.request.target request=$r1 family=node mode=new determiner=indefinite
+@r1.u1 w.request.unread request=$r1 text=picture
+@r2 w.request.request act=place mood=do words="set height 6 cm, place it in the right corner and keep everything inside the page margins" predicate=set
+@r2.t w.request.target request=$r2 family=node mode=existing determiner=quantified fill=all quantifier=everything
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=node.height value="6" operator=eq phase=selector measure=6 measure_words="6 cm" unit=cm key_words=height
+@r2.c2 w.request.constraint request=$r2 on=attribute attribute=node.keep value=place operator=eq phase=selector
+@r2.c3 w.request.constraint request=$r2 on=place attribute=node.position value=in operator=relation phase=selector
+@r2.c4 w.request.constraint request=$r2 on=place attribute=node.anchor value="right corner and keep" operator=relation phase=selector
+@r2.c5 w.request.constraint request=$r2 on=place attribute=node.position value=in operator=relation phase=result
+@r2.c6 w.request.constraint request=$r2 on=place attribute=node.anchor value="page margins" operator=relation phase=selector
+````
+
+### Case 4 — `diagram/diagrams-01.csv#1439`
+
+Stratum `gold_bad_filler`. Grade `L4`. Flags `gold_bad_filler`.
+
+Original utterance
+
+````text
+next snap Approve and Ship to the same bottom line so the gap above them is even
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text="so the gap above them is even"
+@r1 w.request.request words="next snap Approve and Ship to the same bottom line" act=place mode=arrange mood=do predicate=snap
+@r1.t w.request.target request=$r1 family=node mode=existing determiner=definite fill=written name=Approve
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=node.ids value=Approve operator=eq phase=selector
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=node.ids value=Ship operator=eq phase=selector
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=node.edge value=bottom words="same bottom line" operator=eq phase=result
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=place mode=arrange mood=do predicate=snap
+@r1.t w.request.target request=$r1 family=group mode=existing determiner=definite fill=context
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=group.ids value=Approve value=Ship operator=eq phase=selector
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=node.edge value=bottom operator=eq phase=result
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.barGap value=very words=so operator=degree phase=result key_words=gap
+@r1.c4 w.request.constraint request=$r1 on=attribute attribute=chart.test value=above operator=eq phase=result
+@r1.u1 w.request.unread request=$r1 text=even
+````
+
+### Case 5 — `diagram/diagrams-03.csv#1435`
+
+Stratum `gold_bad_filler`. Grade `L1c`. Flags `gold_bad_filler`.
+
+Original utterance
+
+````text
+I walked the team through Sensor readings by depth this morning; nobody argued with the data, only with how it reads at a glance, so as a first pass make the colour map transparent to green, then we revisit next week and then show both grid lines
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text="walked the team through Sensor readings by depth this morning; nobody argued with the data, only with how it reads at a glance, so as a first pass"
+@f2 w.request.filler text="then we revisit next week and then"
+@r1 w.request.request act=change mood=do words="make the colour map transparent to green" predicate=make
+@r1.t w.request.target request=$r1 family=chart mode=existing determiner=definite fill=context
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.palette words="transparent to green" operator=eq phase=result key_words="colour map"
+@r2 w.request.request act=change mood=do words="show both grid lines" predicate=show
+@r2.t w.request.target request=$r2 family=chart mode=existing determiner=definite fill=context
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=chart.grid value=show operator=eq phase=result key_words="grid lines"
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do predicate=make words="I walked the team through Sensor readings by depth this morning; nobody argued with the data, only with how it reads at a glance, so as a first pass make the colour map transparent to green"
+@r1.t w.request.target request=$r1 family=node mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=group.id value="Sensor readings" operator=eq phase=result
+@r1.c2 w.request.constraint request=$r1 on=place attribute=node.position value=near words=by operator=relation phase=result
+@r1.c3 w.request.constraint request=$r1 on=place attribute=node.anchor value="depth this morning" operator=relation phase=selector
+@r1.c4 w.request.constraint request=$r1 on=attribute attribute=node.role value=data operator=eq phase=result
+@r1.c5 w.request.constraint request=$r1 on=attribute attribute=node.colour value=map operator=eq phase=result key_words=colour
+@r1.c6 w.request.constraint request=$r1 on=attribute attribute=node.opacity value=green operator=eq phase=result key_words=transparent
+@r1.u1 w.request.unread request=$r1 text="walked the team"
+@r1.u2 w.request.unread request=$r1 text=argued
+@r1.u3 w.request.unread request=$r1 text=only
+@r1.u4 w.request.unread request=$r1 text=reads
+@r1.u5 w.request.unread request=$r1 text=glance
+@r1.u6 w.request.unread request=$r1 text="first pass"
+@r2 w.request.request act=make mood=do words="we revisit"
+@r2.t w.request.target request=$r2 family=node mode=new determiner=indefinite
+@r2.u1 w.request.unread request=$r2 text=revisit
+@r3 w.request.request act=change mood=do words=week
+@r3.t w.request.target request=$r3 family=chart mode=existing determiner=definite fill=context
+@r3.l1 w.request.lookup request=$r3 target=$r3.t key=thing from=page
+@r3.c1 w.request.constraint request=$r3 on=attribute attribute=chart.period value=week operator=eq phase=result
+@r4 w.request.request act=change mood=do predicate=show words="show both grid lines"
+@r4.t w.request.target request=$r4 family=chart mode=existing determiner=quantified fill=all quantifier=both
+@r4.c1 w.request.constraint request=$r4 on=attribute attribute=chart.type value=line operator=eq phase=result key_words=grid
+````
+
+### Case 6 — `diagram/charts-04.csv#3495`
+
+Stratum `gold_bad_filler`. Grade `L2a`. Flags `gold_left_unread`, `gold_bad_filler`.
+
+Original utterance
+
+````text
+do the marker outlines as thick as possible on the order scatter plus can you make the marker interval maxed out?
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text=plus
+@r1 w.request.request act=change mood=do words="do the marker outlines as thick as possible on the order scatter" predicate=do
+@r1.t w.request.target request=$r1 family=chart mode=existing determiner=definite fill=written name="order scatter"
+@r1.u1 w.request.unread request=$r1 text="marker outlines as thick as possible" note=chart.marker.edge.width value=max
+@r2 w.request.request act=change mood=do words="can you make the marker interval maxed out?" predicate=make
+@r2.t w.request.target request=$r2 family=chart mode=existing determiner=definite fill=context
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=chart.markerInterval value=max words="marker interval maxed out" operator=eq phase=result key_words="marker interval"
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=change mood=do predicate=make
+@r1.t w.request.target request=$r1 family=chart mode=existing determiner=definite fill=context description="order scatter"
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.effect value=outline operator=eq phase=selector
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.markerSize value=thick operator=degree phase=selector key_words=marker
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.markerType value=plus operator=eq phase=result
+@r1.c4 w.request.constraint request=$r1 on=attribute attribute=chart.markerEdge value="interval maxed out" operator=eq phase=result key_words=marker
+@r1.u1 w.request.unread request=$r1 text=possible
+````
+
+### Case 7 — `drawing/scenes-11.csv#866`
+
+Stratum `gold_left_unread`. Grade `L1c`. Flags `gold_uncovered_words`, `gold_left_unread`.
+
+Original utterance
+
+````text
+instead, a small dog down at the bottom, next slide the boy in the orange shirt all the way to the far left end, then slide the girl in the purple shirt to the far right end, so they are well apart — keep the rest as it is
+````
+
+Published reference
+
+````sop
+@f1 w.request.filler text=then
+@f2 w.request.filler text="so they are well"
+@f3 w.request.filler text="keep the rest"
+@prev w.request.previous text="move the man in the red coat one spot left"
+@r1 w.request.request act=make mood=do words="a small dog down at the bottom"
+@r1.t w.request.target request=$r1 family=drawn mode=new determiner=indefinite sort=dog
+@r1.c91 w.request.constraint request=$r1 on=size attribute=drawn.size value=small operator=degree phase=result
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=drawn.at value=bottom words="down at the bottom" operator=region phase=result
+@r2 w.request.request act=change mood=do words="slide the boy in the orange shirt all the way to the far left end" predicate=slide
+@r2.t w.request.target request=$r2 family=drawn mode=existing determiner=definite fill=context sort=boy description="the boy in the orange shirt"
+@r2.u91 w.request.unread request=$r2 text="shirt all the way to the far" note=drawn.arrangement
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=drawn.direction value=left words="far left end" operator=eq phase=result
+@r2.c2 w.request.constraint request=$r2 on=attribute attribute=drawn.at value=left words="far left end" operator=region phase=result
+@r2.c3 w.request.constraint request=$r2 on=attribute attribute=drawn.colour value=orange operator=eq phase=selector
+@r3 w.request.request act=change mood=do words="slide the girl in the purple shirt to the far right end, so they are well apart" predicate=slide
+@r3.t w.request.target request=$r3 family=drawn mode=existing determiner=definite fill=context sort=girl description="the girl in the purple shirt"
+@r3.c1 w.request.constraint request=$r3 on=attribute attribute=drawn.direction value=right words="far right end" operator=eq phase=result
+@r3.c2 w.request.constraint request=$r3 on=attribute attribute=drawn.at value=right words="far right end" operator=region phase=result
+@r3.c3 w.request.constraint request=$r3 on=attribute attribute=drawn.colour value=purple operator=eq phase=selector
+````
+
+Emitted proposal selected for grading
+
+````sop
+@prev w.request.previous text="move the man in the red coat one spot left"
+@r1 w.request.request act=make mood=do words="instead, a small dog down at the bottom"
+@r1.t w.request.target request=$r1 family=drawn mode=new determiner=indefinite sort=dog
+@r1.c1 w.request.constraint request=$r1 on=size attribute=drawn.size value=small operator=degree phase=result
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=drawn.at value=bottom operator=region phase=result
+@r2 w.request.request act=place mood=do predicate=slide words="slide the boy in the orange shirt all the way to the far left end"
+@r2.t w.request.target request=$r2 family=drawn mode=existing determiner=definite fill=all sort=boy quantifier=all
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=drawn.color value=orange operator=eq phase=result
+@r2.c2 w.request.constraint request=$r2 on=attribute attribute=drawn.wear value=shirt operator=eq phase=result
+@r2.c3 w.request.constraint request=$r2 on=size attribute=drawn.size value=far operator=degree phase=result
+@r2.c4 w.request.constraint request=$r2 on=attribute attribute=drawn.direction value=left operator=eq phase=result
+@r2.c5 w.request.constraint request=$r2 on=attribute attribute=drawn.align value=end operator=eq phase=result
+@r2.u1 w.request.unread request=$r2 text=way
+@r3 w.request.request act=place mood=do predicate=slide words="slide the girl in the purple shirt to the far right end"
+@r3.t w.request.target request=$r3 family=drawn mode=existing determiner=definite fill=description sort=girl
+@r3.c1 w.request.constraint request=$r3 on=attribute attribute=drawn.colour value=purple operator=eq phase=result
+@r3.c2 w.request.constraint request=$r3 on=attribute attribute=drawn.wear value=shirt operator=eq phase=result
+@r3.c3 w.request.constraint request=$r3 on=size attribute=drawn.size value=far operator=degree phase=result
+@r3.c4 w.request.constraint request=$r3 on=attribute attribute=drawn.direction value=right operator=eq phase=result
+@r3.c5 w.request.constraint request=$r3 on=attribute attribute=drawn.align value=end operator=eq phase=result
+@f1 w.request.filler text=well
+@r4 w.request.request act=remove mood=do predicate=keep words="so they are well apart — keep the rest as it is"
+@r4.t w.request.target request=$r4 family=drawn mode=existing determiner=definite fill=context
+@r4.l1 w.request.lookup request=$r4 target=$r4.t key=thing from=previous
+@r4.c1 w.request.constraint request=$r4 on=attribute attribute=drawn.distance words=apart operator=delta phase=result step=more
+@r4.u1 w.request.unread request=$r4 text=rest
+````
+
+### Case 8 — `diagram/nodes-04.csv#360`
+
+Stratum `gold_left_unread`. Grade `L4`. Flags `gold_uncovered_words`, `gold_left_unread`.
+
+Original utterance
+
+````text
+use a diagram to show how DNS resolves a name, for someone who has never seen it
+````
+
+Published reference
+
+````sop
+@r1 w.request.request act=make mood=do predicate=use
+@r1.t w.request.target request=$r1 family=diagram mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=diagram.kind value=diagram words="a diagram" operator=eq phase=result open_value=true
+@r1.u1 w.request.unread request=$r1 text="someone who has never seen it" note=diagram.audience value="someone who has never seen it"
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do
+@r1.t w.request.target request=$r1 family=diagram mode=new determiner=indefinite family_words=diagram
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=link.to value="show how DNS resolves" operator=eq phase=result
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=diagram.about value=someone operator=eq phase=result
+@r1.u1 w.request.unread request=$r1 text=use
+@r1.u2 w.request.unread request=$r1 text=name
+@r1.u3 w.request.unread request=$r1 text=seen
+````
+
+### Case 9 — `diagram/charts-05.csv#898`
+
+Stratum `gold_left_unread`. Grade `L1c`. Flags `gold_left_unread`.
+
+Original utterance
+
+````text
+Visualise a paired view of the regional revenue, this year against last year, two bars per region in a bar chart and make the bars blue
+````
+
+Published reference
+
+````sop
+@r1 w.request.request act=make mood=do words="Visualise a paired view of the regional revenue, this year against last year, two bars per region in a bar chart" predicate=Visualise
+@r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.type value=bar words="bar chart" operator=eq phase=result
+@r1.c4 w.request.constraint request=$r1 on=attribute attribute=chart.compare value=side_by_side words="this year against last year, two bars per region" operator=eq phase=result
+@r2 w.request.request act=change mood=do words="make the bars blue" predicate=make
+@r2.t w.request.target request=$r2 family=chart mode=existing determiner=definite fill=context
+@r2.l1 w.request.lookup request=$r2 target=$r2.t key=thing from=page
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=chart.colour value=blue operator=eq phase=result words="the bars blue"
+@r1.u2 w.request.unread request=$r1 text="Visualise a paired view" note=chart.comparison
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.dimension value=region words=regional operator=eq phase=result key_words="per region"
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.measure value=revenue operator=eq phase=result
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do predicate=Visualise words="Visualise a paired view of the regional revenue"
+@r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.compare value=side_by_side words="paired view" operator=eq phase=result
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="regional revenue" operator=eq phase=result
+@r2 w.request.request act=change mood=do predicate=make words="this year against last year, two bars per region in a bar chart and make the bars blue"
+@r2.t w.request.target request=$r2 family=chart mode=existing determiner=definite fill=description sort=bar sort_words=bars family_words=bars count=2 count_words=two
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=chart.period value=year operator=eq phase=selector
+@r2.c2 w.request.constraint request=$r2 on=attribute attribute=chart.dimension value="last year" operator=eq phase=selector
+@r2.c3 w.request.constraint request=$r2 on=attribute attribute=chart.dimension value=region operator=eq phase=selector
+@r2.c4 w.request.constraint request=$r2 on=attribute attribute=chart.type value=bar operator=eq phase=selector
+@r2.c5 w.request.constraint request=$r2 on=attribute attribute=chart.colour value=blue operator=eq phase=result
+````
+
+### Case 10 — `document/text-06.csv#156`
+
+Stratum `gold_uncovered_words`. Grade `L1a`. Flags `gold_uncovered_words`.
+
+Original utterance
+
+````text
+if "onboarding guide" in the Summary isn't linked yet, add a link to https://wiki.example.com/onboarding
+````
+
+Published reference
+
+````sop
+@r1 w.request.request act=change mood=do predicate=add
+@r1.t w.request.target request=$r1 family=block mode=existing determiner=definite fill=written name=Summary
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=block.id value=Summary operator=eq phase=selector
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=block.mark value=link operator=eq phase=result
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=block.text value="onboarding guide" operator=eq phase=selector
+@r1.c4 w.request.constraint request=$r1 on=attribute attribute=block.attrs value="https://wiki.example.com/onboarding" operator=eq phase=result
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=connect mood=do words="\"onboarding guide\" in the Summary isn't linked yet" predicate=linked
+@r1.t w.request.target request=$r1 family=section mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=section.content value="onboarding guide" operator=eq phase=result
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=section.id value=Summary operator=eq phase=result
+@r1.u1 w.request.unread request=$r1 text=yet
+@r2 w.request.request act=make mood=do words="add a link to https://wiki" predicate=add
+@r2.t w.request.target request=$r2 family=inline mode=new determiner=indefinite
+@r2.c1 w.request.constraint request=$r2 on=attribute attribute=inline.link_target value=https operator=eq phase=result key_words=link
+@r2.u1 w.request.unread request=$r2 text=wiki
+@r3 w.request.request act=make mood=do words="example.com/onboarding"
+@r3.t w.request.target request=$r3 family=section mode=new determiner=indefinite
+@r3.u1 w.request.unread request=$r3 text=example
+@r3.u2 w.request.unread request=$r3 text=com
+@r3.u3 w.request.unread request=$r3 text=onboarding
+````
+
+### Case 11 — `diagram/nodes-04.csv#2633`
+
+Stratum `gold_uncovered_words`. Grade `L4`. Flags `gold_uncovered_words`.
+
+Original utterance
+
+````text
+not that one, the refund
+````
+
+Published reference
+
+````sop
+@prev w.request.previous text="the last diagram was about a different subject"
+@r1 w.request.request act=make mood=do predicate=not
+@r1.t w.request.target request=$r1 family=diagram mode=new determiner=indefinite
+````
+
+Emitted proposal selected for grading
+
+````sop
+@prev w.request.previous text="the last diagram was about a different subject"
+@r1 w.request.request act=change mood=do
+@r1.t w.request.target request=$r1 family=node mode=existing determiner=definite fill=context
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=previous
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=node.value value="1" words=one operator=eq phase=result want=no
+@r1.u1 w.request.unread request=$r1 text=refund
+````
+
+### Case 12 — `diagram/diagrams-01.csv#2996`
+
+Stratum `gold_uncovered_words`. Grade `L4`. Flags `gold_uncovered_words`, `gold_left_unread`.
+
+Original utterance
+
+````text
+stick to two colours for the whole diagram
+````
+
+Published reference
+
+````sop
+@r1 w.request.request act=change mood=do predicate=stick
+@r1.t w.request.target request=$r1 family=diagram mode=existing determiner=definite fill=context family_words=diagram
+@r1.l1 w.request.lookup request=$r1 target=$r1.t key=thing from=page
+@r1.u1 w.request.unread request=$r1 text="two colours" note=diagram.colour value="two colours"
+````
+
+Emitted proposal selected for grading
+
+````sop
+@r1 w.request.request act=make mood=do predicate=stick
+@r1.t w.request.target request=$r1 family=chart mode=new determiner=indefinite
+@r1.c1 w.request.constraint request=$r1 on=attribute attribute=chart.bins value="2" words=two operator=eq phase=result
+@r1.c2 w.request.constraint request=$r1 on=attribute attribute=chart.colour value=colours operator=eq phase=result
+@r1.c3 w.request.constraint request=$r1 on=attribute attribute=chart.measure value="whole diagram" operator=eq phase=result
+````
