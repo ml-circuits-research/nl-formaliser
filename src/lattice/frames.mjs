@@ -253,7 +253,17 @@ export function matchChartFieldAssignments(tokens, splitPoints, predicates, kb) 
   return [...byStart.values()];
 }
 
-export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
+export function matchZeroBasedAt(tokens, startTok) {
+  const first = tokens[startTok];
+  if (first?.kind !== 'word') return null;
+  if (first.lower === 'zero-based') return { startTok, endTok: startTok, value: '0', wordsStart: startTok };
+  if (first.lower === 'zero' && tokens[startTok + 1]?.lower === 'based') {
+    return { startTok, endTok: startTok + 1, value: '0', wordsStart: startTok };
+  }
+  return null;
+}
+
+export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb, parseNumeric) {
   const { catalog } = kb;
   const grid = catalog.keys.get('chart.grid');
   const gridStyle = catalog.keys.get('chart.gridStyle');
@@ -262,7 +272,15 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
   const categorySide = catalog.keys.get('chart.xAxis');
   const valueSide = catalog.keys.get('chart.axisSide');
   const scale = catalog.keys.get('chart.axisScale');
+  const minimum = catalog.keys.get('chart.yMin');
+  const maximum = catalog.keys.get('chart.yMax');
   if (!grid || !gridStyle || !lineStyle || !labels || !categorySide || !valueSide || !scale) return [];
+  const numericBounds = [minimum, maximum].filter(Boolean);
+  const boundNumberAt = (index) => tokens[index]?.text.endsWith('%') ? null : parseNumeric(tokens[index]);
+  const boundLeads = new Map(numericBounds.flatMap((key) => {
+    const verb = key.about?.match(/"([a-z]+) the axis at \d/)?.[1];
+    return verb ? [[verb, key]] : [];
+  }));
 
   const compactCue = (phrase) => phrase.replace(/[ _-]/g, '');
   const stockCues = (key, phrases = key.keyWords) => [...phrases].map((phrase) =>
@@ -274,6 +292,9 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
     ...[grid, gridStyle, lineStyle, labels, categorySide].flatMap((key) => stockCues(key)),
     ...stockCues(valueSide, [...valueAxes, ...[...valueSide.keyWords].filter((word) => word.endsWith('side'))]),
     ...stockCues(scale, [...valueAxes, ...valueAxes.map((word) => word + ' scale'), 'axis scale']),
+    ...numericBounds.flatMap((key) => stockCues(key, [...key.keyWords].filter((word) =>
+      !['floor', 'cap', 'scale'].includes(word)))),
+    ...numericBounds.flatMap((key) => stockCues(key, ['axis', ...valueAxes])),
   ].sort((a, b) => b.compact.length - a.compact.length);
   if (!tokens.some(({ kind, lower }) => kind === 'word' && cues.some(({ compact }) =>
     compact.startsWith(compactCue(lower))))) return [];
@@ -284,7 +305,7 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const span = tokens.slice(startTok, endTok + 1);
       if (span.some(({ kind }) => kind !== 'word')) continue;
       const value = span.map(({ lower }) => lower).join('_').replace(/-/g, '_');
-      if (styleValues.has(value)) return { startTok, endTok, value };
+      if (styleValues.has(value)) return { startTok, endTok, value, wordsStart: startTok };
     }
     return null;
   };
@@ -309,7 +330,8 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const lead = leads.find((words) => tokens[matchWordSeqAt(tokens, start, words)]?.lower === 'have');
       const wishEnd = wishLeads.map((words) => matchWordSeqAt(tokens, start, words))
         .find((next) => next > start);
-      const end = direct?.endTok ?? move?.endTok ?? (lead ? start + lead.length : (wishEnd ?? start) - 1);
+      const boundLead = boundLeads.get(tokens[start]?.lower);
+      const end = direct?.endTok ?? move?.endTok ?? (boundLead ? start : lead ? start + lead.length : (wishEnd ?? start) - 1);
       const fragment = end < start;
       const verb = direct?.text.toLowerCase();
       const visibility = labels.values.has(verb);
@@ -332,14 +354,16 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
 
       let cueStart = end + 1;
       if (DET_WORDS.has(tokens[cueStart]?.lower)) cueStart++;
-      let style = !visibility && !move && verb !== 'set' ? matchStyleAt(cueStart, limit) : null;
+      let style = !visibility && !move && !boundLead && verb !== 'set' ?
+        matchStyleAt(cueStart, limit) ?? matchZeroBasedAt(tokens, cueStart) : null;
       if (style) cueStart = style.endTok + 1;
       const spellings = [];
       for (let i = cueStart; i < Math.min(limit, cueStart + 3) && tokens[i].kind === 'word'; i++) {
         spellings.push((spellings.at(-1) ?? '') + compactCue(tokens[i].lower));
       }
       const matches = cues.filter(({ key, compact }) => spellings.includes(compact) &&
-        (visibility ? key.values.has(verb) : key !== labels) && (!move || sideKeys.has(key)));
+        (visibility ? key.values?.has(verb) : key !== labels) && (!move || sideKeys.has(key)) &&
+        (!boundLead || key === boundLead));
       const cue = matches[0];
       if (!cue) continue;
 
@@ -347,21 +371,47 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       let cursor = cueEnd + 1;
       const propertyCues = matches.filter(({ compact }) => compact === cue.compact);
       const acceptsStroke = propertyCues.some(({ key }) => key === grid || key === gridStyle || key === lineStyle);
-      if (style && !acceptsStroke) continue;
+      let rangeEnd;
+      if (!move && minimum && maximum && boundLead !== maximum && tokens[cursor]?.lower === 'from' &&
+          (valueAxes.includes(cue.phrase) || (boundLead === minimum && cue.phrase === 'axis')) &&
+          tokens[cursor + 2]?.lower === 'to' && cursor + 3 < limit) {
+        const lower = boundNumberAt(cursor + 1);
+        const upper = boundNumberAt(cursor + 3);
+        if (lower !== null && upper !== null) {
+          style = { startTok: cursor + 1, endTok: cursor + 1, value: String(lower), key: minimum, wordsStart: cursor + 1 };
+          rangeEnd = { attribute: maximum.name, startTok: cursor + 3, endTok: cursor + 3,
+            cueStart: cursor + 2, cueEnd: cursor + 2, value: String(upper), wordsStart: cursor + 3 };
+          cursor += 4;
+        }
+      }
+      if (style?.value === '0') {
+        if (!minimum || (!rangeEnd && !valueAxes.includes(cue.phrase))) continue;
+        style.key = minimum;
+      } else if (style && !rangeEnd && !acceptsStroke) continue;
       const matchResultAt = (index) => {
         const stroke = acceptsStroke && matchStyleAt(index, limit);
         if (stroke) return { ...stroke, key: cue.key === lineStyle ? lineStyle : gridStyle };
         const marker = tokens[index]?.lower;
+        if (boundLead && index === cueEnd + 1 && marker !== 'at' && !['on', 'of'].includes(marker)) return null;
         let first = index;
         if (['on', 'at', 'to'].includes(marker)) first++;
         if (DET_WORDS.has(tokens[first]?.lower)) first++;
-        if (first >= limit || tokens[first].kind !== 'word') return null;
+        if (first >= limit) return null;
+        const zeroBound = !move && minimum && valueAxes.includes(cue.phrase) && matchZeroBasedAt(tokens, first);
+        if (zeroBound) return { ...zeroBound, key: minimum };
+        const numeric = boundNumberAt(first);
+        const explicitBound = propertyCues.find(({ key, phrase }) => numericBounds.includes(key) &&
+          (boundLead ? key === boundLead : phrase !== 'axis' && !valueAxes.includes(phrase)));
+        if (numeric !== null && explicitBound && !['on', 'of'].includes(marker)) {
+          return { startTok: first, endTok: first, value: String(numeric), key: explicitBound.key, wordsStart: first };
+        }
+        if (tokens[first].kind !== 'word') return null;
         const word = tokens[first].lower;
         const value = word === 'logarithmic' && scale.keyWords.has(word) ? 'log' : word;
         const property = propertyCues.find(({ key }) => (sideKeys.has(key) || key === scale) && key.values.has(value) &&
           (!['on', 'at'].includes(marker) || sideKeys.has(key)));
         if (!property) return null;
-        return { startTok: first, endTok: first, value, key: property.key };
+        return { startTok: first, endTok: first, value, key: property.key, wordsStart: first };
       };
       if (!visibility && !style) {
         style = matchResultAt(cursor);
@@ -404,12 +454,13 @@ export function matchChartDisplayEdits(tokens, splitPoints, predicates, kb) {
       const field = visibility
         ? { attribute: cue.key.name, value: verb, startTok: cueStart, endTok: cueEnd, wordsStart: start }
         : { attribute: styleKey.name, startTok: styleStart ?? style.startTok, endTok: style.endTok,
-          literalStart: style.startTok, wordsStart: styleStart, cueStart, cueEnd,
-          ...(styleKey.values.has(style.value) ? { value: style.value } : { allowOpen: true }) };
+          literalStart: style.startTok, wordsStart: styleStart ?? style.wordsStart, cueStart, cueEnd,
+          ...(!styleKey.values || styleKey.values.has(style.value) ? { value: style.value } : { allowOpen: true }) };
       const earlier = byStart.get(start);
       if (!earlier || earlier.limit > limit ||
           (earlier.limit === limit && (earlier.qualifier?.endTok ?? limit) > (qualifier?.endTok ?? limit))) {
-        byStart.set(start, { startTok: start, endTok: end, owner, limit, qualifier, fields: [field], fragment });
+        byStart.set(start, { startTok: start, endTok: end, owner, limit, qualifier,
+          fields: rangeEnd ? [field, rangeEnd] : [field], fragment });
       }
     }
   }

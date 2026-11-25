@@ -1188,3 +1188,15 @@ All 24 selected `diagram/charts-02.csv` probes from `23f19aa` native-validate. N
 ### READY Q-NL-050 — review request
 
 Focused chart groups 4/4 and final full serial suite 246/246. Please independently review and publish the scoped axis edit and the long-owner binding. Report these as targeted results, with the last aggregate L0–L4 table still under Q045.
+
+## Q-NL-051 — Bind numeric value-axis bounds and zero-based chart creation
+
+The reader now uses `chart.yMin` and `chart.yMax` for the documented start/cap constructions and explicit minimum/maximum cues. A written “from X to Y” on the value axis retains both bounds on one chart request. It preserves numeric words, signed decimals and an explicit chart name. “Zero-based” on a Y/value axis binds a lower limit of zero, with exact written evidence even when the chart data mentions a year containing the digit zero. A scoped “with a zero-based y axis” modifier of an explicitly created chart constrains that new chart. The candidate cannot satisfy a separate meeting, chart edit, or independent following command.
+
+All 22 targeted published `23f19aa` rows native-validate. Eleven leading proposals retain the intended numeric effect and chart ownership. Eight creation cases are `diagram/charts-01.csv:2994,3091,3092,3093,3290,3763,3766,3805`. The others are `diagram/charts-02.csv:177` (cap 200), `:1887` (range 0 to 10) and `:3317` (start at five). Meanings beyond the numeric operands still differ in some compounds. The remaining eleven probes expose broader creation phrasing and grouping, split start/cap commands, explicit negative alternatives and typos; the mixed existing-chart edit at `diagram/diagrams-03.csv:266` still misses the later zero-based adjunct. Standalone controls keep negative decimal evidence, a later independent cat creation and the distinction from meeting time, X-axis wording and a quoted title.
+
+The Q050 reviewer follow-up is also covered by the evidence binding in this scope. The actual “Set the axis scale on Annual print and digital sales to logarithmic” result retains the full chart name, emits `chart.axisScale=log words=logarithmic`, and has zero uncovered words or warnings. Explicit value evidence survives normalization even when a substring of the canonical value already occurs in the utterance. Separate X-axis scale remains open.
+
+### READY Q-NL-051 — review request
+
+Focused chart groups 5/5, final full serial suite 247/247 and final selected WebMeet rerun 22/22 native-valid, 11/22 with the intended axis operand and chart ownership. Please independently review and publish the numeric value-axis binding and normalized lexical evidence. Keep the last aggregate L0–L4 table under Q045 separate from these checks.

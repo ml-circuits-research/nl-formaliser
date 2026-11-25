@@ -736,7 +736,7 @@ test('chart axis edits bind closed positions and value-axis scales without inven
       ['Put the x axis on the top', /chart\.xAxis value=top/, /key=thing from=any/],
       ['Y axis on the right', /chart\.axisSide value=right/, /key=thing from=any/],
       ['Move the y-axis on Monthly sales to the left', /chart\.axisSide value=left/, /name="Monthly sales"/],
-      ['Set the axis scale on Annual print and digital sales to logarithmic', /chart\.axisScale value=log/,
+      ['Set the axis scale on Annual print and digital sales to logarithmic', /chart\.axisScale value=log words=logarithmic/,
         /name="Annual print and digital sales"/],
       ['Put the y axis of it on the left', /chart\.axisSide value=left/, /from=any words=it\b/],
     ]) {
@@ -746,6 +746,9 @@ test('chart axis edits bind closed positions and value-axis scales without inven
       assert.match(sop, /family=chart mode=existing/);
       assert.match(sop, result);
       assert.match(sop, owner);
+      if (text.endsWith('logarithmic')) {
+        assert.ok(!check.uncoveredWords.includes('logarithmic'), JSON.stringify(check));
+      }
       assert.doesNotMatch(sop, /\bname=[xy]\b|open_value|attribute=chart\.[xy]Field|attribute=page\.style/);
     }
 
@@ -753,6 +756,46 @@ test('chart axis edits bind closed positions and value-axis scales without inven
     assert.ok(compound.check.ok, compound.sop);
     assert.match(compound.sop, /@r1\.c\d+ .*chart\.axisScale value=log/);
     assert.match(compound.sop, /@r2\.c\d+ .*chart\.grid value=show/);
+  } finally {
+    await reader.close();
+  }
+});
+
+test('chart value-axis limits preserve numeric roles, evidence and creation ownership', async () => {
+  const reader = await createReader({ topK: 1 });
+  try {
+    for (const [text, result] of [
+      ['Start the y axis at ten', /chart\.yMin value="10" words=ten .*phase=result/],
+      ['Cap the axis at 50', /chart\.yMax value="50" .*phase=result/],
+      ['Make the y axis zero-based', /chart\.yMin value="0" words=zero-based .*phase=result/],
+      ['Zero based value axis on the chart', /chart\.yMin value="0" words="Zero based" .*phase=result/],
+    ]) {
+      const { sop, check } = (await reader.propose(text)).candidates[0];
+      assert.ok(check.ok, sop);
+      assert.match(sop, /family=chart mode=existing/);
+      assert.match(sop, result);
+      assert.doesNotMatch(sop, /attribute=(?:chart\.(?:errorCap|yLabel)|meeting\.)/);
+    }
+
+    const range = (await reader.propose('Set the value axis from -12.5 to 50 on Monthly sales')).candidates[0];
+    assert.ok(range.check.ok, range.sop);
+    assert.match(range.sop, /name="Monthly sales"/);
+    assert.match(range.sop, /@r1\.c\d+ .*chart\.yMin value="-12\.5" .*phase=result/);
+    assert.match(range.sop, /@r1\.c\d+ .*chart\.yMax value="50" .*phase=result/);
+
+    const creation = (await reader.propose('Create a bar chart of 2023 sales, with a zero-based y-axis; then draw a cat')).candidates[0];
+    assert.ok(creation.check.ok, creation.sop);
+    assert.match(creation.sop, /@r1\.t .*family=chart mode=new/);
+    assert.match(creation.sop, /@r1\.c\d+ .*chart\.yMin value="0" words=zero-based .*phase=result/);
+    assert.match(creation.sop, /@r2\.t .*sort=cat/);
+    assert.doesNotMatch(creation.sop, /attribute=composition\.with/);
+
+    for (const text of ['Start the meeting at ten', 'Make the x axis zero-based',
+      'Add a heading called "with a zero-based y axis"']) {
+      const { sop, check } = (await reader.propose(text)).candidates[0];
+      assert.ok(check.ok, sop);
+      assert.doesNotMatch(sop, /attribute=chart\.(?:yMin|yMax)\b/);
+    }
   } finally {
     await reader.close();
   }

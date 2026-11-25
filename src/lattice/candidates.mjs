@@ -13,7 +13,7 @@ import {
 } from '../contracts.mjs';
 import { lemmatiseWord, lemmatiseVerb, singulariseNoun, singularisePhrase } from './morph.mjs';
 import { tokenize } from './tokenize.mjs';
-import { matchChartDisplayEdits, matchChartFieldAssignments, matchFrames, matchModalWants, matchOptionQuestions, matchOutputOperands, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
+import { matchChartDisplayEdits, matchChartFieldAssignments, matchFrames, matchModalWants, matchOptionQuestions, matchOutputOperands, matchZeroBasedAt, pairResultativeFrames, applyFrameMatchesToLattice } from './frames.mjs';
 import { wholeSelectionPredicates } from './selection.mjs';
 import { findNonDirectiveScopes } from './prohibitions.mjs';
 
@@ -947,6 +947,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       prefersKeyWord: Boolean(extra.prefersKeyWord),
       predicateRole: extra.predicateRole ?? null,
       chartEditPredicate: extra.chartEditPredicate ?? null,
+      chartCreationPredicate: extra.chartCreationPredicate ?? null,
       predicateRoleFamily: extra.predicateRoleFamily ?? null,
       dictatedContent: Boolean(extra.dictatedContent),
       needsAnchor: Boolean(extra.needsAnchor),
@@ -3666,7 +3667,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
 
   const chartAssignments = catalog ? [
     ...matchChartFieldAssignments(tokens, splitPoints, writtenPredicates, kb),
-    ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb),
+    ...matchChartDisplayEdits(tokens, splitPoints, writtenPredicates, kb, parseNumeric),
   ] : [];
   for (const { startTok, endTok, fields, owner, limit, fragment, qualifier } of chartAssignments) {
     const scopeEnd = qualifier?.endTok ?? limit - 1;
@@ -3728,6 +3729,39 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
   // Preserve a type-bearing candidate alongside the extended target description.
   const creationPredicates = rawCandidates.filter((c) => c.kind === HYP_KINDS.PREDICATE &&
     c.licensed?.some((licence) => licence.act === 'make'));
+  if (catalog && tabKeys.has('chart.yMin') && tokens.some(({ lower }) => lower === 'with')) {
+    const chartHeads = rawCandidates.filter((head) =>
+      [HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_SORT].includes(head.kind) &&
+      head.family === 'chart' && head.det === 'indefinite' &&
+      mapGet(familyWords, tokens[head.endTok].lower)?.has('chart'));
+    const directiveStarts = new Set(writtenPredicates.filter(({ startTok, endTok }) =>
+      !(tokens[startTok].lower.endsWith('ed') && tokens[endTok + 1]?.lower === 'by')).map(({ startTok }) => startTok));
+    const boundaries = splitPoints.filter(({ isStrong, endTok }) => isStrong || directiveStarts.has(endTok + 1));
+    for (let i = 0; i < T; i++) {
+      if (tokens[i].lower !== 'with') continue;
+      const first = i + (DET_MAP.has(tokens[i + 1]?.lower) ? 2 : 1);
+      const zero = matchZeroBasedAt(tokens, first);
+      if (!zero) continue;
+      const cueStart = zero.endTok + 1;
+      const axisEnd = ['y', 'value'].includes(tokens[cueStart]?.lower) && tokens[cueStart + 1]?.lower === 'axis'
+        ? cueStart + 1 : tokens[cueStart]?.lower === 'y-axis' ? cueStart : -1;
+      if (axisEnd < 0 || (tokens[axisEnd + 1]?.isContent && !tokens[axisEnd + 1]?.isFiller)) continue;
+      const boundary = boundaries.reduce((last, { endTok }) => endTok < i ? Math.max(last, endTok) : last, -1);
+      const owner = chartHeads.find((head) => head.startTok > boundary && head.endTok < i);
+      const predicate = owner && creationPredicates.find((p) =>
+        p.startTok > boundary && p.endTok < owner.startTok &&
+        tokens.slice(boundary + 1, p.startTok).every((token) => !token.isContent || token.isFiller));
+      if (!predicate) continue;
+      emit({
+        kind: HYP_KINDS.KEY_WORD, startTok: cueStart, endTok: axisEnd, attrs: ['chart.yMin'],
+        families: ['chart'], cost: 0,
+      });
+      emitConstraint('chart.yMin', zero.value, zero.startTok, zero.endTok, {
+        phase: 'result', requiresKeyWord: true, chartCreationPredicate: predicate.startTok,
+        words: src.slice(tokens[zero.startTok].start, tokens[zero.endTok].end), cost: 1,
+      });
+    }
+  }
   const typeMentions = rawCandidates.filter((c) => CREATION_TYPE_KEYS.has(c.attribute) &&
     c.startTok < c.endTok && !c.requiresKeyWord && tabKeys.get(c.attribute)?.values?.has(c.value.toLowerCase()));
   for (const c of typeMentions) {
@@ -3957,6 +3991,7 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
       c.requiresKeyWord ? 1 : 0,
       c.rolePredicate ?? '',
       c.chartEditPredicate ?? '',
+      c.chartCreationPredicate ?? '',
       c.chartEditEnd ? 1 : 0,
       c.modalOutput ? 1 : 0,
       c.modalWantHeads ? 1 : 0,

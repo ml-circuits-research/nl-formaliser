@@ -87,3 +87,5 @@
 - 2026-11-25 — Q-NL-049 preserves exact open grid strokes, canonical series-line strokes and dependent wording. Seven of twelve published probes retain the intended grid result. Focused 3/3, full serial 245/245. The shared choice lead proposal and review are in `questions.md`.
 
 - 2026-11-25 — Q-NL-050 binds native axis sides and value scale separately, including a written chart owner between property and value. Nineteen of 24 probes preserve the intended axis operand and owner. Focused 4/4, full serial 246/246. See `questions.md` for review and the X-scale gap.
+
+- 2026-11-25 — Q-NL-051 binds numeric Y-axis limits and zero-based creation modifiers, and retains exact normalized scale evidence. Eleven of 22 published probes preserve the intended numeric operand and chart owner. Focused 5/5, full serial 247/247. Review requested in `questions.md`.

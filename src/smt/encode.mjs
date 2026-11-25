@@ -892,7 +892,14 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
     }
 
     const roleOwner = c.predicateRoleFamily ? famToId.get(c.predicateRoleFamily) : cFamId;
+    if (c.chartCreationPredicate != null) {
+      emit(`(assert-soft sel_${c.id} :weight ${W.predicateRole})`);
+    }
     for (let r = 1; r <= R; r++) {
+      if (c.chartCreationPredicate != null) {
+        emit(`(assert (=> (and sel_${c.id} (= own_${c.id} ${r})) (and (= ppos_${r} ${c.chartCreationPredicate})
+          (= fam_${r} ${cFamId}) (= act_${r} ACT_MAKE) (= tmode_${r} TM_NEW) (= ${phExpr} PH_RESULT))))`);
+      }
       if (lattice.catalog && c.predicateRole != null && roleOwner !== undefined) {
         const bindings = predicateRoles.get(c.predicateRole) ?? [];
         bindings.push(`(and sel_${c.id} (= own_${c.id} ${r}) (= ppos_${r} ${c.predicateRole}) (= fam_${r} ${roleOwner}) (= ${phExpr} PH_RESULT))`);
