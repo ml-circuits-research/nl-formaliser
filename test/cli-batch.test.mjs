@@ -172,3 +172,36 @@ test('the text-only reader keeps independently coordinated creations and their e
     await reader.close();
   }
 });
+
+test('declared dictation cues bind literal contents without swallowing names or later commands', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const cases = [
+      ['Add a heading that says Scope.', 'Scope', 'that says'],
+      ['Insert a paragraph that says In the beginning.', '"In the beginning"', 'that says'],
+      ['Add a heading that reads "Save and Close".', '"Save and Close"', 'that reads'],
+      ['Create a paragraph with the text Welcome back.', '"Welcome back"', 'with the text'],
+    ];
+    for (const [text, value, cue] of cases) {
+      const best = (await reader.propose(text)).candidates[0];
+      assert.equal(best.check.ok, true, text);
+      assert.ok(best.sop.includes(`attribute=section.content value=${value} operator=eq phase=result key_words="${cue}"`), best.sop);
+    }
+    const named = (await reader.propose('Add a heading called Scope.')).candidates[0];
+    assert.match(named.sop, /attribute=(?:section|block)\.name value=Scope\b/);
+    assert.doesNotMatch(named.sop, /attribute=section\.content\b/);
+
+    const compound = (await reader.propose('Add a page and a heading that says Scope, flush with the top edge')).candidates[0];
+    assert.equal(compound.check.ok, true);
+    assert.match(compound.sop, /@r2\.c\d+ .*attribute=section\.content value=Scope\b/);
+    assert.match(compound.sop, /@r2\.c\d+ .*attribute=section\.order value=top\b/);
+    assert.doesNotMatch(compound.sop, /attribute=section\.(?:name|id)\b/);
+
+    const later = (await reader.propose('Add a paragraph that says Welcome and delete the heading')).candidates[0];
+    assert.equal(later.check.ok, true);
+    assert.match(later.sop, /attribute=section\.content value=Welcome\b/);
+    assert.match(later.sop, /@r2 w\.request\.request act=remove\b/);
+  } finally {
+    await reader.close();
+  }
+});

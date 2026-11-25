@@ -3665,6 +3665,61 @@ export function buildLattice(text, { tab = 'drawing', catalog, kb = null, previo
     });
   }
 
+  // A textual creation frame distinguishes dictated content from title/name
+  // cues. The contents can begin with a preposition or contain a conjunction.
+  const textCreationFrame = kb.grammar.frames?.get('acts.text.make.text');
+  const valueSlot = textCreationFrame?.parts.findIndex(({ role }) => role === 'value') ?? -1;
+  const dictationCues = textCreationFrame?.parts[valueSlot - 1]?.words
+    .filter((cue) => /^(?:that (?:says|reads)|says|with the text)$/.test(cue)) ?? [];
+  if (dictationCues.length) {
+    const typedHeads = rawCandidates.filter(({ kind, family }) =>
+      [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY].includes(kind) && tabKeys.has(`${family}.content`));
+    const predicates = rawCandidates.filter(({ kind }) => kind === HYP_KINDS.PREDICATE);
+    const creations = predicates.filter(({ licensed }) => licensed?.some(({ act }) => act === 'make'));
+    const targetStarts = new Set(rawCandidates.filter(({ kind }) =>
+      [HYP_KINDS.TARGET_SORT, HYP_KINDS.TARGET_FAMILY, HYP_KINDS.TARGET_REF].includes(kind))
+      .map(({ detTok, startTok }) => detTok >= 0 ? detTok : startTok));
+    const directiveCuts = new Set(splitPoints.filter((cut) =>
+      cut.isStrong || predicates.some((candidate) => candidate.startTok === cut.endTok + 1 &&
+        (targetStarts.has(candidate.endTok + 1) || candidate.licensed?.some(({ act }) => ['undo', 'redo'].includes(act)))) ||
+      typedHeads.some(({ detTok }) => detTok === cut.endTok + 1)).map(({ startTok }) => startTok));
+    for (const head of typedHeads) {
+      const cueStart = head.endTok + 1;
+      const cue = dictationCues.find((phrase) => {
+        const length = phrase.split(' ').length;
+        return spanTextLower(tokens, cueStart, cueStart + length - 1) === phrase;
+      });
+      if (!cue) continue;
+      const nounStart = head.detTok >= 0 ? head.detTok : head.startTok;
+      const predicate = creations.find((candidate) => candidate.endTok < nounStart &&
+        tokens.slice(candidate.endTok + 1, nounStart).every((token) => token.isGrammar && !token.isPunct));
+      if (!predicate) continue;
+      const valStart = cueStart + cue.split(' ').length;
+      if (valStart >= T || tokens[valStart].isPunct) continue;
+      let valEnd = valStart;
+      if (tokens[valStart].kind !== 'quote') {
+        while (valEnd + 1 < T && !tokens[valEnd + 1].isPunct && !directiveCuts.has(valEnd + 1)) {
+          valEnd++;
+        }
+      }
+      const attr = `${head.family}.content`;
+      emit({
+        kind: HYP_KINDS.KEY_WORD,
+        startTok: cueStart,
+        endTok: valStart - 1,
+        attrs: [attr],
+        families: [head.family],
+        cost: 0,
+      });
+      const value = tokens[valStart].kind === 'quote' ? tokens[valStart].inner :
+        src.slice(tokens[valStart].start, tokens[valEnd].end);
+      if (!value.trim()) continue;
+      emitConstraint(attr, value, valStart, valEnd, {
+        phase: 'result', requiresKeyWord: true, predicateRole: predicate.startTok, cost: 1,
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------
   // 10k. Dynamic w.lang.en.frame Compiler (SOP Lang argument-structure frames)
   // -------------------------------------------------------------------------

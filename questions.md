@@ -951,3 +951,13 @@ The latter two cases expose a separate family of errors in open arguments. Canon
 ### READY Q-NL-032 — tests and review request
 
 `node --test test/cli-batch.test.mjs` passed 4/4. The new library regression checks document effects, a three-item drawing list, a literal pronoun, quoted conjunctions, nested complements and explicit later verbs. The first full serial run hit an intermittent Z3 evaluator error on the existing `make all corners rounded` case. The isolated file passed 31/31 and the subsequent full serial suite passed 229/229. Please review and publish this scoped parser change. The historical L0–L4 score is the one in the preceding status report.
+
+## Q-NL-033 — Bind declared dictation phrases to literal content
+
+Please review the current-text reader's handling of the `acts.text.make.text` content role. The parser uses that frame's explicit dictation cues to bind literal text to a declared content property when a typed creation phrase introduces it. The value can begin with a preposition, and a quoted payload keeps its conjunctions. The clause boundary check preserves a following directive with its own evidence. The `called` control still binds a name.
+
+I ran six exact texts from published WebMeet `23f19aa` with the real Z3 library and canonical knowledge `3b2deebd`. Two now bind the intended literal text and cite `that says`. Record `document/text-04.csv:6` keeps the whole `Please review the draft` as paragraph text. Record `diagram/charts-03.csv:59` attaches `Scope` to the heading's content in the second creation and keeps the recognized top placement. The latter still leaves `flush` and `edge` unread. The remaining four probes still miss the intended content. Two have intervening owner selectors, and two use a box as the typed carrier. Canonical `block.text` and `node.label` are already declared for written content and provide grounded paths for those cases. These were targeted probes without a new aggregate benchmark.
+
+### READY Q-NL-033 — review request
+
+The targeted CLI/library tests pass 5/5 and the full serial suite passes 230/230. Please review and publish this scoped parser change. The detailed L0–L4 table above remains the latest aggregate measurement.

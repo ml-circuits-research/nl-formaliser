@@ -53,3 +53,5 @@
 - 2026-11-25 — Q-NL-031 evaluates every nonempty numbered SOP reference for one WebMeet text and reports invalid siblings by column. Both real worker comparator probes selected `sop2` and reported the error in `sop`. Full serial suite 228/228. Sent the last complete L0–L4 table and requested review in `questions.md`.
 
 - 2026-11-25 — Q-NL-032 keeps independently coordinated creations under one written verb. Four exact published WebMeet examples recover both requests and pass native validation. Other content and topic errors remain recorded per example. Full serial rerun passed 229/229. Review requested in `questions.md`.
+
+- 2026-11-25 — Q-NL-033 binds declared dictation cues to literal content and preserves name/later-command readings. Two of six targeted published texts bind the intended literal and the other variants are recorded for review. Full serial suite 230/230. See `questions.md`.
