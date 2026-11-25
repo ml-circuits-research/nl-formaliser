@@ -58,7 +58,7 @@ function fillerHasHiddenContent(ft, kb) {
   return words.some((w) => !kb.isGrammarWord(w) && !lexFiller.has(w));
 }
 
-export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4, weights = null } = {}) {
+export function encodeProblem(lattice, { kb, previous = null, clock = null, maxRequests = 4, weights = null, creation } = {}) {
   const W = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
   const { tab, tokens, candidates: rawCandidates, hasQuestionMark } = lattice;
   const prohibitions = lattice.prohibitions ?? [];
@@ -608,6 +608,24 @@ export function encodeProblem(lattice, { kb, previous = null, clock = null, maxR
   // -------------------------------------------------------------------------
   // 5. Target Coherence, Family, Position, Identification & Fill
   // -------------------------------------------------------------------------
+  if (creation) {
+    // In a projected shared-verb argument, bind the creation to the same
+    // lexical head and verb positions that licensed the projection.
+    const { heads, predicateStart, predicateEnd } = creation;
+    const ownedByRequest = (candidate) => `(and sel_${candidate.id} (= own_${candidate.id} 1))`;
+    const argumentHeads = [...tSorts, ...tFams].filter((candidate) =>
+      candidate.detTok === predicateEnd + 1 && heads.some((head) =>
+        candidate.kind === head.kind && candidate.family === head.family &&
+        candidate.sort === head.sort && candidate.text === head.text &&
+        candidate.startTok - candidate.detTok === head.startTok - head.detTok));
+    const writtenVerb = preds.filter(({ startTok, endTok }) =>
+      startTok === predicateStart && endTok === predicateEnd);
+    const primaryHead = argumentHeads.map((head) =>
+      `(and ${ownedByRequest(head)} (= tpos_1 ${head.startTok}))`);
+    emit(`(assert (and active_1 (= act_1 ACT_MAKE) (= tmode_1 TM_NEW) (= mood_1 MOOD_DO)
+      ${smtOr(writtenVerb.map(ownedByRequest))} ${smtOr(primaryHead)}))`);
+  }
+
   const identifyingCands = [
     ...tSorts,
     ...tRefs.filter((ref) => !ref.isPronoun && (ref.name || ref.ids?.length || ref.codeWords || ref.description || ref.countWords)),

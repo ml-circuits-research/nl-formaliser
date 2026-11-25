@@ -5,6 +5,7 @@
 import { loadKnowledge } from './kb/load-worlds.mjs';
 import { buildLattice } from './lattice/candidates.mjs';
 import { independentChange, sharedResultReadings } from './lattice/shared-result.mjs';
+import { sharedCreationReadings } from './lattice/shared-creation.mjs';
 import { findDirectiveProhibitions, overlapsProhibition } from './lattice/prohibitions.mjs';
 import { tokenize } from './lattice/tokenize.mjs';
 import { encodeProblem } from './smt/encode.mjs';
@@ -155,15 +156,39 @@ export async function createFormaliser({
     await getSpellChecker();
   }
 
-  async function solveSinglePass(text, { tab, catalog, previous, clock, topK, maxRequests, timeout, effWeights, useSemanticBlock = false }) {
+  async function solveSinglePass(text, { tab, catalog, previous, clock, topK, maxRequests, timeout, effWeights, useSemanticBlock = false, creation }) {
     const lattice = buildLattice(text, { tab, catalog, kb, previous, clock });
-    const encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests, weights: effWeights });
+    const encoded = encodeProblem(lattice, { kb, previous, clock, maxRequests, weights: effWeights, creation });
     const solved = await runner.solve(encoded.smtBody, encoded.queryVars, {
       topK,
       blockVars: useSemanticBlock ? encoded.semanticBlockVars : encoded.blockVars,
       timeout,
     });
     return { lattice, encoded, solved };
+  }
+
+  async function solveSharedCreation(lattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights }) {
+    if (!verifier) return null;
+    const deadline = timeout > 0 ? performance.now() + timeout : Infinity;
+    for (const parts of sharedCreationReadings(lattice, kb.grammar, maxRequests)) {
+      const results = [];
+      for (const creation of parts) {
+        const { requestWords, projectedText } = creation;
+        const remaining = Math.floor(deadline - performance.now());
+        if (remaining <= 0) return null;
+        const part = await solveSinglePass(projectedText, {
+          tab, catalog, previous, clock, maxRequests: 1, topK: 1, timeout: Math.min(timeout, remaining), effWeights, creation,
+        });
+        if (!part.solved.ok) break;
+        const sop = modelToSop(part.solved.solutions[0], part.lattice, part.encoded.meta);
+        if (!verifier.check(projectedText, sop).ok) break;
+        results.push({ sop, requestWords });
+      }
+      if (results.length !== parts.length) continue;
+      const sop = stitchClauseCircuits(results, { fullText: lattice.text, previous, clock, parse: verifier.parse, sharedHull: true });
+      if (verifier.check(lattice.text, sop).ok) return { sop, requestCount: results.length };
+    }
+    return null;
   }
 
   async function solveSharedResult(lattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights }) {
@@ -615,7 +640,9 @@ export async function createFormaliser({
       }
     }
 
-    const shared = await solveSharedResult(initialLattice, { tab, catalog, previous, clock, maxRequests, timeout, effWeights });
+    const sharedOptions = { tab, catalog, previous, clock, maxRequests, timeout, effWeights };
+    const shared = await solveSharedResult(initialLattice, sharedOptions)
+      ?? await solveSharedCreation(initialLattice, sharedOptions);
     if (shared) {
       alternatives.unshift(sop);
       sop = shared.sop;

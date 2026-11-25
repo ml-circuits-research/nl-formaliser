@@ -126,3 +126,49 @@ test('one Z3 library reader serves multiple text-only proposals before closing',
     await reader.close();
   }
 });
+
+test('the text-only reader keeps independently coordinated creations and their effects apart', async () => {
+  const reader = await createReader({ topK: 2 });
+  try {
+    const doc = await reader.propose('add a heading called Introduction and a paragraph saying Welcome');
+    const document = doc.candidates[0];
+    assert.equal(document.check.ok, true);
+    assert.deepEqual(document.check.warnings, []);
+    assert.match(document.sop, /@r1\.c\d+ .*attribute=(?:block|section)\.name value=Introduction\b/);
+    assert.match(document.sop, /@r2\.c\d+ .*attribute=section\.content value=Welcome\b/);
+    assert.equal((document.sop.match(/predicate=add\b/g) ?? []).length, 1);
+
+    const drawing = (await reader.propose('draw a blue house, a yellow car, and a green tree')).candidates[0];
+    assert.equal(drawing.check.ok, true);
+    assert.deepEqual(drawing.check.warnings, []);
+    for (const [request, sort, colour] of [[1, 'house', 'blue'], [2, 'car', 'yellow'], [3, 'tree', 'green']]) {
+      assert.match(drawing.sop, new RegExp(`@r${request}\\.t .*mode=new .*sort=${sort}\\b`));
+      assert.match(drawing.sop, new RegExp(`@r${request}\\.c\\d+ .*attribute=drawn.colou?r value=${colour}\\b`));
+    }
+
+    const bird = (await reader.propose('add a row of trees in the background and a single bird above them')).candidates[0];
+    assert.equal(bird.check.ok, true);
+    assert.match(bird.sop, /@r1\.t .*sort=row\b/);
+    assert.match(bird.sop, /@r1\.c\d+ .*attribute=part\.owner value=trees\b/);
+    assert.match(bird.sop, /@r2\.t .*sort=bird\b/);
+    assert.match(bird.sop, /@r2\.l\d+ .*from=any words=them\b/);
+
+    const quoted = (await reader.propose('add a heading called "Save and a Close"')).candidates[0];
+    assert.equal(quoted.check.ok, true);
+    assert.match(quoted.sop, /value="Save and a Close"/);
+    assert.doesNotMatch(quoted.sop, /@r2 w\.request\.request/);
+
+    for (const text of ['draw a farm with a barn and a pond', 'add a page containing a heading and a paragraph']) {
+      const result = await reader.propose(text);
+      assert.ok(result.candidates.length);
+      assert.ok(result.candidates.every(({ sop }) => !sop.includes('words_origin=hull')));
+    }
+
+    const explicit = (await reader.propose('draw a house and paint a car blue')).candidates[0];
+    assert.equal(explicit.check.ok, true);
+    assert.match(explicit.sop, /@r1 .*predicate=draw\b/);
+    assert.match(explicit.sop, /@r2 .*predicate=paint\b/);
+  } finally {
+    await reader.close();
+  }
+});
