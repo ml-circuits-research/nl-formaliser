@@ -6,7 +6,7 @@
 import { KEY_ALIASES, unquoteSop } from '../src/contracts.mjs';
 import { createZ3Runner } from '../src/smt/z3-runner.mjs';
 import { lemmatiseWord, singulariseNoun } from '../src/lattice/morph.mjs';
-import { compareCircuits, compareRequestIntents, selectReferenceComparison } from './compare.mjs';
+import { compareCircuits, compareRequestIntents, compareRequestLookups, requestPositions, selectReferenceComparison } from './compare.mjs';
 
 const LEGEND_GRADE_RANK = {
   L3: 9,
@@ -507,7 +507,8 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
     }
     // 0-request Gold vs >0 Pred: L1d unless Gold had uncovered/bad_filler defect!
     if (gReqs.length === 0 && pReqs.length > 0) {
-      const grade = base.goldAnnotationFlawed && base.predZeroWarn ? 'L4' : 'L1d';
+      const grade = base.goldAnnotationFlawed && base.predZeroWarn && pReqs.every((req) => !req.lookups.length)
+        ? 'L4' : 'L1d';
       return { ...base, z3SemanticGrade: grade, z3Used: false };
     }
     if (gReqs.length > 0 && pReqs.length === 0) {
@@ -517,6 +518,14 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
     // Build SMT-LIB2 MaxSMT request & constraint alignment model in Z3!
     const G = gReqs.length;
     const P = pReqs.length;
+    const goldPositions = requestPositions(gReqs);
+    const predPositions = requestPositions(pReqs);
+    const answerLinks = (requests, positions) => requests.map(({ lookups }) => lookups
+      .filter(({ key, from, antecedent }) => key === 'answer' && from === 'request' && positions.has(antecedent))
+      .map(({ antecedent, words }) => ({ antecedent: positions.get(antecedent), words: words?.trim() })));
+    const goldAnswers = answerLinks(gReqs, goldPositions);
+    const predAnswers = answerLinks(pReqs, predPositions);
+    const goldAntecedents = new Set(goldAnswers.flatMap((links) => links.map(({ antecedent }) => antecedent)));
     const gVirt = gReqs.map(extractVirtualConstraints);
     const pVirt = pReqs.map(extractVirtualConstraints);
 
@@ -659,10 +668,28 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
         if (tc.idCompat) {
           const roleScore = roleDiff.tp * 12 - roleDiff.fn * 6 - roleDiff.fp * 5;
           pairScore += Math.max(-10, Math.min(10, roleScore));
+          const references = compareRequestLookups(gReqs[g], pReqs[p]);
+          pairScore -= Math.min(4, references.fn + references.fp);
+          // A dependency must not make exchanging two distinct written questions preferable.
+          if (goldAntecedents.has(g)) {
+            const goldRequest = gReqs[g];
+            const predRequest = pReqs[p];
+            if (goldRequest.target?.family === predRequest.target?.family) pairScore += 2;
+            if (goldRequest.target?.description && goldRequest.target.description === predRequest.target?.description) pairScore += 2;
+            if (goldRequest.asked && goldRequest.asked === predRequest.asked) pairScore += 2;
+          }
         }
 
         if (pairScore > 0) {
           emit(`(assert-soft (= map_${g} ${p}) :weight ${pairScore})`);
+          // An answer edge disambiguates alignments between otherwise equivalent questions.
+          const links = goldAnswers[g].map(({ antecedent, words }) => predAnswers[p]
+            .filter((answer) => answer.words === words)
+            .map((answer) => `(= map_${antecedent} ${answer.antecedent})`));
+          if (tc.idCompat && links.length && links.every((matches) => matches.length)) {
+            const clause = links.map((matches) => `(or ${matches.join(' ')})`).join(' ');
+            emit(`(assert-soft (and (= map_${g} ${p}) ${clause}) :weight 1)`);
+          }
         }
       }
       emit(`(assert-soft (>= map_${g} 0) :weight 15)`);
@@ -681,6 +708,16 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
       mapping.push(pIdx);
       if (pIdx >= 0 && pIdx < P) matchedPredIdxs.add(pIdx);
     }
+    const goldByPredPosition = new Map(mapping.flatMap((p, g) => p >= 0 ? [[p, g]] : []));
+    const lookupDiffs = mapping.map((p, g) => p < 0 ? null : compareRequestLookups(gReqs[g], pReqs[p],
+      (ref) => {
+        const index = goldPositions.get(ref);
+        return index !== undefined && mapping[index] >= 0 ? index : ['unmatched gold', ref];
+      },
+      (ref) => goldByPredPosition.get(predPositions.get(ref)) ?? ['unmatched prediction', ref]));
+    const extraLookup = lookupDiffs.some((difference) => difference?.fp > 0);
+    const missingLookup = lookupDiffs.some((difference) => difference?.fn > 0);
+    const wrongLookup = extraLookup && missingLookup;
 
     // Derive exact LEGEND.md v1.2 grade from Z3's optimal semantic alignment!
     // Remember LEGEND.md priority order: L3, L4, else first error in [L0, L1a, L1b, L1c, L1d, L2a, L2b, L2c].
@@ -691,11 +728,11 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
       );
 
     let hasL1a = false;
-    let hasL1b = false;
+    let hasL1b = wrongLookup;
     let hasL1c = false;
-    let hasL1d = false;
+    let hasL1d = extraLookup;
     let hasL2a = false;
-    let hasL2b = false;
+    let hasL2b = missingLookup;
     let hasL2c = false;
 
     for (let g = 0; g < G; g++) {
@@ -728,7 +765,8 @@ export async function createZ3SemanticEvaluator({ kb, verifier, timeoutMs = 1500
 
     // Extra unmatched requests in Pred: L1d unless Gold left part of the utterance uncovered/unread AND Pred grounded it cleanly!
     const extraPredReqs = P - matchedPredIdxs.size;
-    if (extraPredReqs > 0 && !(goldHasCoverageDefect && base.predZeroWarn)) {
+    const extraPredLookup = pReqs.some((request, index) => !matchedPredIdxs.has(index) && request.lookups.length);
+    if (extraPredReqs > 0 && (extraPredLookup || !(goldHasCoverageDefect && base.predZeroWarn))) {
       hasL1d = true;
     }
 

@@ -81,3 +81,5 @@
 - 2026-11-25 — Q-NL-046 keeps bare save/copy artifacts in native request-owned lookups and restores modal permission readings. Nine exact WebMeet probes retain the literal artifact and validate. Focused 4/4, full serial 242/242. See `questions.md` for review and the separate false-L4 lookup reproduction.
 
 - 2026-11-25 — Q-NL-047 binds chart value-label visibility, grid visibility and grid style to separate canonical result keys. Eleven of thirteen exact published probes bind the intended display operand. Focused 2/2, full serial 243/243. Open roles and the reusable dash-dot proposal are in `questions.md`.
+
+- 2026-11-25 — Q-NL-048 guards L3/L4 against wrong or missing request references, preserving default, reordered and renamed equivalents and later reference alternatives. Evaluator/verifier 14/14 and full serial 244/244. Reproduction and review request in `questions.md`.

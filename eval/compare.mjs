@@ -40,6 +40,7 @@ function summarizeWires(wires) {
         mode: firstAttr(w, 'mode') ?? 'none',
         mood: firstAttr(w, 'mood') ?? 'do',
         question: firstAttr(w, 'question') ?? 'none',
+        refers: firstAttr(w, 'refers') ?? 'kind',
         asked: firstAttr(w, 'asked') ?? null,
         asked_words: allAttrs(w, 'asked_words'),
         words: firstAttr(w, 'words') ?? null,
@@ -111,8 +112,10 @@ function summarizeWires(wires) {
         id: w.id,
         key: firstAttr(w, 'key') ?? '',
         from: firstAttr(w, 'from') ?? 'any',
+        words: firstAttr(w, 'words') ?? null,
         target: w.attrs?.target?.[0] ? String(w.attrs.target[0]) : null,
         constraint: w.attrs?.constraint?.[0] ? String(w.attrs.constraint[0]) : null,
+        antecedent: w.attrs?.antecedent?.[0] ? String(w.attrs.antecedent[0]) : null,
       };
       lookups.push(l);
       if (req) req.lookups.push(l);
@@ -266,14 +269,50 @@ function targetIdentityMatches(gTarget, pTarget) {
   return false;
 }
 
-function lookupMatches(gReq, pReq) {
-  const gHas = (gReq.lookups ?? []).length > 0;
-  const pHas = (pReq.lookups ?? []).length > 0;
-  if (gHas !== pHas) return false;
-  if (!gHas) return true;
-  const gKeys = gReq.lookups.map((l) => l.key).sort().join(',');
-  const pKeys = pReq.lookups.map((l) => l.key).sort().join(',');
-  return gKeys === pKeys;
+function lookupSignatures(request, resolveAntecedent) {
+  const constraints = new Map(request.constraints.map((c) => ['$' + c.id, c]));
+  const attachments = new Map();
+  for (const lookup of request.lookups) {
+    const attachment = JSON.stringify([lookup.target, lookup.constraint]);
+    let group = attachments.get(attachment);
+    if (!group) {
+      const constraint = constraints.get(lookup.constraint);
+      const target = lookup.target === null ? null :
+        lookup.target === '$' + request.target?.id ? 'target' : ['foreign', lookup.target];
+      const anchor = lookup.constraint === null ? null : constraint ? [
+        canonicalConstraintTuple(constraint, true), constraint.on, constraint.operator,
+        constraint.phase, constraint.unit, constraint.measure, constraint.character,
+      ] : ['foreign', lookup.constraint];
+      group = { target, anchor, lookups: [] };
+      attachments.set(attachment, group);
+    }
+    group.lookups.push(JSON.stringify([
+      lookup.key, lookup.from, lookup.words?.trim() ?? null,
+      lookup.antecedent === null ? null : resolveAntecedent(lookup.antecedent),
+    ]));
+  }
+  // Group by the attached wire before discarding local IDs. This preserves
+  // whether two lookups complete the same operand or two equivalent operands.
+  return [...attachments.values()].map(({ target, anchor, lookups }) =>
+    ({ attachment: [request.refers, target, anchor], lookups }));
+}
+
+export function compareRequestLookups(gold, pred, resolveGold = () => true, resolvePred = () => true) {
+  if (!gold.lookups.length && !pred.lookups.length) return { fp: 0, fn: 0 };
+  const goldGroups = lookupSignatures(gold, resolveGold);
+  const predGroups = lookupSignatures(pred, resolvePred);
+  const individual = (groups) => groups.flatMap(({ attachment, lookups }) =>
+    lookups.map((lookup) => JSON.stringify([attachment, lookup])));
+  const { fp, fn } = multisetF1(individual(goldGroups), individual(predGroups));
+  if (fp || fn) return { fp, fn };
+  const grouped = (groups) => groups.map(({ attachment, lookups }) =>
+    JSON.stringify([attachment, lookups.sort()]));
+  const difference = multisetF1(grouped(goldGroups), grouped(predGroups));
+  return { fp: difference.fp, fn: difference.fn };
+}
+
+export function requestPositions(requests) {
+  return new Map(requests.map(({ id }, index) => ['$' + id, index]));
 }
 
 function contentTokensOf(str, verifier) {
@@ -416,7 +455,14 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
   const targetFamilyExact = nonEmptyReqs && goldReqs.every((g, i) => (g.target?.family ?? '') === (predReqs[i].target?.family ?? ''));
   const targetModeExact = nonEmptyReqs && goldReqs.every((g, i) => (g.target?.mode ?? '') === (predReqs[i].target?.mode ?? ''));
   const targetSortOrNameMatch = nonEmptyReqs && goldReqs.every((g, i) => targetIdentityMatches(g.target, predReqs[i].target));
-  const lookupMatch = nonEmptyReqs && goldReqs.every((g, i) => lookupMatches(g, predReqs[i]));
+  const goldPositions = requestPositions(goldReqs);
+  const predPositions = requestPositions(predReqs);
+  const lookupDiffs = nonEmptyReqs ? goldReqs.map((g, i) => compareRequestLookups(g, predReqs[i],
+    (ref) => goldPositions.get(ref) ?? ['unresolved', ref],
+    (ref) => predPositions.get(ref) ?? ['unresolved', ref])) : [];
+  const lookupMatch = reqCountExact && lookupDiffs.every(({ fp, fn }) => fp === 0 && fn === 0);
+  const extraLookup = lookupDiffs.some(({ fp }) => fp > 0);
+  const wrongLookup = extraLookup && lookupDiffs.some(({ fn }) => fn > 0);
 
   const goldStrictCs = goldReqs.flatMap((r) => r.constraints.map((c) => canonicalConstraintTuple(c, false)));
   const predStrictCs = predReqs.flatMap((r) => r.constraints.map((c) => canonicalConstraintTuple(c, false)));
@@ -444,6 +490,7 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
     targetFamilyExact &&
     targetModeExact &&
     targetSortOrNameMatch &&
+    lookupMatch &&
     constraintAliasF1.f1 === 1 && intentExact;
 
   // Detect gold annotation flaws.
@@ -544,7 +591,7 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
     goldReqs.some((g) => g.act === 'change' && /^(can|could|would|will)$/i.test(g.predicate ?? ''));
   const hasRealConstraintAgreement = (goldAliasCs.length > 0 || predAliasCs.length > 0) && constraintAliasF1.f1 >= 0.5;
   const constraintPreserved = goldAliasCs.length === 0 || (constraintAliasF1.recall >= 0.5 && constraintAliasF1.f1 >= 0.5);
-  const agreesForBetterGold = intentExact && (
+  const agreesForBetterGold = intentExact && lookupMatch && (
     (actExact && moodExact && targetFamilyExact && constraintPreserved) ||
     (goldActContradicts && targetFamilyExact && (hasRealConstraintAgreement || goldAliasCs.length === 0)));
   const agreesForPartial = actExact || (primaryActMatch && moodExact) || hasRealConstraintAgreement;
@@ -577,6 +624,7 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
     if (!targetSortOrNameMatch) predErrorReasons.push('diff:target_identity');
     if (constraintAliasF1.f1 < 1) predErrorReasons.push('diff:constraints');
     if (!intentExact) predErrorReasons.push('diff:intent');
+    if (!lookupMatch) predErrorReasons.push('diff:lookup');
   }
 
   // Check equivalence when stripping Gold's redundant *.id / *.ids echo of target.name (annotation style variation).
@@ -603,6 +651,7 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
     !semanticExact &&
     bothParsed &&
     intentExact &&
+    lookupMatch &&
     reqCountExact &&
     actExact &&
     actModeExact &&
@@ -653,7 +702,8 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
   const allContentUnread =
     predReqs.length > 0 &&
     predSummary.unreads.length > 0 &&
-    predReqs.every((r) => r.constraints.length === 0 && r.intents.length === 0 && !r.target?.sort && !r.target?.name && !(r.target?.ids?.length));
+    predReqs.every((r) => r.constraints.length === 0 && r.intents.length === 0 && r.lookups.length === 0 &&
+      !r.target?.sort && !r.target?.name && !(r.target?.ids?.length));
 
   let legendGrade;
   if (textIdentical && !goldAnnotationFlawed) {
@@ -667,14 +717,14 @@ export function compareCircuits({ text, goldSop, predSop, verifier, knownVocab =
     (goldReqs.length > 0 && predReqs.length > 0 && !primaryActMatch)
   ) {
     legendGrade = 'L1a';
-  } else if (reqCountExact && (!targetFamilyExact || !targetModeExact || wrongEndpoint)) {
+  } else if (reqCountExact && (!targetFamilyExact || !targetModeExact || wrongEndpoint || wrongLookup)) {
     legendGrade = 'L1b';
   } else if (reqCountExact && ((constraintAliasF1.fp > 0 && constraintAliasF1.fn > 0) || (intentMissing && intentExtra))) {
     legendGrade = 'L1c';
   } else if (
     predReqs.length > goldReqs.length ||
     (goldReqs.length === 0 && predReqs.length > 0) ||
-    (constraintAliasF1.fp > 0 && constraintAliasF1.fn === 0) || intentExtra
+    (constraintAliasF1.fp > 0 && constraintAliasF1.fn === 0) || intentExtra || extraLookup
   ) {
     legendGrade = 'L1d';
   } else if (predReqs.length < goldReqs.length) {

@@ -476,3 +476,70 @@ test('comparators grade the value, polarity, role and owner of native request in
     evaluator.runner.close();
   }
 });
+
+test('comparators require literal lookups with the correct source and graph attachment', async () => {
+  const evaluator = await createZ3SemanticEvaluator({ kb: await loadKnowledge({ includeLegacy: false }), verifier });
+  const text = 'Save it to Reports and export that to Archive';
+  const save = '@r1 w.request.request act=save mood=do predicate=Save refers=thing';
+  const exportThat = '@r2 w.request.request act=save mood=do predicate=export refers=thing';
+  const reports = '@r1.i w.request.intent request=$r1 role=destination value=Reports words="to Reports"';
+  const archive = '@r2.i w.request.intent request=$r2 role=destination value=Archive words="to Archive"';
+  const it = '@r1.l w.request.lookup request=$r1 key=thing from=any words=it';
+  const that = '@r2.l w.request.lookup request=$r2 key=thing from=any words=that';
+  const gold = [save, reports, it, exportThat, archive, that].join('\n');
+  const renamed = [it, save, reports, archive, exportThat, that].join('\n')
+    .replaceAll('r1', 'first').replaceAll('r2', 'second').replaceAll(' from=any', '');
+  const variants = [
+    [gold, 'L3'],
+    [renamed, 'L4'],
+    [gold.replace(it + '\n', ''), 'L2b'],
+    [gold.replace(it, it.replace('from=any', 'from=previous')), 'L1b'],
+    [gold.replace(it, it.replace(' words=it', '')), 'L1b'],
+    [gold.replace(it, it.replace('request=$r1', 'request=$r2')), 'L1b'],
+    [gold + '\n' + it.replace('@r1.l', '@r1.extra'), 'L1d'],
+  ];
+  const anchorText = 'Move the box next to it and above that';
+  const body = [
+    '@r w.request.request act=place mood=do predicate=Move',
+    '@t w.request.target request=$r family=node mode=existing sort=box',
+    '@next w.request.constraint request=$r on=place attribute=node.anchor value=it operator=relation phase=selector',
+    '@above w.request.constraint request=$r on=place attribute=node.anchor value=that operator=relation phase=selector',
+  ].join('\n');
+  const nearLookup = '@l w.request.lookup request=$r constraint=$next key=thing from=any words=it';
+  const anchorGold = [body, nearLookup].join('\n');
+  const answerText = 'Which chart and which diagram, then save it';
+  const chartQuestion = [
+    '@chart w.request.request act=ask mood=ask question=which predicate=Which',
+    '@chart.t w.request.target request=$chart family=chart mode=existing description=chart',
+  ].join('\n');
+  const diagramQuestion = [
+    '@diagram w.request.request act=ask mood=ask question=which predicate=which',
+    '@diagram.t w.request.target request=$diagram family=diagram mode=existing description=diagram',
+  ].join('\n');
+  const answerUse = [
+    '@save w.request.request act=save mood=do predicate=save refers=thing',
+    '@save.l w.request.lookup request=$save key=answer from=request antecedent=$chart words=it',
+  ].join('\n');
+  const answerGold = [chartQuestion, diagramQuestion, answerUse].join('\n');
+  try {
+    for (const compare of [compareProposals, evaluator.evaluateProposalsZ3]) {
+      const grade = async (text, goldSop, sop) => {
+        const result = await compare({ text, goldSop, proposals: [sop], verifier });
+        assert.equal(result.predValid, true, JSON.stringify(result.predCheck.errors));
+        return result.legendGrade;
+      };
+      for (const [sop, expected] of variants) assert.equal(await grade(text, gold, sop), expected, sop);
+      assert.equal(await grade(anchorText, anchorGold, anchorGold.replaceAll('next', 'first')), 'L4');
+      assert.equal(await grade(anchorText, anchorGold, anchorGold.replace('constraint=$next', 'constraint=$above')), 'L1b');
+      assert.equal(await grade(anchorText, anchorGold, anchorGold.replace('constraint=$next', 'target=$t')), 'L1b');
+      assert.equal(await grade(anchorText, anchorGold, anchorGold.replace(' constraint=$next', '')), 'L1b');
+      assert.equal(await grade(answerText, answerGold, answerGold.replace('antecedent=$chart', 'antecedent=$diagram')), 'L1b');
+      if (compare === evaluator.evaluateProposalsZ3) {
+        assert.equal(await grade(text, gold, [exportThat, archive, that, save, reports, it].join('\n')), 'L4');
+        assert.equal(await grade(answerText, answerGold, [diagramQuestion, chartQuestion, answerUse].join('\n')), 'L4');
+      }
+    }
+  } finally {
+    evaluator.runner.close();
+  }
+});

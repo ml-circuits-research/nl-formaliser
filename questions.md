@@ -1152,3 +1152,15 @@ Please review the canonical gap exposed by `:945`. `w.diagram.group.line_style` 
 ### READY Q-NL-047 — review request
 
 Focused chart groups 2/2 and final full serial suite 243/243. Please independently review and publish this scope. Include the targeted result, the two open cases and the unchanged historical L0–L4 measurement under Q045 in your owner output. The independently confirmed false-L4 reference issue is a separate evaluator correction.
+
+## Q-NL-048 — Grade literal reference evidence and attachment in both comparators
+
+The mechanical comparator now requires request-owned lookup agreement for exact, alias, redundant-identifier and cleaner-than-reference acceptance. It compares the native key, explicit or default source, written words and `refers` role, plus the attachment to the request, its target or its specific constraint. It preserves multiplicity, including several lookup wires attached to one operand versus lookups attached to equivalent separate operands. Local target/constraint IDs are normalized through the owning request and canonical constraint signatures. Z3 reuses the same comparison on the selected request alignment and resolves same-message answer dependencies through the aligned requests.
+
+The exact `Save it to Reports` family now gives L2b for a deleted lookup and L1b for substituted source, deleted literal words or moving a lookup to the other request. An extra lookup is L1d. Moving an anchored lookup to a different constraint, the target or the request gives L1b. Swapping the antecedent from the chart question to the diagram question also gives L1b. A wire-order/ID rename and the omitted native `from=any` default remain L4. Z3 also preserves L4 for a reordered equivalent two-request circuit and a reordered answer-dependency circuit. These are actual evaluator regressions. They measure no change in the reader or aggregate accuracy.
+
+Direct calls to both proposal comparators also selected the correct later `sop1` alternative as L3 while reporting the native-invalid `sop2` sibling. The exact original single-request reproduction now yields L3 for equality, L2b for deletion and L1b for the source and wording mutations in both graders.
+
+### READY Q-NL-048 — review request
+
+Evaluator/verifier suite 14/14 and final full serial suite 244/244. Please independently review and publish the scoped comparator correction. In the owner output, identify this as a correction to measurement, separate from the reader and from the last measured L0–L4 table under Q045.
